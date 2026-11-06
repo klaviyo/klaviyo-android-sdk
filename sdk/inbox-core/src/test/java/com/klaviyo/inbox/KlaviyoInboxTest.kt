@@ -167,4 +167,60 @@ class KlaviyoInboxTest : BaseTest() {
         assertSame(failure, error.cause)
         verify { spyLog.error("Mobile Inbox call failed", failure) }
     }
+
+    @Test
+    fun `a change listener hears each change until it is removed`() {
+        var heard = 0
+        val listener = InboxChangeListener { heard++ }
+        KlaviyoInbox.addChangeListener(listener)
+
+        inbox.emitChange()
+        assertEquals(1, heard)
+
+        KlaviyoInbox.removeChangeListener(listener)
+        inbox.emitChange()
+        assertEquals(1, heard)
+    }
+
+    @Test
+    fun `a listener added twice hears a change once`() {
+        var heard = 0
+        val listener = InboxChangeListener { heard++ }
+        KlaviyoInbox.addChangeListener(listener)
+        KlaviyoInbox.addChangeListener(listener)
+
+        inbox.emitChange()
+
+        assertEquals(1, heard)
+        KlaviyoInbox.removeChangeListener(listener)
+    }
+
+    @Test
+    fun `listeners hear changes independently`() {
+        var first = 0
+        var second = 0
+        val a = InboxChangeListener { first++ }
+        val b = InboxChangeListener { second++ }
+        KlaviyoInbox.addChangeListener(a)
+        KlaviyoInbox.addChangeListener(b)
+
+        KlaviyoInbox.removeChangeListener(a)
+        inbox.emitChange()
+
+        assertEquals(0, first)
+        assertEquals(1, second)
+        KlaviyoInbox.removeChangeListener(b)
+    }
+
+    @Test
+    fun `removing a listener that was never added does nothing`() {
+        KlaviyoInbox.removeChangeListener { }
+    }
+
+    @Test
+    fun `the Java entry point for change listeners throws when the inbox module is absent`() {
+        inbox.unregister()
+
+        assertThrows(MissingKlaviyoModule::class.java) { KlaviyoInbox.addChangeListener { } }
+    }
 }

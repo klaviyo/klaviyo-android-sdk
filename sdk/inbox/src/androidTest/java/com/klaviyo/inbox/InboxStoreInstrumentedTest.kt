@@ -5,9 +5,14 @@ import androidx.room.Room
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.platform.app.InstrumentationRegistry
 import java.util.UUID
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -401,6 +406,108 @@ class InboxStoreInstrumentedTest {
     private suspend fun RoomInboxDataSource.seed(vararg messages: InboxMessageEntity) =
         messages.forEach { insert(it, LIMIT) }
 
+    /**
+     * How many times [RoomInboxDataSource.changes] emitted while [block] ran
+     */
+    private suspend fun RoomInboxDataSource.emissionsDuring(block: suspend () -> Unit): Int =
+        coroutineScope {
+            var emissions = 0
+            val collector = launch(Dispatchers.Unconfined, CoroutineStart.UNDISPATCHED) {
+                changes.collect { emissions++ }
+            }
+            block()
+            delay(SETTLE_MS)
+            collector.cancel()
+            emissions
+        }
+
+    @Test
+    fun storingAPushEmitsOnceAndADuplicateDoesNot() = runBlocking {
+        val source = openSource()
+
+        assertEquals(1, source.emissionsDuring { source.insert(message("tm-1"), LIMIT) })
+        assertEquals(0, source.emissionsDuring { source.insert(message("tm-1"), LIMIT) })
+    }
+
+    @Test
+    fun aStoredPushThatTrimsEmitsOnce() = runBlocking {
+        val source = openSource()
+        source.insert(message("old", receivedAt = 1L), 1)
+
+        assertEquals(
+            1,
+            source.emissionsDuring { source.insert(message("new", receivedAt = 2L), 1) }
+        )
+        assertEquals(listOf("new"), source.ids(10))
+    }
+
+    @Test
+    fun aStateChangeEmitsOnlyWhenItAltersAMessage() = runBlocking {
+        val source = openSource()
+        source.seed(message("tm-1"))
+
+        assertEquals(
+            1,
+            source.emissionsDuring {
+                source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_READ, 1L)
+            }
+        )
+        assertEquals(
+            0,
+            source.emissionsDuring {
+                source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_READ, 2L)
+            }
+        )
+        assertEquals(
+            0,
+            source.emissionsDuring {
+                source.updateState(COMPANY, "gone", InboxStateChange.MARK_READ, 3L)
+            }
+        )
+    }
+
+    @Test
+    fun clearingEmitsOnlyWhenItRemovedMessages() = runBlocking {
+        val source = openSource()
+        source.seed(message("a"), message("b", companyId = "other"))
+
+        assertEquals(0, source.emissionsDuring { source.clearByCompanyId("nobody") })
+        assertEquals(1, source.emissionsDuring { source.clearByCompanyId(COMPANY) })
+        assertEquals(1, source.emissionsDuring { source.clearAll() })
+        assertEquals(0, source.emissionsDuring { source.clearAll() })
+    }
+
+    @Test
+    fun collectingChangesDoesNotCreateTheDatabase() = runBlocking {
+        val source = RoomInboxDataSource(context, databaseName)
+
+        source.emissionsDuring { }
+
+        assertFalse(context.getDatabasePath(databaseName).exists())
+    }
+
+    @Test
+    fun aSlowCollectorMergesChangesAndNeverBlocksTheWriter() = runBlocking {
+        val source = openSource()
+        val release = CompletableDeferred<Unit>()
+        var received = 0
+        val collector = launch(Dispatchers.Unconfined, CoroutineStart.UNDISPATCHED) {
+            source.changes.collect {
+                received++
+                release.await()
+            }
+        }
+
+        source.seed(message("a"), message("b"), message("c"))
+        release.complete(Unit)
+        delay(SETTLE_MS)
+        collector.cancel()
+
+        // The first is taken, the next two merge into one
+        assertEquals(2, received)
+        assertEquals(3, source.ids(10).size)
+    }
+
     private suspend fun RoomInboxDataSource.ids(
         pageSize: Int,
         after: InboxRecordPosition? = null,
@@ -575,5 +682,6 @@ class InboxStoreInstrumentedTest {
         const val COMPANY = "company"
         const val LIMIT = 100
         const val CONCURRENT_INSERTS = 20
+        const val SETTLE_MS = 100L
     }
 }

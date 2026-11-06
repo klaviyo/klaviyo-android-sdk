@@ -3,6 +3,10 @@ package com.klaviyo.inbox
 import android.content.Context
 import androidx.room.Room
 import com.klaviyo.core.Registry
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.withContext
 
 /**
@@ -23,6 +27,13 @@ internal class RoomInboxDataSource(
         context: Context,
         databaseName: String = InboxDatabase.FILE_NAME
     ) : this({ context }, databaseName)
+
+    private val changeSignal = MutableSharedFlow<Unit>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    override val changes: Flow<Unit> = changeSignal.asSharedFlow()
 
     private val appContext by lazy { contextProvider().applicationContext }
 
@@ -51,6 +62,7 @@ internal class RoomInboxDataSource(
 
     override suspend fun insert(message: InboxMessageEntity, retentionLimit: Int): InboxInsertResult =
         if (dao().insertAndTrim(message, retentionLimit)) {
+            changeSignal.tryEmit(Unit)
             InboxInsertResult.INSERTED
         } else {
             InboxInsertResult.DUPLICATE
@@ -77,14 +89,21 @@ internal class RoomInboxDataSource(
         messageId: String,
         change: InboxStateChange,
         updatedAt: Long
-    ): Boolean = storeExists() && dao().updateState(companyId, messageId, change, updatedAt)
+    ): Boolean {
+        if (!storeExists()) return false
+        return when (dao().updateState(companyId, messageId, change, updatedAt)) {
+            InboxStateUpdate.ALTERED -> true.also { changeSignal.tryEmit(Unit) }
+            InboxStateUpdate.UNCHANGED -> true
+            InboxStateUpdate.NOT_FOUND -> false
+        }
+    }
 
     override suspend fun clearByCompanyId(companyId: String) {
-        dao().deleteByCompanyId(companyId)
+        if (dao().deleteByCompanyId(companyId) > 0) changeSignal.tryEmit(Unit)
     }
 
     override suspend fun clearAll() {
-        dao().deleteAll()
+        if (dao().deleteAll() > 0) changeSignal.tryEmit(Unit)
     }
 
     /**

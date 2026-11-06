@@ -1,9 +1,16 @@
 package com.klaviyo.inbox
 
+import kotlinx.coroutines.flow.Flow
+
 /**
  * The single entry point into inbox data
  */
 internal interface InboxRepository {
+    /**
+     * Emits when stored messages change. See [LocalInboxDataSource.changes].
+     */
+    val changes: Flow<Unit>
+
     /**
      * Store a captured push, deduplicating on [InboxMessageEntity.transmissionId]
      */
