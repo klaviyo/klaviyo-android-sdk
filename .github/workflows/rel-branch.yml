@@ -1,7 +1,13 @@
 name: Release Branch
 
-# Creates a rel/X.Y.Z branch containing the version bump commit.
-# Run by hand, from the CLI, from another workflow, or on a weekday schedule.
+# Creates a rel/X.Y.Z branch from base (default master) containing the version bump commit.
+# Does nothing if that branch already exists.
+#
+# Run by hand, from the CLI (gh workflow run rel-branch.yml -f bump=minor), or from another workflow.
+#
+# The weekday schedule (13:00 UTC, Mon-Fri) runs with the defaults: bump=minor, steps=1, base=master.
+# That keeps a branch for the next minor release open: e.g. with 4.6.0 released it creates rel/4.7.0,
+# and no-ops until 4.7.0 is tagged, then creates rel/4.8.0 the next weekday morning.
 on:
   workflow_dispatch:
     inputs:
