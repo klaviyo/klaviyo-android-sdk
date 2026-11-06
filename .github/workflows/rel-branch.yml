@@ -1,7 +1,7 @@
 name: Release Branch
 
 # Creates a rel/X.Y.Z branch from base (default master) containing the version bump commit.
-# Does nothing if that branch already exists.
+# Does nothing if that branch already exists. Opens a draft PR from it into master if it has none.
 #
 # Run by hand or from the CLI (gh workflow run rel-branch.yml -f bump=minor).
 #
@@ -34,6 +34,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 env:
   SLACK_ACTION_DIR: _slack
@@ -140,6 +141,35 @@ jobs:
             exit 1
           fi
 
+      - name: Open draft PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+          BRANCH: ${{ steps.resolve.outputs.branch }}
+          ACTOR: ${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          url=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --base master --state open --json url --jq '.[0].url // empty')
+          if [ -n "$url" ]; then
+            echo "$BRANCH already has a PR: $url"
+            echo "url=$url" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          assignee=()
+          if [[ "$ACTOR" != *"[bot]" ]]; then
+            assignee=(--assignee "$ACTOR")
+          fi
+
+          # shellcheck disable=SC2016
+          body=$(printf 'Release PR for `%s`. Feature PRs for this release target `%s`. Merge this after `%s` is published.\n\nOpened by [Release Branch](%s).' "$VERSION" "$BRANCH" "$VERSION" "$RUN_URL")
+          url=$(gh pr create --repo "$GITHUB_REPOSITORY" --draft --base master --head "$BRANCH" "${assignee[@]}" --title "rel: $VERSION" --body "$body")
+          echo "Opened $url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
       - name: Check out Slack action
         if: always()
         continue-on-error: true
@@ -165,6 +195,7 @@ jobs:
             Author: ${{ github.actor }}
           links: |
             Branch|${{ github.server_url }}/${{ github.repository }}/tree/${{ steps.resolve.outputs.branch }}
+            Pull request|${{ steps.pr.outputs.url }}
 
       - name: Notify Slack of failure
         if: failure()
