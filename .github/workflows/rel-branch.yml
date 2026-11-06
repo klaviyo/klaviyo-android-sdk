@@ -3,8 +3,6 @@ name: Release Branch
 # Creates a rel/X.Y.Z branch containing the version bump commit.
 # Run by hand, from the CLI, from another workflow, or on a weekday schedule.
 on:
-  push:
-    branches: [ecm/rel-branch-workflow]
   workflow_dispatch:
     inputs:
       bump:
@@ -148,8 +146,7 @@ jobs:
             exit 0
           fi
 
-          git show "$GITHUB_SHA:bump-version.sh" > "$RUNNER_TEMP/bump-version.sh" # POC-TEMP
-          bash "$RUNNER_TEMP/bump-version.sh" "$VERSION" # POC-TEMP
+          ./bump-version.sh "$VERSION"
 
           if git diff --quiet; then
             echo "::error::bump-version.sh changed nothing"
