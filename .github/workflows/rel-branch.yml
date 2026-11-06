@@ -65,7 +65,7 @@ jobs:
         id: resolve
         env:
           BUMP: ${{ inputs.bump || 'minor' }}
-          STEPS: ${{ inputs.steps || 1 }}
+          STEPS: ${{ github.event_name == 'schedule' && 1 || inputs.steps }}
           EXPLICIT_VERSION: ${{ inputs.version }}
           BASE: ${{ inputs.base || 'master' }}
         run: |
