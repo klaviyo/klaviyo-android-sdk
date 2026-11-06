@@ -21,6 +21,8 @@ import io.mockk.verify
 import kotlin.system.measureTimeMillis
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -35,6 +37,8 @@ internal class InboxCaptureObserverTest : BaseTest() {
     private class FakeInboxRepository : InboxRepository {
         val records = mutableMapOf<String, InboxMessageEntity>()
         val results = mutableListOf<InboxCaptureResult>()
+
+        override val changes: Flow<Unit> = emptyFlow()
 
         override suspend fun capture(message: InboxMessageEntity): InboxCaptureResult =
             if (records.putIfAbsent(message.transmissionId, message) == null) {

@@ -23,6 +23,7 @@ public class MobileInboxJavaApiTest {
         InboxPageCallback page = result -> { };
         InboxCountCallback count = result -> { };
         InboxUpdateCallback update = result -> { };
+        InboxChangeListener listener = () -> { };
 
         // Compiles only if the Java entry points accept these types
         Runnable unused = () -> {
@@ -30,6 +31,8 @@ public class MobileInboxJavaApiTest {
             KlaviyoInbox.fetchPage(new InboxQuery(), page);
             KlaviyoInbox.fetchUnreadCount(count);
             KlaviyoInbox.updateMessageState("tm-1", InboxStateChange.MARK_READ, update);
+            KlaviyoInbox.addChangeListener(listener);
+            KlaviyoInbox.removeChangeListener(listener);
         };
     }
 

@@ -136,7 +136,8 @@ internal abstract class InboxMessageDao {
      * Applies [change] to the company's message, marking it as pending sync only when the change
      * alters it, so a repeat of the same change leaves the row and its timestamp alone.
      *
-     * @return True when the company has the message, whether or not the change altered it
+     * @return Whether the change altered the message, left it as it was, or the company has no
+     *  such message
      */
     @Transaction
     open suspend fun updateState(
@@ -144,14 +145,18 @@ internal abstract class InboxMessageDao {
         transmissionId: String,
         change: InboxStateChange,
         updatedAt: Long
-    ): Boolean {
+    ): InboxStateUpdate {
         val altered = when (change) {
             InboxStateChange.MARK_READ -> setRead(companyId, transmissionId, true, updatedAt)
             InboxStateChange.MARK_UNREAD -> setRead(companyId, transmissionId, false, updatedAt)
             InboxStateChange.ARCHIVE -> setArchived(companyId, transmissionId, true, updatedAt)
             InboxStateChange.UNARCHIVE -> setArchived(companyId, transmissionId, false, updatedAt)
         }
-        return altered > 0 || count(companyId, transmissionId) > 0
+        return when {
+            altered > 0 -> InboxStateUpdate.ALTERED
+            count(companyId, transmissionId) > 0 -> InboxStateUpdate.UNCHANGED
+            else -> InboxStateUpdate.NOT_FOUND
+        }
     }
 
     @Query("DELETE FROM ${InboxMessageEntity.TABLE_NAME} WHERE companyId = :companyId")
@@ -163,4 +168,10 @@ internal abstract class InboxMessageDao {
     companion object {
         const val IGNORED_ROW_ID = -1L
     }
+}
+
+internal enum class InboxStateUpdate {
+    ALTERED,
+    UNCHANGED,
+    NOT_FOUND
 }
