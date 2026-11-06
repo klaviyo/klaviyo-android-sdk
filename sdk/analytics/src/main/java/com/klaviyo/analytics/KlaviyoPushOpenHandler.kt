@@ -27,6 +27,7 @@ import com.klaviyo.core.utils.BoundedIdSet
 import com.klaviyo.core.utils.JSONUtil.toHashMap
 import java.io.Serializable
 import java.util.Queue
+import org.json.JSONArray
 import org.json.JSONObject
 
 internal object KlaviyoPushOpenHandler {
@@ -127,7 +128,8 @@ internal object KlaviyoPushOpenHandler {
      * Removes an in-app forms preview token from [intent] and returns it, or null if it carries
      * none. Applied to every intent copy of a delivery.
      *
-     * A `key_value_pairs` extra that is not a JSON object is removed from [intent]. Otherwise the
+     * A `key_value_pairs` extra that is not a JSON object, and an `action_buttons` extra that is
+     * not a JSON array, are removed from [intent]. Otherwise the
      * token is the string value in the key/value pairs, else the first of these links that carries
      * it: the intent data, then the payload `Button Link`, `url` and `web_url` extras, then the
      * trampoline's browser URL extra. The token is removed from the key/value pairs and from every
@@ -150,8 +152,12 @@ internal object KlaviyoPushOpenHandler {
         }
         val actionButtonsExtra = PACKAGE_PREFIX + ACTION_BUTTONS_PARAMETER
         intent.getStringExtra(actionButtonsExtra)?.let { buttons ->
-            val stripped = FormsPreview.actionButtonsWithoutPreviewToken(buttons)
-            if (stripped != buttons) intent.putExtra(actionButtonsExtra, stripped)
+            if (runCatching { JSONArray(buttons) }.isFailure) {
+                intent.removeExtra(actionButtonsExtra)
+            } else {
+                val stripped = FormsPreview.actionButtonsWithoutPreviewToken(buttons)
+                if (stripped != buttons) intent.putExtra(actionButtonsExtra, stripped)
+            }
         }
 
         val links = listOfNotNull(intent.data?.toString()) +

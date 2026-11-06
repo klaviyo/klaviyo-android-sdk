@@ -37,6 +37,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -983,6 +984,24 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
         assertEquals("klaviyotest://shop", buttons.getJSONObject(0).getString("url"))
         assertNoToken(eventSlot.captured)
         Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push removes a malformed action_buttons extra from the intent and the event`() {
+        val eventSlot = captureOpenedPushEvent()
+        val (intent, extras) = recordingIntent(
+            mapOf(
+                "com.klaviyo._k" to "{}",
+                "com.klaviyo.action_buttons" to
+                    """[{"url":"klaviyotest://shop?klaviyo-forms-preview=$previewToken"""
+            )
+        )
+
+        Klaviyo.handlePush(intent)
+
+        assertFalse(extras.containsKey("com.klaviyo.action_buttons"))
+        assertNull(eventSlot.captured[EventKey.CUSTOM("action_buttons")])
+        assertNoToken(eventSlot.captured)
     }
 
     @Test
