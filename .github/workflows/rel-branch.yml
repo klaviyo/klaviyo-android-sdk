@@ -35,6 +35,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 env:
   SLACK_ACTION_DIR: _slack
@@ -152,9 +153,22 @@ jobs:
         run: |
           set -euo pipefail
 
+          IFS=. read -r _ minor patch <<< "$VERSION"
+          if [ "$patch" != 0 ]; then
+            label="patch-release"
+          elif [ "$minor" != 0 ]; then
+            label="minor-release"
+          else
+            label="major-release"
+          fi
+          if ! gh label list --repo "$GITHUB_REPOSITORY" --search "$label" --json name --jq '.[].name' | grep -qx "$label"; then
+            gh label create "$label" --repo "$GITHUB_REPOSITORY"
+          fi
+
           url=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --base master --state open --json url --jq '.[0].url // empty')
           if [ -n "$url" ]; then
             echo "$BRANCH already has a PR: $url"
+            gh pr edit "$url" --add-label "$label"
             echo "url=$url" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -166,7 +180,7 @@ jobs:
 
           # shellcheck disable=SC2016
           body=$(printf 'Release PR for `%s`. Feature PRs for this release target `%s`. Merge this after `%s` is published.\n\nOpened by [Release Branch](%s).' "$VERSION" "$BRANCH" "$VERSION" "$RUN_URL")
-          url=$(gh pr create --repo "$GITHUB_REPOSITORY" --draft --base master --head "$BRANCH" "${assignee[@]}" --title "rel: $VERSION" --body "$body")
+          url=$(gh pr create --repo "$GITHUB_REPOSITORY" --draft --base master --head "$BRANCH" "${assignee[@]}" --title "rel: $VERSION" --label "$label" --body "$body")
           echo "Opened $url"
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
