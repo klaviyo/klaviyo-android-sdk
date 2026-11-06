@@ -2,6 +2,7 @@ package com.klaviyo.core.forms
 
 import com.klaviyo.core.Constants
 import java.net.URLDecoder
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -51,13 +52,13 @@ object FormsPreview {
     }
 
     /**
-     * The [PREVIEW_TOKEN_KEY] value in a push's key/value pairs [json] string, or null if the
-     * string is absent, not a JSON object, or has no such key. The value is not validated.
+     * The [PREVIEW_TOKEN_KEY] string value in a push's key/value pairs [json] string, or null if
+     * the string is absent, not a JSON object, or has no such key, or the value is not a string.
+     * The value is not validated.
      */
     fun previewTokenFromKeyValuePairs(json: String?): String? =
         json?.let { runCatching { JSONObject(it) }.getOrNull() }
-            ?.takeIf { it.has(PREVIEW_TOKEN_KEY) }
-            ?.optString(PREVIEW_TOKEN_KEY)
+            ?.opt(PREVIEW_TOKEN_KEY) as? String
 
     /**
      * A push's key/value pairs [json] string with [PREVIEW_TOKEN_KEY] removed, or [json]
@@ -68,6 +69,26 @@ object FormsPreview {
         if (!obj.has(PREVIEW_TOKEN_KEY)) return json
         obj.remove(PREVIEW_TOKEN_KEY)
         return obj.toString()
+    }
+
+    /**
+     * A push's action buttons [json] array string with [PREVIEW_TOKEN_KEY] removed from each
+     * button's `url`, as in [withoutPreviewTokenParameter], or [json] unchanged when no button
+     * `url` has the parameter or it is not a JSON array.
+     */
+    fun actionButtonsWithoutPreviewToken(json: String): String {
+        val buttons = runCatching { JSONArray(json) }.getOrNull() ?: return json
+        var changed = false
+        for (i in 0 until buttons.length()) {
+            val button = buttons.optJSONObject(i) ?: continue
+            val url = button.opt(Constants.URL_PARAMETER) as? String ?: continue
+            val stripped = withoutPreviewTokenParameter(url)
+            if (stripped != url) {
+                button.put(Constants.URL_PARAMETER, stripped)
+                changed = true
+            }
+        }
+        return if (changed) buttons.toString() else json
     }
 
     private fun decode(value: String): String? = runCatching { URLDecoder.decode(value, "UTF-8") }.getOrNull()

@@ -1,5 +1,6 @@
 package com.klaviyo.core.forms
 
+import org.json.JSONArray
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -130,5 +131,23 @@ class FormsPreviewTest {
         assertFalse(stripped.contains(token))
         assertTrue(stripped.contains("other"))
         assertEquals("not json", FormsPreview.keyValuePairsWithoutPreviewToken("not json"))
+    }
+
+    @Test
+    fun `reads only a string preview key in push key value pairs`() {
+        assertNull(FormsPreview.previewTokenFromKeyValuePairs("""{"klaviyo-forms-preview":123}"""))
+        assertNull(FormsPreview.previewTokenFromKeyValuePairs("""{"klaviyo-forms-preview":null}"""))
+    }
+
+    @Test
+    fun `strips the preview parameter from action button urls`() {
+        val json = """[{"id":"a","url":"app://x?klaviyo-forms-preview=$token&y=1"},{"id":"b"},"not a button"]"""
+        val stripped = JSONArray(FormsPreview.actionButtonsWithoutPreviewToken(json))
+        assertEquals("app://x?y=1", stripped.getJSONObject(0).getString("url"))
+        assertEquals("b", stripped.getJSONObject(1).getString("id"))
+
+        val clean = """[{"id":"a","url":"app://x?y=1"}]"""
+        assertEquals(clean, FormsPreview.actionButtonsWithoutPreviewToken(clean))
+        assertEquals("not json", FormsPreview.actionButtonsWithoutPreviewToken("not json"))
     }
 }

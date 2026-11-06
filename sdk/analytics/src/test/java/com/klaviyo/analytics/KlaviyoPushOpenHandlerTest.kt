@@ -32,6 +32,7 @@ import io.mockk.unmockkAll
 import io.mockk.unmockkStatic
 import io.mockk.verify
 import java.util.Queue
+import org.json.JSONArray
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -936,6 +937,99 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
 
         verifyOpenedPushEventEnqueued()
         assertTrue(eventSlot.captured.toMap().values.none { it.toString().contains(previewToken) })
+    }
+
+    @Test
+    fun `opened push strips the token from action button urls in the tracked action_buttons`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val (intent, extras) = recordingIntent(
+            mapOf(
+                "com.klaviyo._k" to "{}",
+                "com.klaviyo.key_value_pairs" to """{"klaviyo-forms-preview":"$previewToken"}""",
+                "com.klaviyo.action_buttons" to
+                    """[{"id":"a","label":"Shop","action":"deep_link",""" +
+                    """"url":"klaviyotest://shop?klaviyo-forms-preview=$previewToken&x=1"}]"""
+            )
+        )
+
+        Klaviyo.handlePush(intent)
+
+        verify(exactly = 1) { sink.startPreview(previewToken) }
+        val buttons = JSONArray(extras["com.klaviyo.action_buttons"])
+        assertEquals("klaviyotest://shop?x=1", buttons.getJSONObject(0).getString("url"))
+        assertNoToken(eventSlot.captured)
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `body tap strips a token found only on an untapped action button url`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val (intent, extras) = recordingIntent(
+            mapOf(
+                "com.klaviyo._k" to "{}",
+                "com.klaviyo.url" to "klaviyotest://body",
+                "com.klaviyo.action_buttons" to
+                    """[{"id":"a","label":"Shop","action":"deep_link",""" +
+                    """"url":"klaviyotest://shop?klaviyo-forms-preview=$previewToken"}]"""
+            )
+        )
+
+        Klaviyo.handlePush(intent)
+
+        verify(exactly = 0) { sink.startPreview(any()) }
+        val buttons = JSONArray(extras["com.klaviyo.action_buttons"])
+        assertEquals("klaviyotest://shop", buttons.getJSONObject(0).getString("url"))
+        assertNoToken(eventSlot.captured)
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `opened push with a non-string key_value_pairs token falls back to the link token`() {
+        val sink = registerPreviewSink()
+        val eventSlot = captureOpenedPushEvent()
+        val (intent, extras) = recordingIntent(
+            mapOf(
+                "com.klaviyo._k" to "{}",
+                "com.klaviyo.key_value_pairs" to """{"klaviyo-forms-preview":123,"other":"1"}""",
+                "com.klaviyo.url" to "klaviyotest://home?klaviyo-forms-preview=$previewToken"
+            )
+        )
+
+        Klaviyo.handlePush(intent)
+
+        verify(exactly = 1) { sink.startPreview(previewToken) }
+        assertEquals("klaviyotest://home", extras["com.klaviyo.url"])
+        assertEquals(mapOf("other" to "1"), eventSlot.captured[EventKey.CUSTOM("key_value_pairs")])
+        assertNoToken(eventSlot.captured)
+        Registry.unregister<FormsPreviewTokenSink>()
+    }
+
+    @Test
+    fun `action button tap on a preview push starts the preview and dismisses the notification`() {
+        val sink = registerPreviewSink()
+        val notificationManager = mockk<NotificationManagerCompat>(relaxed = true)
+        mockkStatic(NotificationManagerCompat::class)
+        every { NotificationManagerCompat.from(any()) } returns notificationManager
+        val tag = "preview-button-tag"
+        val (intent) = recordingIntent(
+            mapOf(
+                "com.klaviyo._k" to """{"tm":"preview-button-tap"}""",
+                "com.klaviyo.Button Link" to "klaviyotest://order?klaviyo-forms-preview=$previewToken",
+                Constants.NOTIFICATION_TAG_EXTRA to tag
+            )
+        )
+
+        try {
+            Klaviyo.handlePush(intent)
+
+            verify(exactly = 1) { sink.startPreview(previewToken) }
+            verify(exactly = 1) { notificationManager.cancel(tag, Constants.NOTIFICATION_ID) }
+        } finally {
+            unmockkStatic(NotificationManagerCompat::class)
+            Registry.unregister<FormsPreviewTokenSink>()
+        }
     }
 
     @Test

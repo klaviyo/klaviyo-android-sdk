@@ -46,6 +46,12 @@ object Constants {
     const val WEB_URL_PARAMETER = "web_url"
 
     /**
+     * Payload key holding a notification's action buttons as a JSON array string. Copied onto the
+     * tap intent as [PACKAGE_PREFIX] + this key.
+     */
+    const val ACTION_BUTTONS_PARAMETER = "action_buttons"
+
+    /**
      * Intent extra key holding the destination URL of the action button that was tapped, stamped
      * only on action button intents. Takes precedence over [URL_PARAMETER] when reading a tap's
      * destination: a button carries its own URL, and the body's [URL_PARAMETER] is present on the
