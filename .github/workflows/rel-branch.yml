@@ -9,8 +9,6 @@ name: Release Branch
 # That keeps a branch for the next minor release open: e.g. with 4.6.0 released it creates rel/4.7.0,
 # and no-ops until 4.7.0 is tagged, then creates rel/4.8.0 the next weekday morning.
 on:
-  push:
-    branches: [ecm/rel-branch-workflow]
   workflow_dispatch:
     inputs:
       bump:
@@ -122,8 +120,7 @@ jobs:
             exit 0
           fi
 
-          git show "$GITHUB_SHA:bump-version.sh" > "$RUNNER_TEMP/bump-version.sh" # POC-TEMP
-          bash "$RUNNER_TEMP/bump-version.sh" "$VERSION" # POC-TEMP
+          ./bump-version.sh "$VERSION"
 
           if git diff --quiet; then
             echo "::error::bump-version.sh changed nothing"
