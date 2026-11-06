@@ -216,11 +216,8 @@ object KlaviyoRemoteMessage {
                     map[key] = jsonObject.getString(key)
                 }
                 map
-            } catch (e: Exception) {
-                Registry.log.warning(
-                    "Klaviyo SDK failed to parse key-value pairs JSON: $jsonString",
-                    e
-                )
+            } catch (_: Exception) {
+                Registry.log.warning("Klaviyo SDK failed to parse key-value pairs JSON")
                 null
             }
         }
