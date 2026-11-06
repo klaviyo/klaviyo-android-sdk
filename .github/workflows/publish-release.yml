@@ -30,6 +30,7 @@ permissions:
   contents: read
 
 env:
+  TRIGGERED_BY: ${{ github.event_name == 'schedule' && 'schedule' || (endsWith(github.triggering_actor || github.actor, '[bot]') && format('{0} (automation)', github.workflow) || github.triggering_actor || github.actor) }}
   SLACK_ACTION_DIR: _slack
   SLACK_USERNAME: Android SDK
   SLACK_ICON_EMOJI: ':merlin-orb-android:'
@@ -211,7 +212,7 @@ jobs:
           fields: |
             Version: `${{ inputs.version }}`
             Commit: `${{ steps.resolve.outputs.short_sha }}`
-            Requested by: ${{ github.actor }}
+            Triggered by: `${{ env.TRIGGERED_BY }}`
           links: |
             Draft release|${{ steps.draft.outputs.release_url }}
             Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ steps.resolve.outputs.sha }}
@@ -257,6 +258,7 @@ jobs:
             Version: `${{ inputs.version }}`
             Commit: `${{ steps.resolve.outputs.short_sha }}`
             Stage: Preflight and draft
+            Triggered by: `${{ env.TRIGGERED_BY }}`
 
       - name: Reply with failure details
         if: failure() && steps.slack_failure.outputs.ts != ''
@@ -309,21 +311,24 @@ jobs:
         id: dispatch
         if: ${{ !inputs.dry_run }}
         run: |
-          # True when the workflow file at $VERSION declares slack_thread_ts.
-          takes_thread_ts() {
+          # True when the workflow file at $VERSION declares the input named by $2.
+          takes_input() {
             gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/$1?ref=$VERSION" \
-              -H "Accept: application/vnd.github.raw" | grep -q '^[[:space:]]*slack_thread_ts:'
+              -H "Accept: application/vnd.github.raw" | grep -q "^[[:space:]]*$2:"
           }
           WORKFLOWS="jitpack.yml"
           if [ "$PRERELEASE" != "true" ]; then
             WORKFLOWS="$WORKFLOWS doc-bot.yml"
           fi
           for WORKFLOW in $WORKFLOWS; do
-            if [ -n "$SLACK_TS" ] && takes_thread_ts "$WORKFLOW"; then
-              gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION" -f "slack_thread_ts=$SLACK_TS"
-            else
-              gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION"
+            args=()
+            if [ -n "$SLACK_TS" ] && takes_input "$WORKFLOW" slack_thread_ts; then
+              args+=(-f "slack_thread_ts=$SLACK_TS")
             fi
+            if takes_input "$WORKFLOW" triggered_by; then
+              args+=(-f "triggered_by=$TRIGGERED_BY")
+            fi
+            gh workflow run "$WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$VERSION" "${args[@]}"
             echo "Dispatched $WORKFLOW at $VERSION"
           done
           {
@@ -338,7 +343,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh workflow run rel-branch.yml --repo "$GITHUB_REPOSITORY" --ref master -f "base=$VERSION"
+          gh workflow run rel-branch.yml --repo "$GITHUB_REPOSITORY" --ref master -f "base=$VERSION" -f "triggered_by=$TRIGGERED_BY"
           echo "Dispatched rel-branch.yml from $VERSION"
 
       - name: Checkout Slack action
@@ -362,6 +367,7 @@ jobs:
           fields: |
             Version: `${{ inputs.version }}`
             Commit: `${{ env.SHORT_SHA }}`
+            Triggered by: `${{ env.TRIGGERED_BY }}`
           links: |
             Release|${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ inputs.version }}
             Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ env.SHA }}
@@ -407,6 +413,7 @@ jobs:
             Version: `${{ inputs.version }}`
             Commit: `${{ env.SHORT_SHA }}`
             Stage: Publish
+            Triggered by: `${{ env.TRIGGERED_BY }}`
 
       - name: Reply with failure details
         if: failure() && steps.slack_failure.outputs.ts != ''
@@ -464,3 +471,4 @@ jobs:
           fields: |
             Version: `${{ inputs.version }}`
             Commit: `${{ needs.prepare.outputs.short_sha }}`
+            Triggered by: `${{ env.TRIGGERED_BY }}`
