@@ -10,6 +10,7 @@ on:
       - 'master'
 
 env:
+  TRIGGERED_BY: ${{ github.event_name == 'schedule' && 'schedule' || (endsWith(github.triggering_actor || github.actor, '[bot]') && format('{0} (automation)', github.workflow) || github.triggering_actor || github.actor) }}
   SLACK_USERNAME: Android SDK
   SLACK_ICON_EMOJI: ':merlin-orb-android:'
 
@@ -110,5 +111,5 @@ jobs:
           fields: |
             Repository: ${{ github.repository }}
             Commit: `${{ steps.commit.outputs.short_sha }}`
-            Author: ${{ github.actor }}
+            Triggered by: `${{ env.TRIGGERED_BY }}`
           links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
