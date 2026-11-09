@@ -11,6 +11,7 @@ import java.net.URL
 import java.util.Base64
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -150,5 +151,31 @@ internal class UniversalClickTrackRequestTest : BaseApiRequestTest<UniversalClic
         assertEquals(mockConfig.networkTimeout, request.timeoutDuration)
         assertEquals(0, request.attempts)
         assertEquals(50, request.maxAttempts)
+    }
+
+    @Test
+    fun `requeues when the first attempt did not complete`() = arrayOf(
+        // Offline
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Unsent),
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Inflight),
+        // Timeout or IO error: no response code, retryable or not
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.PendingRetry),
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, null),
+        // 429 and 5xx
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, 429),
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, 500),
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, 503)
+    ).forEach { request ->
+        assertTrue(request.shouldRequeue())
+    }
+
+    @Test
+    fun `does not requeue on a definitive response`() = arrayOf(
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Complete),
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, 400),
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, 404),
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, 301)
+    ).forEach { request ->
+        assertFalse(request.shouldRequeue())
     }
 }
