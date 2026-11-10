@@ -7,6 +7,8 @@ import com.klaviyo.core.MissingKlaviyoModule
 import com.klaviyo.core.Registry
 import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
+import com.klaviyo.core.utils.AdvancedAPI
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Start an In-App Forms session.
@@ -94,6 +96,24 @@ fun Klaviyo.handleFormsPreviewLink(uri: Uri?): Boolean =
     Registry.getOrNull<FormsProvider>()?.let { provider ->
         safeCall { provider.handlePreviewLink(uri?.toString()) } ?: false
     } ?: throw MissingKlaviyoModule("forms")
+
+/**
+ * Observe whether In-App Forms are registered and able to present forms.
+ *
+ * For internal use only. This should not be used in production applications.
+ * It may be changed or removed in any release without notice.
+ *
+ * The flow's value is `true` from [registerForInAppForms] until the SDK stops presenting forms,
+ * whether that's from [unregisterFromInAppForms] or because the SDK tore forms down on its own,
+ * for example when klaviyo.js fails to load in time or sends an abort.
+ * A new collector receives the current value first.
+ *
+ * @throws MissingKlaviyoModule if the `com.klaviyo:forms` module is not on the classpath.
+ */
+@AdvancedAPI
+fun Klaviyo.inAppFormsRegistrationState(): StateFlow<Boolean> =
+    Registry.getOrNull<FormsProvider>()?.registrationState
+        ?: throw MissingKlaviyoModule("forms")
 
 /**
  * Register a handler to receive [FormLifecycleEvent] events.

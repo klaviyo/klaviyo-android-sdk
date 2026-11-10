@@ -38,12 +38,18 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
  * Manages the [KlaviyoWebView] instance that powers In-App Forms behavior, triggering, rendering and display,
  * and handles all its [android.webkit.WebViewClient] delegate methods, and loading of klaviyo.js
+ *
+ * @param isInitialized set to true when a webview is created and false when it is released,
+ *  so it reflects whether forms can be presented. Backs [com.klaviyo.forms.FormsProvider.registrationState].
  */
-internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, JavaScriptEvaluator {
+internal class KlaviyoWebViewClient(
+    private val isInitialized: MutableStateFlow<Boolean> = MutableStateFlow(false)
+) : AndroidWebViewClient(), WebViewClient, JavaScriptEvaluator {
 
     /**
      * For timeout on awaiting the native bridge [com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook] event
@@ -81,6 +87,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         }
 
         val webView = KlaviyoWebView().also { this.webView = it }
+        isInitialized.value = true
         loadJob?.cancel()
         loadJob = scope.safeLaunch {
             val token = awaitInitialToken()
@@ -240,8 +247,10 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
 
                 webView.destroy()
                 this.webView = null
+                isInitialized.value = false
             }
         } ?: run {
+            isInitialized.value = false
             Registry.log.warning("Unable to destroy IAF - null WebView reference")
         }
     }

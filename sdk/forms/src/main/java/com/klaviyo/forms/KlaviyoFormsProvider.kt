@@ -5,6 +5,7 @@ import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
 import com.klaviyo.core.forms.FormsPreview
 import com.klaviyo.core.safeApply
+import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.KlaviyoJsBridge
@@ -17,6 +18,9 @@ import com.klaviyo.forms.preview.FormsPreviewTokenStore
 import com.klaviyo.forms.webview.JavaScriptEvaluator
 import com.klaviyo.forms.webview.KlaviyoWebViewClient
 import com.klaviyo.forms.webview.WebViewClient
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Resets the In-App Forms listeners with the current configuration.
@@ -41,6 +45,15 @@ internal class KlaviyoFormsProvider : FormsProvider {
     @Volatile
     private var isRegistered = false
 
+    /**
+     * Written by [KlaviyoWebViewClient], which sets it whenever it creates or releases its
+     * webview. Every path that stops forms, including the SDK's own teardowns, goes through there.
+     */
+    private val mutableRegistrationState = MutableStateFlow(false)
+
+    @OptIn(AdvancedAPI::class)
+    override val registrationState: StateFlow<Boolean> = mutableRegistrationState.asStateFlow()
+
     override fun register(config: InAppFormsConfig) {
         isRegistered = true
         Registry.apply {
@@ -49,7 +62,9 @@ internal class KlaviyoFormsProvider : FormsProvider {
             registerOnce<PresentationManager> { KlaviyoPresentationManager() }
             registerOnce<NativeBridge> { KlaviyoNativeBridge() }
             registerOnce<WebViewClient> {
-                KlaviyoWebViewClient().also { register<JavaScriptEvaluator>(it) }
+                KlaviyoWebViewClient(mutableRegistrationState).also { client ->
+                    register<JavaScriptEvaluator>(client)
+                }
             }
             registerOnce<JsBridge> { KlaviyoJsBridge() }
             registerOnce<JsBridgeObserverCollection> { KlaviyoObserverCollection() }
