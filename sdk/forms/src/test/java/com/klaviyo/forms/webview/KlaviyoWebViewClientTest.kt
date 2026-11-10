@@ -13,6 +13,7 @@ import android.webkit.WebSettings
 import androidx.core.view.ViewCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
@@ -21,18 +22,27 @@ import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.auth.AuthTokenProvider
 import com.klaviyo.core.auth.TokenRefreshObserver
 import com.klaviyo.core.auth.ValidatedToken
+import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.fixtures.mockDeviceProperties
+import com.klaviyo.forms.FormsProvider
+import com.klaviyo.forms.InAppFormsConfig
+import com.klaviyo.forms.KlaviyoFormsProvider
 import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
 import com.klaviyo.forms.bridge.JsBridgeObserverCollection
 import com.klaviyo.forms.bridge.JwtObserver
+import com.klaviyo.forms.bridge.KlaviyoNativeBridge
 import com.klaviyo.forms.bridge.NativeBridge
 import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.bridge.toBridgeJson
+import com.klaviyo.forms.inAppFormsRegistrationState
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.reInitializeInAppForms
+import com.klaviyo.forms.registerForInAppForms
+import com.klaviyo.forms.unregisterFromInAppForms
 import io.mockk.CapturingSlot
 import io.mockk.clearAllMocks
 import io.mockk.every
@@ -46,16 +56,24 @@ import io.mockk.verify
 import java.io.ByteArrayInputStream
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, AdvancedAPI::class)
 class KlaviyoWebViewClientTest : BaseTest() {
 
     companion object {
@@ -191,6 +209,11 @@ class KlaviyoWebViewClientTest : BaseTest() {
         Registry.unregister<State>()
         Registry.unregister<JsBridgeObserverCollection>()
         Registry.unregister<AuthTokenManager>()
+        Registry.unregister<FormsProvider>()
+        Registry.unregister<InAppFormsConfig>()
+        Registry.unregister<PresentationManager>()
+        Registry.unregister<WebViewClient>()
+        Registry.unregister<JavaScriptEvaluator>()
         clearAllMocks()
         super.cleanup()
     }
@@ -673,6 +696,109 @@ class KlaviyoWebViewClientTest : BaseTest() {
         every { mockConfig.assetSource } returns "test-asset-source"
         KlaviyoWebViewClient().onPageFinished(mockWebview, "https://example.com")
         verify { spyLog.debug(any()) }
+    }
+
+    /**
+     * Collect every value [flow] emits, starting with its current value, for the rest of the test.
+     */
+    private fun TestScope.collectValues(flow: StateFlow<Boolean>) = mutableListOf<Boolean>().also { values ->
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { flow.toList(values) }
+    }
+
+    /**
+     * Register the real [KlaviyoFormsProvider], so the [KlaviyoWebViewClient] it creates
+     * drives the registration state, with this test's mock bridges and a mock presentation manager.
+     */
+    private fun registerFormsProvider(): FormsProvider {
+        Registry.register<PresentationManager>(mockk<PresentationManager>(relaxed = true))
+        return KlaviyoFormsProvider().also { Registry.register<FormsProvider>(it) }
+    }
+
+    @Test
+    fun `isInitialized follows the webview lifecycle`() {
+        val isInitialized = MutableStateFlow(false)
+        val client = KlaviyoWebViewClient(isInitialized)
+
+        client.initializeWebView()
+        assertTrue(isInitialized.value)
+
+        client.destroyWebView()
+        assertFalse(isInitialized.value)
+    }
+
+    @Test
+    fun `registration state is false before registering`() {
+        registerFormsProvider()
+        assertFalse(Klaviyo.inAppFormsRegistrationState().value)
+    }
+
+    @Test
+    fun `registration state follows register and unregister without repeating values`() = runTest(
+        dispatcher
+    ) {
+        registerFormsProvider()
+        val values = collectValues(Klaviyo.inAppFormsRegistrationState())
+
+        Klaviyo.registerForInAppForms()
+        Klaviyo.registerForInAppForms()
+        assertTrue(Klaviyo.inAppFormsRegistrationState().value)
+
+        Klaviyo.unregisterFromInAppForms()
+        Klaviyo.unregisterFromInAppForms()
+        assertFalse(Klaviyo.inAppFormsRegistrationState().value)
+
+        Klaviyo.registerForInAppForms()
+
+        assertEquals(listOf(false, true, false, true), values)
+    }
+
+    @Test
+    fun `registration state turns false when klaviyo js aborts`() = runTest(dispatcher) {
+        registerFormsProvider()
+        val values = collectValues(Klaviyo.inAppFormsRegistrationState())
+        Klaviyo.registerForInAppForms()
+
+        KlaviyoNativeBridge().postMessage("""{"type":"abort","reason":"test"}""")
+
+        assertEquals(listOf(false, true, false), values)
+    }
+
+    @Test
+    fun `registration state turns false when the handshake times out`() = runTest(dispatcher) {
+        registerFormsProvider()
+        val values = collectValues(Klaviyo.inAppFormsRegistrationState())
+        Klaviyo.registerForInAppForms()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // notably no handshake
+        staticClock.execute(10_000)
+
+        verifyDestroy()
+        assertEquals(listOf(false, true, false), values)
+    }
+
+    @Test
+    fun `registration state stays true after a completed handshake`() = runTest(dispatcher) {
+        registerFormsProvider()
+        Klaviyo.registerForInAppForms()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        Registry.get<WebViewClient>().onJsHandshakeCompleted()
+        staticClock.execute(10_000)
+
+        assertTrue(Klaviyo.inAppFormsRegistrationState().value)
+    }
+
+    @Test
+    fun `re-initializing reports the teardown then the new registration`() = runTest(dispatcher) {
+        registerFormsProvider()
+        val values = collectValues(Klaviyo.inAppFormsRegistrationState())
+        Klaviyo.registerForInAppForms()
+
+        Klaviyo.reInitializeInAppForms()
+
+        assertTrue(Klaviyo.inAppFormsRegistrationState().value)
+        assertEquals(listOf(false, true, false, true), values)
     }
 }
 

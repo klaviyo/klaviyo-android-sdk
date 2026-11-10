@@ -1,5 +1,8 @@
 package com.klaviyo.forms
 
+import com.klaviyo.core.utils.AdvancedAPI
+import kotlinx.coroutines.flow.StateFlow
+
 /**
  * Service interface for the In-App Forms module.
  *
@@ -19,4 +22,14 @@ interface FormsProvider {
      * and tearing down the WebView client.
      */
     fun unregister()
+
+    /**
+     * Whether In-App Forms are currently registered and able to present forms.
+     *
+     * For internal use only. This should not be used in production applications.
+     *
+     * @see inAppFormsRegistrationState
+     */
+    @AdvancedAPI
+    val registrationState: StateFlow<Boolean>
 }
