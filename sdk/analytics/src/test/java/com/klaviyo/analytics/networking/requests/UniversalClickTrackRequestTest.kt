@@ -161,6 +161,8 @@ internal class UniversalClickTrackRequestTest : BaseApiRequestTest<UniversalClic
         // Timeout or IO error: no response code, retryable or not
         makeTestRequest().setStatus(KlaviyoApiRequest.Status.PendingRetry),
         makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, null),
+        // Invalid HTTP response
+        makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, -1),
         // 429 and 5xx
         makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, 429),
         makeTestRequest().setStatus(KlaviyoApiRequest.Status.Failed, 500),

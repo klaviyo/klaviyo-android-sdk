@@ -96,11 +96,11 @@ internal class UniversalClickTrackRequest(
     }
 
     /**
-     * Whether the click should be re-queued after the initial attempt. Anything short of a
-     * definitive HTTP response (timeout, IO error, offline) is retried, as are 429 and 5xx.
+     * Whether the click should be re-queued after the initial attempt. Only a definitive
+     * response (2xx-4xx except 429) is final; no response, an invalid code (-1), 429 and 5xx retry.
      */
     fun shouldRequeue(): Boolean = status != Status.Complete &&
-        (responseCode?.let { it == 429 || it in 500..599 } ?: true)
+        (responseCode == null || responseCode == 429 || responseCode !in 200..499)
 
     /**
      * If the initial request failed, update request format to go into the queue to be retried later
