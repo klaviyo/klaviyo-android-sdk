@@ -1,0 +1,89 @@
+# Baseline rules: SDK Dependabot Bot project, see the rules page.
+version: 2
+updates:
+- package-ecosystem: gradle
+  directories:
+  - '/'
+  schedule:
+    interval: monthly
+  open-pull-requests-limit: 4
+  commit-message:
+    prefix: chore
+    include: scope
+  groups:
+    gradle-shipped-minor-patch:
+      applies-to: version-updates
+      patterns:
+      - 'org.jetbrains.kotlinx:kotlinx-coroutines-core'
+      - 'org.jetbrains.kotlinx:kotlinx-coroutines-android'
+      - 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services'
+      - 'androidx.work:*'
+      - 'androidx.appcompat:*'
+      - 'androidx.webkit:*'
+      - 'com.google.android.gms:play-services-location'
+      - 'com.google.firebase:*'
+      update-types:
+      - minor
+      - patch
+    gradle-shipped-security:
+      applies-to: security-updates
+      patterns:
+      - 'org.jetbrains.kotlinx:kotlinx-coroutines-core'
+      - 'org.jetbrains.kotlinx:kotlinx-coroutines-android'
+      - 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services'
+      - 'androidx.work:*'
+      - 'androidx.appcompat:*'
+      - 'androidx.webkit:*'
+      - 'com.google.android.gms:play-services-location'
+      - 'com.google.firebase:*'
+    gradle-tooling-minor-patch:
+      applies-to: version-updates
+      patterns:
+      - '*'
+      exclude-patterns:
+      - 'org.jetbrains.kotlinx:kotlinx-coroutines-core'
+      - 'org.jetbrains.kotlinx:kotlinx-coroutines-android'
+      - 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services'
+      - 'androidx.work:*'
+      - 'androidx.appcompat:*'
+      - 'androidx.webkit:*'
+      - 'com.google.android.gms:play-services-location'
+      - 'com.google.firebase:*'
+      update-types:
+      - minor
+      - patch
+    gradle-tooling-security:
+      applies-to: security-updates
+      patterns:
+      - '*'
+      exclude-patterns:
+      - 'org.jetbrains.kotlinx:kotlinx-coroutines-core'
+      - 'org.jetbrains.kotlinx:kotlinx-coroutines-android'
+      - 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services'
+      - 'androidx.work:*'
+      - 'androidx.appcompat:*'
+      - 'androidx.webkit:*'
+      - 'com.google.android.gms:play-services-location'
+      - 'com.google.firebase:*'
+- package-ecosystem: github-actions
+  directories:
+  - '/'
+  - '/.github/actions/*'
+  schedule:
+    interval: monthly
+  open-pull-requests-limit: 3
+  commit-message:
+    prefix: chore
+    include: scope
+  groups:
+    actions-minor-patch:
+      applies-to: version-updates
+      patterns:
+      - '*'
+      update-types:
+      - minor
+      - patch
+    actions-security:
+      applies-to: security-updates
+      patterns:
+      - '*'
