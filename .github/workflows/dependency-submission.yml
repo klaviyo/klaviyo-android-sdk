@@ -1,0 +1,36 @@
+# Uploads the resolved Gradle dependency graph to GitHub's dependency submission API,
+# so the dependency graph, Dependabot alerts and Dependabot security updates cover Maven packages.
+# GitHub cannot parse Gradle builds on its own.
+
+name: Dependency Submission
+
+on:
+  push:
+    branches:
+      - 'master'
+  workflow_dispatch:
+
+jobs:
+  dependency-submission:
+    name: Submit Gradle Dependency Graph
+
+    runs-on: ubuntu-22.04
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Matches the JDK in .github/actions/setup. That action isn't reused because it writes
+      # google-services.json from a secret, which dependency resolution doesn't need.
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          java-package: jdk
+
+      # Pinned by SHA: this action submits to the GitHub API with a write token
+      - name: Generate and submit dependency graph
+        uses: gradle/actions/dependency-submission@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
