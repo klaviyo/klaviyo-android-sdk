@@ -1100,6 +1100,8 @@ The SDK does not time out your provider, so your code must:
 
 ### Previewing Draft Forms on a Device
 
+>  ℹ️ Previewing draft forms, by push or by preview link, is available in SDK version `4.7.0` and higher.
+
 You can preview a draft form on a device in two ways: send a push from the form editor, which is the
 preferred way, or scan the QR code and open the preview link.
 
