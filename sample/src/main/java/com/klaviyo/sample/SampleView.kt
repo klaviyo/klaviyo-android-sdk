@@ -456,7 +456,10 @@ private fun SampleViewContent(
             Switch(
                 checked = isFormsPreviewEnabled,
                 onCheckedChange = onFormsPreviewEnabledChange,
-                modifier = Modifier.semantics { contentDescription = "Forms preview" }
+                modifier = Modifier.semantics {
+                    contentDescription = "Forms preview"
+                    testTag = SampleTestTags.TOGGLE_FORMS_PREVIEW
+                }
             )
         }
         if (isFormsPreviewEnabled) {
@@ -468,7 +471,13 @@ private fun SampleViewContent(
                 imeAction = ImeAction.Done,
                 keyboardActions = KeyboardActions(onDone = { applyFormsPreviewToken() }),
                 singleLine = true,
-                trailingIcon = { EntryTrailingButton(onClick = applyFormsPreviewToken) }
+                testTag = SampleTestTags.FIELD_FORMS_PREVIEW_TOKEN,
+                trailingIcon = {
+                    EntryTrailingButton(
+                        onClick = applyFormsPreviewToken,
+                        modifier = Modifier.semantics { testTag = SampleTestTags.BTN_SET_FORMS_PREVIEW_TOKEN }
+                    )
+                }
             )
         }
         ViewRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
