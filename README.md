@@ -1100,16 +1100,27 @@ The SDK does not time out your provider, so your code must:
 
 ### Previewing Draft Forms on a Device
 
-The Klaviyo form editor's **Preview on device** button shows a QR code and a preview link for the
-draft form. The link is a deep link into your app with a `klaviyo-forms-preview` query parameter
-holding a short-lived preview token. Pass deep links to `handleFormsPreviewLink` before your own
-routing: it starts a preview session and returns `true` for a preview link, and returns `false`,
-changing nothing, for every other link. It works with custom schemes and App Links. If forms are
-registered, they restart in preview mode; if not, the preview starts when you call
-`registerForInAppForms`.
+>  ℹ️ Previewing draft forms, by push or by preview link, is available in SDK version `4.7.0` and higher.
 
-Call `handleFormsPreviewLink` wherever you already route deep links — see
-[Deep Linking](#deep-linking) — before your own routing:
+You can preview a draft form on a device in two ways: send a push from the form editor, which is the
+preferred way, or scan the QR code and open the preview link.
+
+To send a push, open the form editor and choose **Preview on device** > **Send push**, then pick a
+saved test device. The device gets a notification, and tapping it opens the draft form in your app.
+This needs no code beyond the standard push setup (see [Push Notifications](#push-notifications)):
+`KlaviyoPushService` displays the notification, and `Klaviyo.handlePush(intent)` or automatic push
+open tracking (`automatic_push_open_tracking`) starts the preview when the notification is tapped.
+
+To use the QR code, open **Preview on device** in the form editor; it shows a QR code and a preview
+link for the draft form. The link is a deep link into your app with a
+`klaviyo-forms-preview` query parameter holding a short-lived preview token. Pass deep links to
+`handleFormsPreviewLink` before your own routing: it starts a preview session and returns `true` for
+a preview link, and returns `false`, changing nothing, for every other link. It works with custom
+schemes and App Links. If forms are registered, they restart in preview mode; if not, the preview
+starts when you call `registerForInAppForms`.
+
+Call `handleFormsPreviewLink` wherever you already route deep links (see
+[Deep Linking](#deep-linking)), before your own routing:
 
 ```kotlin
 override fun onNewIntent(intent: Intent?) {
