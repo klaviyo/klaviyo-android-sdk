@@ -98,7 +98,8 @@ object KlaviyoInbox {
      * the main thread. Does nothing if it was not added.
      *
      * Called on the main thread, [listener] is not called again once this returns. Called on
-     * another thread, a call that has already started on the main thread can still finish.
+     * another thread, a call that has passed its check on the main thread can still start or finish
+     * after this returns, and one that has not reached the check is dropped.
      */
     @JvmStatic
     fun removeChangeListener(listener: InboxChangeListener) {
