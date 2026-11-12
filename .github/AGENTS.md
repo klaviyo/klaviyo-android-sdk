@@ -18,4 +18,4 @@ For agents and humans editing workflows and actions here. `CLAUDE.md` in this di
 ## Workflow conventions
 
 - Pin actions by tag. Use a full SHA with a `# vX.Y.Z` comment for actions that handle credentials or release data (`linear/linear-release-action`, `slackapi/slack-github-action`).
-- `publish-release.yml` and `jitpack.yml` use `concurrency` groups with `cancel-in-progress: false`.
+- `publish-release.yml` and `jitpack.yml` use `concurrency` groups with `cancel-in-progress: false`, except `jitpack.yml` pushes to `master`, which share one `jitpack-master` group that cancels the older run.

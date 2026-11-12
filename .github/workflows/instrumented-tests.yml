@@ -21,6 +21,7 @@ on:
     types: [ labeled ]
 
 env:
+  TRIGGERED_BY: ${{ github.event_name == 'schedule' && 'schedule' || (endsWith(github.triggering_actor || github.actor, '[bot]') && format('{0} (automation)', github.workflow) || github.triggering_actor || github.actor) }}
   SLACK_USERNAME: Android SDK
   SLACK_ICON_EMOJI: ':merlin-orb-android:'
 
@@ -80,7 +81,7 @@ jobs:
           echo "arch=${{ matrix.arch }}" >> $GITHUB_OUTPUT
 
       - name: AVD cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: avd-cache
         with:
           path: |
@@ -165,7 +166,7 @@ jobs:
             API level: `${{ steps.api-setup.outputs.api_level }}`
             Architecture: `${{ steps.api-setup.outputs.arch }}`
             Commit: `${{ steps.commit.outputs.short_sha }}`
-            Author: ${{ github.actor }}
+            Triggered by: `${{ env.TRIGGERED_BY }}`
           links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
 
       - name: Update PR labels on success
