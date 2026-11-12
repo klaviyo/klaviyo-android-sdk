@@ -196,6 +196,41 @@ class KlaviyoInboxTest : BaseTest() {
     }
 
     @Test
+    fun `a change already waiting for the main thread is dropped after the listener is removed`() {
+        val waiting = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers { waiting += firstArg<() -> Unit>() }
+        var heard = 0
+        val listener = InboxChangeListener { heard++ }
+        KlaviyoInbox.addChangeListener(listener)
+        inbox.emitChange()
+
+        KlaviyoInbox.removeChangeListener(listener)
+        waiting.forEach { it() }
+
+        assertEquals(0, heard)
+    }
+
+    @Test
+    fun `adding a listener again does not revive a change waiting from before it was removed`() {
+        val waiting = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers { waiting += firstArg<() -> Unit>() }
+        var heard = 0
+        val listener = InboxChangeListener { heard++ }
+        KlaviyoInbox.addChangeListener(listener)
+        inbox.emitChange()
+        KlaviyoInbox.removeChangeListener(listener)
+        KlaviyoInbox.addChangeListener(listener)
+
+        waiting.forEach { it() }
+        assertEquals(0, heard)
+
+        inbox.emitChange()
+        waiting.drop(1).forEach { it() }
+        assertEquals(1, heard)
+        KlaviyoInbox.removeChangeListener(listener)
+    }
+
+    @Test
     fun `listeners hear changes independently`() {
         var first = 0
         var second = 0
