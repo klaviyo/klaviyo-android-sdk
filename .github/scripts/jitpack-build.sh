@@ -125,6 +125,9 @@ poll_build() {
           backoff=$THROTTLE_BACKOFF_MAX
         fi
       fi
+      if [ "$wait_seconds" -gt $((THROTTLE_MAX_WAIT - throttled_wait)) ]; then
+        wait_seconds=$((THROTTLE_MAX_WAIT - throttled_wait))
+      fi
       sleep "$wait_seconds"
       throttled_wait=$((throttled_wait + wait_seconds))
       continue
