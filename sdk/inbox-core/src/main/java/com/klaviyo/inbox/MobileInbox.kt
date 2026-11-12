@@ -24,10 +24,11 @@ interface MobileInbox {
 
     /**
      * Fetch one page of the current company's messages from the on-device store, newest first.
-     * The page is empty when nothing has been captured yet.
+     * The query's filters choose which messages are returned, and archived messages are left out
+     * unless it asks for them. The page is empty when nothing has been captured yet.
      *
-     * @throws InboxException.InvalidCursor when the query's cursor is malformed or did not come
-     *  from this inbox
+     * @throws InboxException.InvalidCursor when the query's cursor is malformed, did not come from
+     *  this inbox, or was returned for a query with different filters
      */
     suspend fun fetchPage(query: InboxQuery = InboxQuery()): InboxPage
 

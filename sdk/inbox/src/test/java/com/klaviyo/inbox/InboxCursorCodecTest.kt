@@ -24,6 +24,9 @@ internal class InboxCursorCodecTest : BaseTest() {
         assertTrue(error is InboxException.InvalidCursor)
     }
 
+    private fun cursorJson(version: Int = 2, kind: String = "local", extra: String = "") =
+        """{"v":$version,"k":"$kind","c":"$API_KEY","r":"ALL","a":"ACTIVE"$extra}"""
+
     private fun cursorOf(json: String) =
         InboxCursor(Base64.encodeToString(json.toByteArray(), Base64.NO_WRAP))
 
@@ -66,14 +69,58 @@ internal class InboxCursorCodecTest : BaseTest() {
     fun `malformed cursors are rejected`() {
         assertInvalid(InboxCursor("not a cursor"))
         assertInvalid(cursorOf("not json"))
-        assertInvalid(cursorOf("""{"v":1,"k":"local","c":"$API_KEY"}"""))
-        assertInvalid(cursorOf("""{"v":1,"k":"local","c":"$API_KEY","t":1,"i":""}"""))
+        assertInvalid(cursorOf(cursorJson()))
+        assertInvalid(cursorOf(cursorJson(extra = ""","t":1,"i":""""")))
     }
 
     @Test
     fun `a cursor from another version or source is rejected`() {
-        assertInvalid(cursorOf("""{"v":2,"k":"local","c":"$API_KEY","t":1,"i":"a"}"""))
-        assertInvalid(cursorOf("""{"v":1,"k":"server","c":"$API_KEY","t":1,"i":"a"}"""))
+        val position = ""","t":1,"i":"a""""
+        assertInvalid(cursorOf(cursorJson(version = 1, extra = position)))
+        assertInvalid(cursorOf(cursorJson(version = 3, extra = position)))
+        assertInvalid(cursorOf(cursorJson(kind = "server", extra = position)))
+    }
+
+    @Test
+    fun `a cursor continues a query with the filters it was issued under`() {
+        val query = InboxQuery(
+            readFilter = InboxReadFilter.UNREAD,
+            archiveFilter = InboxArchiveFilter.ALL
+        )
+        val cursor = InboxCursorCodec.encode(last, query)
+
+        assertEquals(
+            InboxRecordPosition(5_000L, "tm-9"),
+            InboxCursorCodec.decode(
+                InboxQuery(
+                    cursor = cursor,
+                    readFilter = InboxReadFilter.UNREAD,
+                    archiveFilter = InboxArchiveFilter.ALL
+                ),
+                API_KEY
+            )
+        )
+    }
+
+    @Test
+    fun `a cursor is rejected under a different read filter`() {
+        val cursor = InboxCursorCodec.encode(last, InboxQuery(readFilter = InboxReadFilter.UNREAD))
+
+        assertThrows(InboxException.InvalidCursor::class.java) {
+            InboxCursorCodec.decode(InboxQuery(cursor = cursor), API_KEY)
+        }
+    }
+
+    @Test
+    fun `a cursor is rejected under a different archive filter`() {
+        val cursor = InboxCursorCodec.encode(last)
+
+        assertThrows(InboxException.InvalidCursor::class.java) {
+            InboxCursorCodec.decode(
+                InboxQuery(cursor = cursor, archiveFilter = InboxArchiveFilter.ARCHIVED),
+                API_KEY
+            )
+        }
     }
 
     @Test
