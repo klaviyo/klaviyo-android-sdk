@@ -21,6 +21,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       # Matches the JDK in .github/actions/setup. That action isn't reused because it writes
       # google-services.json from a secret, which dependency resolution doesn't need.
