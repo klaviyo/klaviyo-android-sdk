@@ -12,6 +12,11 @@ internal class KlaviyoMobileInboxProvider : MobileInboxProvider {
         override suspend fun fetchPage(query: InboxQuery): InboxPage = repository.fetchPage(query)
 
         override suspend fun fetchUnreadCount(): Int = repository.fetchUnreadCount()
+
+        override suspend fun updateMessageState(
+            messageId: String,
+            change: InboxStateChange
+        ): Boolean = repository.updateMessageState(messageId, change)
     }
 
     private val repository: InboxRepository get() = Registry.get()

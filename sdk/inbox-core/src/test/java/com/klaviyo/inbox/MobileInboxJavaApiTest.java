@@ -22,12 +22,14 @@ public class MobileInboxJavaApiTest {
     public void callbacksAreLambdaCompatible() {
         InboxPageCallback page = result -> { };
         InboxCountCallback count = result -> { };
+        InboxUpdateCallback update = result -> { };
 
         // Compiles only if the Java entry points accept these types
         Runnable unused = () -> {
             KlaviyoInbox.fetchPage(page);
             KlaviyoInbox.fetchPage(new InboxQuery(), page);
             KlaviyoInbox.fetchUnreadCount(count);
+            KlaviyoInbox.updateMessageState("tm-1", InboxStateChange.MARK_READ, update);
         };
     }
 

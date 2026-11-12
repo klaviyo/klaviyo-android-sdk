@@ -104,6 +104,46 @@ class KlaviyoInboxTest : BaseTest() {
     }
 
     @Test
+    fun `updateMessageState delivers whether the message exists`() {
+        var result: InboxResult<Boolean>? = null
+
+        KlaviyoInbox.updateMessageState("tm-1", InboxStateChange.ARCHIVE) { result = it }
+
+        assertEquals(true, assertIs<InboxResult.Success<Boolean>>(result).value)
+        assertEquals(listOf("tm-1" to InboxStateChange.ARCHIVE), inbox.stateChanges)
+    }
+
+    @Test
+    fun `updateMessageState reports a missing message as false`() {
+        inbox.messageExists = false
+        var result: InboxResult<Boolean>? = null
+
+        KlaviyoInbox.updateMessageState("gone", InboxStateChange.MARK_READ) { result = it }
+
+        assertEquals(false, assertIs<InboxResult.Success<Boolean>>(result).value)
+    }
+
+    @Test
+    fun `a failed state update reaches the callback as a failure`() {
+        val failure = InboxException.StorageFailure("store failed")
+        inbox.failure = failure
+        var result: InboxResult<Boolean>? = null
+
+        KlaviyoInbox.updateMessageState("tm-1", InboxStateChange.MARK_READ) { result = it }
+
+        assertSame(failure, assertIs<InboxResult.Failure>(result).exception)
+    }
+
+    @Test
+    fun `the Java entry point for state updates throws when the inbox module is absent`() {
+        inbox.unregister()
+
+        assertThrows(MissingKlaviyoModule::class.java) {
+            KlaviyoInbox.updateMessageState("tm-1", InboxStateChange.MARK_READ) { }
+        }
+    }
+
+    @Test
     fun `an inbox failure reaches the callback as a failure`() {
         val failure = InboxException.StorageFailure("store failed")
         inbox.failure = failure

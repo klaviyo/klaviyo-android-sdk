@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "f541644ec96222064d9f3d5b8bb34fe1",
+    "identityHash": "4612c66e6035689c924f5c1979928ad6",
     "entities": [
       {
         "tableName": "inbox_message",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`transmissionId` TEXT NOT NULL, `companyId` TEXT NOT NULL, `title` TEXT, `body` TEXT, `mediaUrl` TEXT, `mediaType` TEXT, `customData` TEXT NOT NULL, `actions` TEXT NOT NULL, `sentAt` INTEGER, `collapseId` TEXT, `badge` INTEGER, `receivedAt` INTEGER NOT NULL, `attributionJson` TEXT, `isRead` INTEGER NOT NULL, `isArchived` INTEGER NOT NULL, `sortTime` INTEGER NOT NULL, `defaultDestination_type` TEXT NOT NULL, `defaultDestination_url` TEXT, PRIMARY KEY(`transmissionId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`transmissionId` TEXT NOT NULL, `companyId` TEXT NOT NULL, `title` TEXT, `body` TEXT, `mediaUrl` TEXT, `mediaType` TEXT, `customData` TEXT NOT NULL, `actions` TEXT NOT NULL, `sentAt` INTEGER, `collapseId` TEXT, `badge` INTEGER, `receivedAt` INTEGER NOT NULL, `attributionJson` TEXT, `isRead` INTEGER NOT NULL, `isArchived` INTEGER NOT NULL, `sortTime` INTEGER NOT NULL, `stateUpdatedAt` INTEGER, `isStatePending` INTEGER NOT NULL, `defaultDestination_type` TEXT NOT NULL, `defaultDestination_url` TEXT, PRIMARY KEY(`transmissionId`))",
         "fields": [
           {
             "fieldPath": "transmissionId",
@@ -105,6 +105,18 @@
             "notNull": true
           },
           {
+            "fieldPath": "stateUpdatedAt",
+            "columnName": "stateUpdatedAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "isStatePending",
+            "columnName": "isStatePending",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
             "fieldPath": "defaultDestination.type",
             "columnName": "defaultDestination_type",
             "affinity": "TEXT",
@@ -142,7 +154,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f541644ec96222064d9f3d5b8bb34fe1')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '4612c66e6035689c924f5c1979928ad6')"
     ]
   }
 }
