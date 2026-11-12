@@ -23,7 +23,16 @@ object KlaviyoInbox {
 
     private val scope by lazy { CoroutineScope(SupervisorJob() + Registry.dispatcher) }
 
-    private val listenerJobs = mutableMapOf<InboxChangeListener, Job>()
+    /**
+     * One registration of a listener. A callback posted to the main thread outlives the job that
+     * posted it, so each callback checks [isActive] when it runs. Guarded by [listeners].
+     */
+    private class ChangeSubscription {
+        var isActive = true
+        var job: Job? = null
+    }
+
+    private val listeners = mutableMapOf<InboxChangeListener, ChangeSubscription>()
 
     /**
      * @see MobileInbox.fetchPage
@@ -62,13 +71,18 @@ object KlaviyoInbox {
     @JvmStatic
     fun addChangeListener(listener: InboxChangeListener) {
         val inbox = Klaviyo.mobileInbox
-        synchronized(listenerJobs) {
-            if (listenerJobs.containsKey(listener)) return
+        synchronized(listeners) {
+            if (listeners.containsKey(listener)) return
+            val subscription = ChangeSubscription().also { listeners[listener] = it }
             // Undispatched, so the collection is subscribed before this returns
-            listenerJobs[listener] = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            subscription.job = scope.launch(start = CoroutineStart.UNDISPATCHED) {
                 try {
                     inbox.changes.collect {
-                        Registry.threadHelper.runOnUiThread { listener.onChange() }
+                        Registry.threadHelper.runOnUiThread {
+                            if (synchronized(listeners) { subscription.isActive }) {
+                                listener.onChange()
+                            }
+                        }
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -80,11 +94,14 @@ object KlaviyoInbox {
     }
 
     /**
-     * Stops calling [listener]. Does nothing if it was not added.
+     * Stops calling [listener], including for a change that is already waiting to be delivered to
+     * the main thread. Does nothing if it was not added.
      */
     @JvmStatic
     fun removeChangeListener(listener: InboxChangeListener) {
-        synchronized(listenerJobs) { listenerJobs.remove(listener) }?.cancel()
+        synchronized(listeners) {
+            listeners.remove(listener)?.also { it.isActive = false }
+        }?.job?.cancel()
     }
 
     private fun <T> deliver(
