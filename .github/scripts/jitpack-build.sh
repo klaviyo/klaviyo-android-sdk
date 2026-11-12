@@ -6,6 +6,8 @@
 # back to poll-only behavior.
 #
 # Usage: jitpack-build.sh <version>
+# Exit:  0 = built and verified, 1 = failed, 2 = timed out / version unresolved,
+#        3 = throttled (JitPack answered 429 and the build state could not be confirmed)
 # Env:   JITPACK_TOKEN (optional) - JitPack API token with push access
 #        FORCE_REBUILD (optional) - "true" deletes any existing build before polling
 
@@ -27,13 +29,21 @@ MAX_ATTEMPTS=3
 MAX_RUNTIME=900 # per attempt, seconds
 INTERVAL=30
 BACKOFFS=(60 180)
+THROTTLE_BACKOFF_START=60
+THROTTLE_BACKOFF_MAX=240
+THROTTLE_MAX_WAIT=1800 # total seconds spent waiting out 429s per attempt before giving up polling
 
 EXPECTED_ARTIFACTS=("analytics" "core" "forms" "forms-core" "location" "location-core" "push-fcm")
 
 TRANSIENT_PATTERN='Too Many Requests|status code 50[234]|50[234] (Bad Gateway|Service Unavailable|Gateway Time-?out)|Read timed out|Connect timed out|Connection reset'
 
 LOG_FILE=$(mktemp)
-trap 'rm -f "$LOG_FILE"' EXIT
+BODY_FILE=$(mktemp)
+HEADERS_FILE=$(mktemp)
+trap 'rm -f "$LOG_FILE" "$BODY_FILE" "$HEADERS_FILE"' EXIT
+
+LOG_HTTP_CODE=""
+LAST_LOG_THROTTLED=false
 
 if [ -z "${JITPACK_TOKEN:-}" ]; then
   echo "::warning::JITPACK_TOKEN is not set; failed builds will not be deleted or retriggered. Retries are disabled."
@@ -67,14 +77,59 @@ trigger_build() {
   curl --silent -o /dev/null -m 30 "$ARTIFACT_URL" || true
 }
 
+# Fetch the build log once. Sets LOG_HTTP_CODE and LAST_LOG_THROTTLED; LOG_FILE is only
+# replaced by non-429 responses, so a throttled poll keeps the last real log output.
+fetch_log() {
+  LOG_HTTP_CODE=$(curl --silent -m 30 -D "$HEADERS_FILE" -o "$BODY_FILE" -w '%{http_code}' "$LOG_URL") || LOG_HTTP_CODE=000
+  if [ "$LOG_HTTP_CODE" = "429" ]; then
+    LAST_LOG_THROTTLED=true
+  else
+    LAST_LOG_THROTTLED=false
+    cat "$BODY_FILE" >"$LOG_FILE"
+  fi
+}
+
+# Print the Retry-After header from the last fetch when it is a whole number of seconds.
+retry_after_seconds() {
+  local value
+  value=$(grep -i '^retry-after:' "$HEADERS_FILE" | tail -n 1 | tr -d '\r' | sed 's/^[^:]*:[[:space:]]*//')
+  case "$value" in
+    '' | *[!0-9]*) return 1 ;;
+  esac
+  echo "$value"
+}
+
 # Poll the build log for up to MAX_RUNTIME seconds, storing the latest output in LOG_FILE.
+# Time spent waiting out HTTP 429 responses does not count toward MAX_RUNTIME, but polling
+# stops once those waits total THROTTLE_MAX_WAIT.
 # Returns: 0 = BUILD SUCCESSFUL, 1 = BUILD FAILED, 2 = timeout
 poll_build() {
   local start=$SECONDS
+  local throttled_wait=0
+  local backoff=$THROTTLE_BACKOFF_START
+  local wait_seconds
 
+  LAST_LOG_THROTTLED=false
   echo "Polling $LOG_URL"
-  while [ $((SECONDS - start)) -lt "$MAX_RUNTIME" ]; do
-    curl --silent -m 30 "$LOG_URL" >"$LOG_FILE"
+  while [ $((SECONDS - start - throttled_wait)) -lt "$MAX_RUNTIME" ] && [ "$throttled_wait" -lt "$THROTTLE_MAX_WAIT" ]; do
+    fetch_log
+
+    if [ "$LAST_LOG_THROTTLED" = true ]; then
+      if wait_seconds=$(retry_after_seconds); then
+        echo "  [$((SECONDS - start))s] JitPack returned HTTP 429 (Retry-After: ${wait_seconds}s); waiting."
+      else
+        wait_seconds=$backoff
+        echo "  [$((SECONDS - start))s] JitPack returned HTTP 429; backing off ${wait_seconds}s."
+        backoff=$((backoff * 2))
+        if [ "$backoff" -gt "$THROTTLE_BACKOFF_MAX" ]; then
+          backoff=$THROTTLE_BACKOFF_MAX
+        fi
+      fi
+      sleep "$wait_seconds"
+      throttled_wait=$((throttled_wait + wait_seconds))
+      continue
+    fi
+    backoff=$THROTTLE_BACKOFF_START
 
     if grep -q "BUILD SUCCESSFUL" "$LOG_FILE"; then
       return 0
@@ -82,11 +137,20 @@ poll_build() {
       return 1
     fi
 
-    echo "  [$((SECONDS - start))s] build in progress..."
+    echo "  [$((SECONDS - start - throttled_wait))s] build in progress..."
     sleep "$INTERVAL"
   done
 
   return 2
+}
+
+# Report that JitPack throttled us and the build state is unknown; the workflow reads this output.
+report_throttled() {
+  echo "::warning::JitPack throttled build log requests (HTTP 429) and the build state could not be confirmed."
+  if [ -n "${GITHUB_OUTPUT:-}" ]; then
+    echo "throttled=true" >>"$GITHUB_OUTPUT"
+  fi
+  exit 3
 }
 
 # Print the Gradle failure report ("What went wrong:" onward), or the last 100 lines if there is none.
@@ -174,6 +238,22 @@ while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
     echo "Build timed out after ${MAX_RUNTIME}s. Last status:"
     cat "$LOG_FILE"
     echo "::endgroup::"
+
+    status=$(jitpack_status || true)
+    echo "JitPack build status after timeout: ${status:-unknown}"
+    if [ "${status,,}" = ok ]; then
+      fetch_log
+      if verify_artifacts; then
+        exit 0
+      fi
+      if [ "$LAST_LOG_THROTTLED" = true ]; then
+        report_throttled
+      fi
+      exit 1
+    fi
+    if [ "$LAST_LOG_THROTTLED" = true ]; then
+      report_throttled
+    fi
     exit 2
   fi
 
