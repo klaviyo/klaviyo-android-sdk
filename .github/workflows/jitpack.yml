@@ -42,8 +42,8 @@ jobs:
     name: Build Artifacts
     runs-on: ubuntu-22.04
     concurrency:
-      group: jitpack-${{ github.event.release.tag_name || github.event.pull_request.head.sha || github.sha }}
-      cancel-in-progress: false
+      group: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/master') && 'jitpack-master' || format('jitpack-{0}', github.event.release.tag_name || github.event.pull_request.head.sha || github.sha) }}
+      cancel-in-progress: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     # Run on releases, pushes, workflow_dispatch, or PRs with the jitpack:build label
     if: |
       github.event_name != 'pull_request' ||
@@ -260,9 +260,9 @@ jobs:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ steps.slack_stage.outputs.ts || steps.slack_start.outputs.ts }}
           thread_ts: ${{ inputs.slack_thread_ts }}
-          status: ${{ job.status == 'cancelled' && 'stopped' || 'failure' }}
-          title: Android SDK `${{ github.ref_name }}` JitPack build ${{ job.status == 'cancelled' && 'timed out' || 'failed' }}
-          body: ${{ job.status == 'cancelled' && 'Timed out' || 'Failed' }} at ${{ steps.failed.outputs.step }}.
+          status: ${{ job.status == 'cancelled' && 'stopped' || (steps.jitpack.outputs.throttled == 'true' && 'warning' || 'failure') }}
+          title: Android SDK `${{ github.ref_name }}` JitPack build ${{ job.status == 'cancelled' && 'timed out' || (steps.jitpack.outputs.throttled == 'true' && 'throttled' || 'failed') }}
+          body: ${{ steps.jitpack.outputs.throttled == 'true' && 'JitPack throttled build log requests (HTTP 429), so the build state could not be confirmed. Check JitPack, then re-run this job.' || format('{0} at {1}.', job.status == 'cancelled' && 'Timed out' || 'Failed', steps.failed.outputs.step) }}
           fields: |
             Version: `${{ github.ref_name }}`
             Commit: `${{ steps.commit.outputs.short_sha }}`
@@ -296,8 +296,8 @@ jobs:
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
-          status: ${{ job.status == 'cancelled' && 'stopped' || 'failure' }}
-          title: JitPack build ${{ job.status == 'cancelled' && 'timed out' || 'failed' }} for `${{ github.event.pull_request.head.ref || github.ref_name }}`
+          status: ${{ job.status == 'cancelled' && 'stopped' || (steps.jitpack.outputs.throttled == 'true' && 'warning' || 'failure') }}
+          title: JitPack build ${{ job.status == 'cancelled' && 'timed out' || (steps.jitpack.outputs.throttled == 'true' && 'throttled' || 'failed') }} for `${{ github.event.pull_request.head.ref || github.ref_name }}`
           body: 'Version: `${{ steps.version.outputs.version }}`'
           fields: |
             Triggered by: `${{ env.TRIGGERED_BY }}`
