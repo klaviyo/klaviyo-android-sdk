@@ -64,6 +64,7 @@ class StateSideEffectsTest : BaseTest() {
         every { getAsProfile(withAttributes = any()) } returns profile
         every { resetAttributes() } returns Unit
         every { pushToken } returns null
+        every { apiKey } returns API_KEY
     }
 
     private val authTokenManagerMock = mockk<AuthTokenManager>().apply {

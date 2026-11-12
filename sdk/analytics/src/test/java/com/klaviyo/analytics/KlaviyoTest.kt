@@ -29,6 +29,7 @@ import com.klaviyo.core.auth.AuthTokenProvider as CoreAuthTokenProvider
 import com.klaviyo.core.config.AutomaticPushTokenForwarding
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.MissingAPIKey
+import com.klaviyo.core.identity.IdentityMonitor
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
@@ -182,6 +183,7 @@ internal class KlaviyoTest : BaseTest() {
         Registry.unregister<Config>()
         Registry.unregister<State>()
         Registry.unregister<StateSideEffects>()
+        Registry.unregister<IdentityMonitor>()
         Registry.unregister<ApiClient>()
         Registry.unregister<PushTokenFetcher>()
         Registry.unregister<AuthTokenManager>()
@@ -226,6 +228,11 @@ internal class KlaviyoTest : BaseTest() {
     fun `Registered state and side effects`() {
         assertTrue(Registry.get<State>() is KlaviyoState)
         assertNotNull(Registry.getOrNull<StateSideEffects>())
+    }
+
+    @Test
+    fun `Registered identity monitor`() {
+        assertNotNull(Registry.getOrNull<IdentityMonitor>())
     }
 
     @Test

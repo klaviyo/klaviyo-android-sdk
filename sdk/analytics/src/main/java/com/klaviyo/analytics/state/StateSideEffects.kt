@@ -15,6 +15,8 @@ import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
 import com.klaviyo.core.auth.AuthTokenManager
 import com.klaviyo.core.config.Clock
+import com.klaviyo.core.identity.IdentityChange
+import com.klaviyo.core.identity.IdentityTransition
 import com.klaviyo.core.lifecycle.ActivityEvent
 import com.klaviyo.core.lifecycle.LifecycleMonitor
 import com.klaviyo.core.safeApply
@@ -23,7 +25,8 @@ import com.klaviyo.core.utils.takeIf
 internal class StateSideEffects(
     private val state: State = Registry.get<State>(),
     private val apiClient: ApiClient = Registry.get<ApiClient>(),
-    private val lifecycleMonitor: LifecycleMonitor = Registry.lifecycleMonitor
+    private val lifecycleMonitor: LifecycleMonitor = Registry.lifecycleMonitor,
+    internal val identityMonitor: KlaviyoIdentityMonitor = KlaviyoIdentityMonitor(state)
 ) {
     /**
      * Debounce timer for enqueuing profile API calls
@@ -71,7 +74,10 @@ internal class StateSideEffects(
     }
 
     private fun onApiKeyChange(oldApiKey: String?) {
-        synchronized(identityLock) { Registry.getOrNull<AuthTokenManager>()?.resetTokenState() }
+        synchronized(identityLock) {
+            Registry.getOrNull<AuthTokenManager>()?.resetTokenState()
+            publishCompanyChange(oldApiKey)
+        }
 
         // Clear event buffer to prevent cross-account data leakage
         GenericEventBuffer.clearBuffer()
@@ -194,12 +200,52 @@ internal class StateSideEffects(
             ?: lastIdentifiers
         val transition = classify(previous, current)
         lastIdentifiers = current
+        publishProfileChange(change, previous, current)
         val authTokenManager = Registry.getOrNull<AuthTokenManager>() ?: return@synchronized
         if (transition == ProfileTransition.REPLACEMENT) {
             authTokenManager.resetTokenState { authTokenManager.setIdentified(current.isIdentified) }
         } else {
             authTokenManager.setIdentified(current.isIdentified)
         }
+    }
+
+    /**
+     * Report to [identityMonitor] when the profile change in [change] means a different person is
+     * the active profile. Called under [identityLock], so reports reach observers in the order
+     * the changes were applied.
+     *
+     * A [StateChange.ProfileReset] comes from a reset and from a [State.setProfile] that replaces
+     * the profile, including one that only adds or drops an identifier, so it is reported only
+     * when [previous] and [current] share no identifier or one conflicts. Any other change is a
+     * single identifier set, reported when it overwrites a value with a different one.
+     */
+    private fun publishProfileChange(
+        change: StateChange,
+        previous: ProfileIdentifiers,
+        current: ProfileIdentifiers
+    ) {
+        val differentProfile = when (change) {
+            is StateChange.ProfileReset ->
+                !previous.sharesIdentifierWith(current) || previous.conflictsWith(current)
+            else -> previous.conflictsWith(current)
+        }
+
+        if (differentProfile) {
+            identityMonitor.publish(
+                IdentityChange(IdentityTransition.PROFILE_CHANGE, state.apiKey)
+            )
+        }
+    }
+
+    /**
+     * Report a company change to [identityMonitor]. Called under [identityLock]. Setting the
+     * first API key is not a company change.
+     */
+    private fun publishCompanyChange(oldApiKey: String?) {
+        val companyId = state.apiKey
+        if (oldApiKey.isNullOrBlank() || oldApiKey == companyId) return
+
+        identityMonitor.publish(IdentityChange(IdentityTransition.COMPANY_CHANGE, companyId))
     }
 
     private fun onStateChange(change: StateChange) = when (change) {
