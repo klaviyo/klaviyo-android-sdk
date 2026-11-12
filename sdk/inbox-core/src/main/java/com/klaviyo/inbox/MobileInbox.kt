@@ -3,6 +3,7 @@ package com.klaviyo.inbox
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.MissingKlaviyoModule
 import com.klaviyo.core.Registry
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Access to the on-device inbox.
@@ -10,6 +11,17 @@ import com.klaviyo.core.Registry
  * Every call is safe from the main thread. A store failure surfaces as [InboxException].
  */
 interface MobileInbox {
+    /**
+     * Emits when the inbox's messages change: a push is captured, a message's state changes, or
+     * messages are cleared. A host that shows the inbox fetches again when it emits.
+     *
+     * A signal, not a diff. It carries no data, and a burst of changes may arrive as one emission.
+     * It can also fire for a change that doesn't affect what the host is showing, such as another
+     * company's messages. Nothing is replayed, so collect first and then fetch, or a change in
+     * between is missed. Collecting does not open the on-device store.
+     */
+    val changes: Flow<Unit>
+
     /**
      * Fetch one page of the current company's messages from the on-device store, newest first.
      * The page is empty when nothing has been captured yet.

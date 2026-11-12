@@ -8,6 +8,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -20,6 +22,7 @@ import org.junit.Test
 internal class KlaviyoInboxRepositoryTest : BaseTest() {
 
     private val dataSource = mockk<LocalInboxDataSource>(relaxed = true)
+    private val sourceChanges = MutableSharedFlow<Unit>(replay = 1)
     private val repository = KlaviyoInboxRepository(dataSource, retentionLimit = RETENTION_LIMIT)
     private val message = inboxMessageEntity(
         transmissionId = "tm-1",
@@ -272,6 +275,14 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
         assertThrows(CancellationException::class.java) {
             runBlocking { repository.fetchUnreadCount() }
         }
+    }
+
+    @Test
+    fun `changes are the data source's changes`() = runBlocking {
+        every { dataSource.changes } returns sourceChanges
+        sourceChanges.emit(Unit)
+
+        assertEquals(Unit, repository.changes.first())
     }
 
     private companion object {

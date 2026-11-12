@@ -3,6 +3,7 @@ package com.klaviyo.inbox
 import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.flow.Flow
 
 /**
  * The SDK's [InboxRepository]. Storage failures are logged with their cause. A capture reports
@@ -13,6 +14,8 @@ internal class KlaviyoInboxRepository(
     private val dataSource: LocalInboxDataSource,
     private val retentionLimit: Int = DEFAULT_RETENTION_LIMIT
 ) : InboxRepository {
+
+    override val changes: Flow<Unit> get() = dataSource.changes
 
     override suspend fun capture(message: InboxMessageEntity): InboxCaptureResult = guarded(
         "store a push",

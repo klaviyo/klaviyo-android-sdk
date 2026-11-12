@@ -51,3 +51,11 @@ fun interface InboxCountCallback {
 fun interface InboxUpdateCallback {
     fun onResult(result: InboxResult<Boolean>)
 }
+
+/**
+ * Notified on the main thread when the inbox's messages change. See
+ * [KlaviyoInbox.addChangeListener].
+ */
+fun interface InboxChangeListener {
+    fun onChange()
+}

@@ -1,6 +1,9 @@
 package com.klaviyo.inbox
 
 import com.klaviyo.core.Registry
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 
 /**
  * A [MobileInbox] that answers from fields, registered the way the `inbox` module registers the
@@ -13,6 +16,15 @@ class FakeMobileInbox : MobileInbox {
     var messageExists = true
     val queries = mutableListOf<InboxQuery>()
     val stateChanges = mutableListOf<Pair<String, InboxStateChange>>()
+    private val changeSignal = MutableSharedFlow<Unit>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    override val changes: Flow<Unit> = changeSignal
+
+    /** Emits on [changes], as the real inbox does when its messages change */
+    fun emitChange() = changeSignal.tryEmit(Unit)
 
     override suspend fun fetchPage(query: InboxQuery): InboxPage {
         queries += query
