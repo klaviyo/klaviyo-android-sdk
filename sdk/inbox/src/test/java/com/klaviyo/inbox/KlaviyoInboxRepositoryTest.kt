@@ -188,8 +188,57 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
         coVerify {
             dataSource.fetchPage(
                 API_KEY,
-                InboxRecordQuery(5, InboxRecordPosition(message.sortTime, "tm-1"))
+                InboxRecordQuery(
+                    5,
+                    InboxRecordPosition(message.sortTime, "tm-1"),
+                    isRead = null,
+                    isArchived = false
+                )
             )
+        }
+    }
+
+    @Test
+    fun `a page excludes archived messages unless the query asks for them`() = runBlocking {
+        coEvery { dataSource.fetchPage(any(), any()) } returns InboxRecordPage(emptyList(), false)
+
+        repository.fetchPage(InboxQuery())
+        repository.fetchPage(InboxQuery(archiveFilter = InboxArchiveFilter.ARCHIVED))
+        repository.fetchPage(InboxQuery(archiveFilter = InboxArchiveFilter.ALL))
+
+        coVerify { dataSource.fetchPage(API_KEY, InboxRecordQuery(20, null, null, false)) }
+        coVerify { dataSource.fetchPage(API_KEY, InboxRecordQuery(20, null, null, true)) }
+        coVerify { dataSource.fetchPage(API_KEY, InboxRecordQuery(20, null, null, null)) }
+    }
+
+    @Test
+    fun `a page is filtered by read state`() = runBlocking {
+        coEvery { dataSource.fetchPage(any(), any()) } returns InboxRecordPage(emptyList(), false)
+
+        repository.fetchPage(InboxQuery(readFilter = InboxReadFilter.UNREAD))
+        repository.fetchPage(InboxQuery(readFilter = InboxReadFilter.READ))
+
+        coVerify { dataSource.fetchPage(API_KEY, InboxRecordQuery(20, null, false, false)) }
+        coVerify { dataSource.fetchPage(API_KEY, InboxRecordQuery(20, null, true, false)) }
+    }
+
+    @Test
+    fun `a next cursor continues the filtered query it came from`() {
+        coEvery { dataSource.fetchPage(any(), any()) } returns
+            InboxRecordPage(listOf(message), hasMore = true)
+        val query = InboxQuery(readFilter = InboxReadFilter.UNREAD)
+
+        val page = runBlocking { repository.fetchPage(query) }
+
+        assertEquals(
+            InboxRecordPosition(message.sortTime, "tm-1"),
+            InboxCursorCodec.decode(
+                InboxQuery(cursor = page.nextCursor, readFilter = InboxReadFilter.UNREAD),
+                API_KEY
+            )
+        )
+        assertThrows(InboxException.InvalidCursor::class.java) {
+            runBlocking { repository.fetchPage(InboxQuery(cursor = page.nextCursor)) }
         }
     }
 

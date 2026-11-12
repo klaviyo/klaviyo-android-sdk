@@ -26,7 +26,8 @@ internal interface LocalInboxDataSource {
     suspend fun insert(message: InboxMessageEntity, retentionLimit: Int): InboxInsertResult
 
     /**
-     * One page of [companyId]'s messages, newest first. Empty when nothing has ever been stored.
+     * One page of [companyId]'s messages that match the query's state filters, newest first. Empty
+     * when nothing has ever been stored.
      */
     suspend fun fetchPage(companyId: String, query: InboxRecordQuery): InboxRecordPage
 
@@ -67,8 +68,15 @@ internal data class InboxRecordPosition(val sortTime: Long, val transmissionId: 
 
 /**
  * @property after Null for the first page
+ * @property isRead Only messages with this read state, or null for either
+ * @property isArchived Only messages with this archived state, or null for either
  */
-internal data class InboxRecordQuery(val pageSize: Int, val after: InboxRecordPosition?)
+internal data class InboxRecordQuery(
+    val pageSize: Int,
+    val after: InboxRecordPosition?,
+    val isRead: Boolean? = null,
+    val isArchived: Boolean? = null
+)
 
 /**
  * @property hasMore True when more messages follow [messages]

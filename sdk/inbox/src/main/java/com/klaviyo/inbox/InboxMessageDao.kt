@@ -60,7 +60,7 @@ internal abstract class InboxMessageDao {
 
     /**
      * One page of the company's messages, newest first by sort time. A null [afterSortTime]
-     * starts at the newest message.
+     * starts at the newest message. A null [isRead] or [isArchived] matches either state.
      *
      * Pages by keyset on (sortTime, transmissionId), the order the index and retention use, so a
      * message captured or removed between pages never shifts the page boundary.
@@ -73,6 +73,8 @@ internal abstract class InboxMessageDao {
                 :afterSortTime IS NULL OR sortTime < :afterSortTime
                 OR (sortTime = :afterSortTime AND transmissionId < :afterId)
             )
+            AND (:isRead IS NULL OR isRead = :isRead)
+            AND (:isArchived IS NULL OR isArchived = :isArchived)
         ORDER BY sortTime DESC, transmissionId DESC
         LIMIT :limit
         """
@@ -81,6 +83,8 @@ internal abstract class InboxMessageDao {
         companyId: String,
         afterSortTime: Long?,
         afterId: String?,
+        isRead: Boolean?,
+        isArchived: Boolean?,
         limit: Int
     ): List<InboxMessageEntity>
 

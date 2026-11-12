@@ -511,8 +511,11 @@ class InboxStoreInstrumentedTest {
     private suspend fun RoomInboxDataSource.ids(
         pageSize: Int,
         after: InboxRecordPosition? = null,
-        companyId: String = COMPANY
-    ) = fetchPage(companyId, InboxRecordQuery(pageSize, after)).messages.map { it.transmissionId }
+        companyId: String = COMPANY,
+        isRead: Boolean? = null,
+        isArchived: Boolean? = null
+    ) = fetchPage(companyId, InboxRecordQuery(pageSize, after, isRead, isArchived))
+        .messages.map { it.transmissionId }
 
     @Test
     fun pagesRunNewestFirstBySortTime() = runBlocking {
@@ -636,6 +639,87 @@ class InboxStoreInstrumentedTest {
         )
 
         assertEquals(listOf("unread", "read", "archived"), source.ids(10))
+    }
+
+    private suspend fun RoomInboxDataSource.seedEveryState() = seed(
+        message("unread", sentAt = 400L),
+        message("read", sentAt = 300L).copy(isRead = true),
+        message("archived-unread", sentAt = 200L).copy(isArchived = true),
+        message("archived-read", sentAt = 100L).copy(isRead = true, isArchived = true)
+    )
+
+    @Test
+    fun pagesFilterByReadState() = runBlocking {
+        val source = openSource()
+        source.seedEveryState()
+
+        assertEquals(listOf("unread", "archived-unread"), source.ids(10, isRead = false))
+        assertEquals(listOf("read", "archived-read"), source.ids(10, isRead = true))
+    }
+
+    @Test
+    fun pagesFilterByArchivedState() = runBlocking {
+        val source = openSource()
+        source.seedEveryState()
+
+        assertEquals(listOf("unread", "read"), source.ids(10, isArchived = false))
+        assertEquals(listOf("archived-unread", "archived-read"), source.ids(10, isArchived = true))
+    }
+
+    @Test
+    fun pagesCombineTheReadAndArchivedFilters() = runBlocking {
+        val source = openSource()
+        source.seedEveryState()
+
+        assertEquals(listOf("unread"), source.ids(10, isRead = false, isArchived = false))
+        assertEquals(listOf("archived-read"), source.ids(10, isRead = true, isArchived = true))
+    }
+
+    @Test
+    fun aFilteredPageWalksOnlyMatchingMessagesAcrossPages() = runBlocking {
+        val source = openSource()
+        source.seed(
+            *(1..6).map {
+                message("m$it", sentAt = it * 100L).copy(isArchived = it % 2 == 0)
+            }.toTypedArray()
+        )
+
+        val first = source.fetchPage(COMPANY, InboxRecordQuery(2, null, isArchived = false))
+        val second = source.fetchPage(
+            COMPANY,
+            InboxRecordQuery(2, first.messages.last().position(), isArchived = false)
+        )
+
+        assertEquals(listOf("m5", "m3"), first.messages.map { it.transmissionId })
+        assertTrue(first.hasMore)
+        assertEquals(listOf("m1"), second.messages.map { it.transmissionId })
+        assertFalse(second.hasMore)
+    }
+
+    @Test
+    fun aFilteredPageStaysStableWhenAMessageLeavesTheFilterBetweenPages() = runBlocking {
+        val source = openSource()
+        source.seed(*(1..4).map { message("m$it", sentAt = it * 100L) }.toTypedArray())
+        val first = source.fetchPage(COMPANY, InboxRecordQuery(2, null, isRead = false))
+
+        // The message the first page ended on is read, so it leaves the filter
+        source.updateState(COMPANY, "m3", InboxStateChange.MARK_READ, 1L)
+        val second = source.fetchPage(
+            COMPANY,
+            InboxRecordQuery(2, first.messages.last().position(), isRead = false)
+        )
+
+        assertEquals(listOf("m4", "m3"), first.messages.map { it.transmissionId })
+        assertEquals(listOf("m2", "m1"), second.messages.map { it.transmissionId })
+    }
+
+    @Test
+    fun filteredPagesSurviveRestart() = runBlocking {
+        val first = RoomInboxDataSource(context, databaseName)
+        first.seedEveryState()
+        first.close()
+
+        assertEquals(listOf("unread"), openSource().ids(10, isRead = false, isArchived = false))
     }
 
     @Test
