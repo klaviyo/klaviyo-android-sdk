@@ -6,14 +6,15 @@
 #   Non-merge commit: passes when its merged source PR has an APPROVED review from
 #     a reviewer who is not the PR author, not a bot, and whose review
 #     author_association is OWNER or MEMBER (an org member). Commits pushed after
-#     the approval are counted. Also passes, labeled exempt, when that PR was
-#     merged by evan-masseau without a qualifying approval, or when the commit has
+#     the approval are counted. Also passes, labeled exempt, when the commit has
 #     no source PR and both its author and committer are github-actions[bot].
 #   Merge commit: passes only when `git show --remerge-diff` is empty.
 #
-# Writes a table to $GITHUB_STEP_SUMMARY (stdout when unset). When every commit
-# passes, creates or updates one PR comment; when a later run fails, an existing
-# comment is rewritten to say so. Informational: exits non-zero only on error.
+# Writes failing commits first, then passing ones, to $GITHUB_STEP_SUMMARY (stdout
+# when unset). When the PR is a promotion (at least one commit came from an earlier
+# PR) it creates or updates one PR comment: OK to admin merge on a full pass, the
+# failing commits otherwise. A PR whose commits are all new gets no new comment, but
+# an existing one is updated. Informational: exits non-zero only on error.
 #
 # Usage: promotion-check.sh <owner/repo> <pr-number> <base-ref> <head-ref>
 # Env:   GH_TOKEN (required by gh)
@@ -34,19 +35,16 @@ DRY_RUN="${DRY_RUN:-false}"
 
 MARKER="<!-- promotion-check -->"
 COMMENT_BOT="github-actions[bot]"
-EXEMPT_MERGER="evan-masseau"
 COMMENT_LIMIT=60000
 MAX_AFTER_SHAS=5
 PASS_HEADER="✅ Every commit in this PR was already reviewed in its own PR. OK to admin merge."
 NEW_LABEL="new in this PR (needs review)"
-STALE_HEADER="⚠️ This PR no longer passes the promotion check. Not every commit was already reviewed in its own PR."
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 ROWS="$TMP/rows"
 : >"$ROWS"
-
-lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+PROMOTION=0
 
 short_list() {
   local shas="$1" out="" count=0 sha
@@ -96,9 +94,6 @@ evaluate_pr() {
     else
       after_known=0
     fi
-  elif [ -n "$merged_by" ] && [ "$(lower "$merged_by")" = "$EXEMPT_MERGER" ]; then
-    status="exempt"
-    approvers=""
   else
     status="none"
     approvers=""
@@ -144,12 +139,12 @@ check_commit() {
     return 0
   fi
 
+  PROMOTION=1
   local n chosen="" chosen_status="" status
   for n in $numbers; do
     evaluate_pr "$n"
     status=$(cut -d'|' -f1 "$TMP/pr-$n")
-    if [ -z "$chosen" ] || { [ "$status" = "approved" ] && [ "$chosen_status" != "approved" ]; } ||
-      { [ "$status" = "exempt" ] && [ "$chosen_status" = "none" ]; }; then
+    if [ -z "$chosen" ] || { [ "$status" = "approved" ] && [ "$chosen_status" != "approved" ]; }; then
       chosen="$n"
       chosen_status="$status"
     fi
@@ -171,21 +166,30 @@ check_commit() {
       fi
       add_row "$sha" 1 "$chosen" "$detail" "$after_text"
       ;;
-    exempt)
-      add_row "$sha" 1 "$chosen" "exempt: admin merge by $EXEMPT_MERGER" ""
-      ;;
     *)
       add_row "$sha" 0 "$chosen" "merged by @${merged_by:-unknown} without a qualifying approval" ""
       ;;
   esac
 }
 
+sha_link() { printf '[\x60%s\x60](https://github.com/%s/commit/%s)' "${1:0:7}" "$REPO" "$1"; }
+
+count_rows() {
+  case "$1" in
+    pass) grep -c '^[^|]*|1|' "$ROWS" || true ;;
+    fail) grep -c '^[^|]*|0|' "$ROWS" || true ;;
+    *) grep -c . "$ROWS" || true ;;
+  esac
+}
+
 render_table() {
-  local limit="${1:-0}" total shown=0 sha ok pr detail after mark pr_cell
-  total=$(grep -c . "$ROWS")
+  local filter="$1" limit="${2:-0}" shown=0 sha ok pr detail after mark pr_cell total
+  total=$(count_rows "$filter")
   printf '| Commit | Source PR | Approver / reason | After approval |\n'
   printf '| --- | --- | --- | --- |\n'
   while IFS='|' read -r sha ok pr detail after; do
+    [ "$filter" = "pass" ] && [ "$ok" != "1" ] && continue
+    [ "$filter" = "fail" ] && [ "$ok" != "0" ] && continue
     if [ "$limit" -gt 0 ] && [ "$shown" -ge "$limit" ]; then
       break
     fi
@@ -194,24 +198,37 @@ render_table() {
     [ "$ok" = "1" ] && mark="✅"
     pr_cell="none"
     [ -n "$pr" ] && pr_cell="[#$pr](https://github.com/$REPO/pull/$pr)"
-    printf '| %s \x60%s\x60 | %s | %s | %s |\n' "$mark" "${sha:0:7}" "$pr_cell" "$detail" "$after"
+    printf '| %s %s | %s | %s | %s |\n' "$mark" "$(sha_link "$sha")" "$pr_cell" "$detail" "$after"
   done <"$ROWS"
   if [ "$limit" -gt 0 ] && [ "$total" -gt "$limit" ]; then
     printf '| … | | %s more rows, see the job summary | |\n' "$((total - limit))"
   fi
 }
 
+render_sections() {
+  local limit="${1:-0}"
+  if [ "$FAILED" -eq 0 ]; then
+    render_table all "$limit"
+    return 0
+  fi
+  render_table fail "$limit"
+  if [ "$PASSED" -gt 0 ]; then
+    printf '\n<details><summary>%s commits passed</summary>\n\n' "$PASSED"
+    render_table pass "$limit"
+    printf '\n</details>\n'
+  fi
+}
+
 comment_body() {
-  local header="$1" limit=0 body total
-  total=$(grep -c . "$ROWS")
+  local header="$1" limit=0 body
   while true; do
-    body="$MARKER"$'\n'"$header"$'\n\n'"$(render_table "$limit")"
+    body="$MARKER"$'\n'"$header"$'\n\n'"$(render_sections "$limit")"
     if [ "${#body}" -le "$COMMENT_LIMIT" ]; then
       printf '%s\n' "$body"
       return 0
     fi
     if [ "$limit" -eq 0 ]; then
-      limit=$((total / 2))
+      limit=$((TOTAL / 2))
     else
       limit=$((limit / 2))
     fi
@@ -225,7 +242,7 @@ write_comment() {
       '.[] | select(.user.login == $bot and (.body | contains($marker))) | .id' | sed -n 1p)
 
   if [ -z "$existing" ] && [ "$create_allowed" != "true" ]; then
-    echo "no comment: nothing to update"
+    echo "no comment: not a promotion"
     return 0
   fi
   if [ "$DRY_RUN" = "true" ]; then
@@ -269,22 +286,27 @@ while IFS= read -r sha; do
   check_commit "$sha"
 done <<<"$SHAS"
 
-TOTAL=$(grep -c . "$ROWS")
-PASSED=$(grep -c '^[^|]*|1|' "$ROWS" || true)
+TOTAL=$(count_rows all)
+PASSED=$(count_rows pass)
+FAILED=$((TOTAL - PASSED))
+CREATE=false
+[ "$PROMOTION" -eq 1 ] && CREATE=true
 
-if [ "$PASSED" -eq "$TOTAL" ]; then
-  VERDICT="All commits pass."
-  OUTCOME=$(write_comment "$PASS_HEADER" true)
+if [ "$FAILED" -eq 0 ]; then
+  VERDICT="$PASS_HEADER"
+  FAIL_HEADER=""
 else
-  VERDICT="$((TOTAL - PASSED)) of $TOTAL commits do not pass."
+  FAIL_HEADER="❌ $FAILED of $TOTAL commits weren't reviewed in an earlier PR"
+  VERDICT="$FAIL_HEADER"
   if [ "$(grep -cF "$NEW_LABEL" "$ROWS" || true)" -eq "$TOTAL" ]; then
     VERDICT="Not a promotion: this PR adds new code."
   fi
-  OUTCOME=$(write_comment "$STALE_HEADER" false)
 fi
+
+OUTCOME=$(write_comment "${FAIL_HEADER:-$PASS_HEADER}" "$CREATE")
 
 {
   printf '## Promotion check\n\n%s\n\n' "$VERDICT"
-  render_table
+  render_sections
   printf '\n_%s_\n' "$OUTCOME"
 } | emit
