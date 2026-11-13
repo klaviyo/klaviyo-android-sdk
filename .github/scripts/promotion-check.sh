@@ -247,7 +247,7 @@ render_table() {
       break
     fi
     shown=$((shown + 1))
-    mark="❌"
+    mark="⚠️"
     [ "$ok" = "1" ] && mark="✅"
     pr_cell="none"
     [ -n "$pr" ] && pr_cell="[#$pr](https://github.com/$REPO/pull/$pr)"
@@ -354,7 +354,7 @@ if [ "$FAILED" -eq 0 ]; then
   VERDICT="$PASS_HEADER"
   FAIL_HEADER=""
 else
-  FAIL_HEADER="❌ $FAILED of $TOTAL commits weren't reviewed in an earlier PR"
+  FAIL_HEADER="⚠️ $FAILED of $TOTAL commits weren't reviewed in an earlier PR"
   VERDICT="$FAIL_HEADER"
   if [ "$(grep -cF "$NEW_LABEL" "$ROWS" || true)" -eq "$TOTAL" ]; then
     VERDICT="Not a promotion: this PR adds new code."
