@@ -17,6 +17,7 @@ from pathlib import Path
 MARKER = "<!-- promotion-check -->"
 BOT_COMMENT_LOGIN = "github-actions[bot]"
 EXEMPT_MERGER = "evan-masseau"
+AUTOMATION_NAME = "github-actions[bot]"
 COMMENT_LIMIT = 60000
 MAX_AFTER_SHAS = 5
 
@@ -81,6 +82,11 @@ def commit_set(base, head):
             continue
         shas.append(line.lstrip("+").strip())
     return list(reversed(shas))
+
+
+def is_automation_commit(sha):
+    out = run(["git", "log", "-1", "--format=%an%n%cn", sha]).splitlines()
+    return len(out) == 2 and all(name == AUTOMATION_NAME for name in out)
 
 
 def parent_count(sha):
@@ -157,7 +163,11 @@ class Checker:
             if p.get("merged_at") and p["number"] != self.current_pr
         )
         if not numbers:
-            row["detail"] = "no merged source PR (direct push)"
+            if is_automation_commit(sha):
+                row["ok"] = True
+                row["detail"] = f"exempt: automation: {AUTOMATION_NAME}"
+            else:
+                row["detail"] = "no merged source PR (direct push)"
             return row
 
         results = [self.evaluate_pr(n) for n in numbers]
