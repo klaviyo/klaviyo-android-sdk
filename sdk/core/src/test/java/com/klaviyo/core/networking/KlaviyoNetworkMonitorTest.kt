@@ -14,6 +14,7 @@ import io.mockk.mockkConstructor
 import io.mockk.slot
 import io.mockk.unmockkObject
 import io.mockk.verify
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -47,6 +48,7 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns capabilitiesMock
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns true
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
+        every { capabilitiesMock.hasTransport(any()) } returns false
 
         mockkConstructor(NetworkRequest.Builder::class)
         every { NetworkRequest.Builder().addCapability(any()) } returns mockBuilder
@@ -64,12 +66,23 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         super.cleanup()
         clearAllMocks()
 
-        // Reset KlaviyoNetworkMonitor's networkRequest to allow re-initialization in subsequent tests
-        val field = KlaviyoNetworkMonitor::class.java.getDeclaredField("networkRequest")
-        val originalAccessibility = field.isAccessible // Store original accessibility
-        field.isAccessible = true
-        field.set(KlaviyoNetworkMonitor, null) // Set the lateinit var's backing field to null
-        field.isAccessible = originalAccessibility // Restore original accessibility
+        // Reset KlaviyoNetworkMonitor's state to allow re-initialization in subsequent tests
+        resetField("isRegistered", false)
+        (
+            KlaviyoNetworkMonitor::class.java.getDeclaredField("lastBroadcastState").apply { isAccessible = true }
+                .get(KlaviyoNetworkMonitor) as AtomicReference<*>
+            ).set(null)
+    }
+
+    private fun resetField(name: String, value: Any?) {
+        KlaviyoNetworkMonitor::class.java.getDeclaredField(name).apply {
+            isAccessible = true
+            set(KlaviyoNetworkMonitor, value)
+        }
+    }
+
+    private fun setConnected(connected: Boolean) {
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns connected
     }
 
     @Test
@@ -138,7 +151,6 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         expectedNetworkConnection = false
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns false
         netCallbackSlot.captured.onLost(mockk())
-        netCallbackSlot.captured.onUnavailable()
 
         expectedNetworkConnection = true
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns true
@@ -148,7 +160,7 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns false
         netCallbackSlot.captured.onLost(mockk())
 
-        assertEquals(5, callCount)
+        assertEquals(4, callCount)
         KlaviyoNetworkMonitor.offNetworkChange(observer)
     }
 
@@ -179,11 +191,13 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         assertEquals(2, callCount)
 
         KlaviyoNetworkMonitor.offNetworkChange(observer)
-        netCallbackSlot.captured.onAvailable(mockk())
+        setConnected(false)
+        netCallbackSlot.captured.onLost(mockk())
         assertEquals(3, callCount)
 
         KlaviyoNetworkMonitor.offNetworkChange(observer) // calling it twice doesn't result in an error
         KlaviyoNetworkMonitor.onNetworkChange(observer) // it can be re-added
+        setConnected(true)
         netCallbackSlot.captured.onAvailable(mockk())
         assertEquals(5, callCount)
     }
@@ -232,5 +246,81 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
             )
         }
         assertEquals(callCount, 0)
+    }
+
+    @Test
+    fun `Duplicate network states are not rebroadcast`() {
+        var callCount = 0
+        KlaviyoNetworkMonitor.onNetworkChange { callCount++ }
+
+        netCallbackSlot.captured.onAvailable(mockk())
+        netCallbackSlot.captured.onLinkPropertiesChanged(mockk(), mockk())
+        netCallbackSlot.captured.onCapabilitiesChanged(mockk(), mockk())
+        assertEquals(1, callCount)
+    }
+
+    @Test
+    fun `Network type change with same connectivity is broadcast`() {
+        var callCount = 0
+        KlaviyoNetworkMonitor.onNetworkChange { callCount++ }
+
+        netCallbackSlot.captured.onAvailable(mockk())
+        assertEquals(1, callCount)
+
+        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) } returns true
+        netCallbackSlot.captured.onCapabilitiesChanged(mockk(), mockk())
+        assertEquals(2, callCount)
+    }
+
+    @Test
+    fun `Validation completing after availability is broadcast via capabilities change`() {
+        val states = mutableListOf<Boolean>()
+        KlaviyoNetworkMonitor.onNetworkChange { states += it }
+
+        setConnected(false)
+        netCallbackSlot.captured.onAvailable(mockk())
+        setConnected(true)
+        netCallbackSlot.captured.onCapabilitiesChanged(mockk(), mockk())
+
+        assertEquals(listOf(false, true), states)
+    }
+
+    @Test
+    fun `Registration is retried after a SecurityException`() {
+        every {
+            connectivityManagerMock.requestNetwork(
+                mockRequest,
+                any<ConnectivityManager.NetworkCallback>()
+            )
+        } throws SecurityException("missing permission")
+        KlaviyoNetworkMonitor.onNetworkChange { }
+
+        every {
+            connectivityManagerMock.requestNetwork(
+                mockRequest,
+                any<ConnectivityManager.NetworkCallback>()
+            )
+        } returns mockk()
+        KlaviyoNetworkMonitor.onNetworkChange { }
+
+        verify(exactly = 2) {
+            connectivityManagerMock.requestNetwork(
+                mockRequest,
+                any<ConnectivityManager.NetworkCallback>()
+            )
+        }
+    }
+
+    @Test
+    fun `Registration happens only once`() {
+        KlaviyoNetworkMonitor.onNetworkChange { }
+        KlaviyoNetworkMonitor.onNetworkChange { }
+
+        verify(exactly = 1) {
+            connectivityManagerMock.requestNetwork(
+                mockRequest,
+                any<ConnectivityManager.NetworkCallback>()
+            )
+        }
     }
 }
