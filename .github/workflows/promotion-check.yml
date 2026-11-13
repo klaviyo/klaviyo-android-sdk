@@ -18,7 +18,7 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Checkout PR head with full history
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0

@@ -60,7 +60,7 @@ jobs:
 
       - name: Checkout repository
         id: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Announce JitPack build on Slack
         id: slack_start
@@ -322,7 +322,7 @@ jobs:
         id: linear-checkout
         if: success() && github.ref_type == 'tag' && !contains(github.ref_name, '-') && github.event.release.prerelease != true
         continue-on-error: true
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false

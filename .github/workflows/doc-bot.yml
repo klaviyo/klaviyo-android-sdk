@@ -49,7 +49,7 @@ jobs:
 
       - name: Checkout code
         id: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: documentation
           fetch-depth: 0
@@ -66,7 +66,7 @@ jobs:
         if: ${{ !cancelled() }}
         timeout-minutes: 2
         continue-on-error: true
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           sparse-checkout: .github/actions
