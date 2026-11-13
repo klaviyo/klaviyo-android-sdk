@@ -19,3 +19,7 @@ For agents and humans editing workflows and actions here. `CLAUDE.md` in this di
 
 - Pin actions by tag. Use a full SHA with a `# vX.Y.Z` comment for actions that handle credentials or release data (`linear/linear-release-action`, `slackapi/slack-github-action`).
 - `publish-release.yml` and `jitpack.yml` use `concurrency` groups with `cancel-in-progress: false`, except `jitpack.yml` pushes to `master`, which share one `jitpack-master` group that cancels the older run.
+
+## Promotion check
+
+- `promotion-check.yml` runs `.github/scripts/promotion-check.py` on every PR. It is informational, so never add it as a required check. `GITHUB_TOKEN` cannot read org team membership, so keep `.github/promotion-check-team.txt` in sync with `@klaviyo/mobile-app-growth`.
