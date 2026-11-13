@@ -18,6 +18,8 @@ android {
 dependencies {
     implementation(project(":sdk:core"))
     api(project(":sdk:analytics"))
+    // StateFlow is part of FormsProvider's API surface
+    api(KotlinX.coroutines.core)
     testImplementation(project(":sdk:fixtures"))
 }
 

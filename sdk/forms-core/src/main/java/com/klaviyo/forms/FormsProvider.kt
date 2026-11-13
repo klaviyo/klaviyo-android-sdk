@@ -1,5 +1,8 @@
 package com.klaviyo.forms
 
+import com.klaviyo.core.utils.AdvancedAPI
+import kotlinx.coroutines.flow.StateFlow
+
 /**
  * Service interface for the In-App Forms module.
  *
@@ -19,4 +22,34 @@ interface FormsProvider {
      * and tearing down the WebView client.
      */
     fun unregister()
+
+    /**
+     * Start a forms preview session with [token]. If registered, tears down the current session
+     * and starts a new one that loads the preview. Otherwise the token is held for the next
+     * [register]. A malformed token changes nothing.
+     */
+    fun startPreview(token: String)
+
+    /**
+     * End the forms preview session. If registered, tears down the current session and starts a
+     * new one that loads published forms.
+     */
+    fun endPreview()
+
+    /**
+     * Start a forms preview from a deep link's `klaviyo-forms-preview` query parameter.
+     * Returns true if [uri] carried a well-formed preview token, which now starts a preview as
+     * [startPreview] does, and false otherwise, changing nothing.
+     */
+    fun handlePreviewLink(uri: String?): Boolean
+
+    /**
+     * Whether In-App Forms are currently registered and able to present forms.
+     *
+     * For internal use only. This should not be used in production applications.
+     *
+     * @see inAppFormsRegistrationState
+     */
+    @AdvancedAPI
+    val registrationState: StateFlow<Boolean>
 }

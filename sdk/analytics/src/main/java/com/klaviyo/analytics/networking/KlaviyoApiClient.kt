@@ -173,7 +173,7 @@ internal object KlaviyoApiClient : ApiClient {
     private fun UniversalClickTrackRequest.resolveOrEnqueue(): ResolveDestinationResult {
         sendAndBroadcast()
         return getResult().also { result ->
-            if (result is ResolveDestinationResult.Unavailable) {
+            if (shouldRequeue()) {
                 enqueueRequest(prepareToEnqueue())
             }
         }

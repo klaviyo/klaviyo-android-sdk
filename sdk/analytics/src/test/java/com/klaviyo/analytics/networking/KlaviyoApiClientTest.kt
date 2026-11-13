@@ -972,7 +972,8 @@ internal class KlaviyoApiClientTest : BaseTest() {
      */
     private fun setupResolveDestinationUrlTest(
         requestStatus: KlaviyoApiRequest.Status,
-        destinationUrl: Uri? = null
+        destinationUrl: Uri? = null,
+        requeue: Boolean = requestStatus != KlaviyoApiRequest.Status.Complete
     ) {
         val expectedResponse = if (destinationUrl is Uri) {
             ResolveDestinationResult.Success(destinationUrl, trackingUrl)
@@ -986,6 +987,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         every { anyConstructed<UniversalClickTrackRequest>().uuid } returns "mock_resolve_destination_uuid"
         every { anyConstructed<UniversalClickTrackRequest>().send(any()) } returns requestStatus
         every { anyConstructed<UniversalClickTrackRequest>().getResult() } returns expectedResponse
+        every { anyConstructed<UniversalClickTrackRequest>().shouldRequeue() } returns requeue
         every { anyConstructed<UniversalClickTrackRequest>().headers } answers { callOriginal() }
         every { anyConstructed<UniversalClickTrackRequest>().prepareToEnqueue() } answers {
             callOriginal()
@@ -1042,8 +1044,21 @@ internal class KlaviyoApiClientTest : BaseTest() {
         }
 
     @Test
-    fun `resolveDestinationUrl returns Failure when request fails`() = runTest {
-        setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Failed)
+    fun `resolveDestinationUrl returns Failure but enqueues request when first attempt did not complete`() =
+        runTest {
+            setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Failed, requeue = true)
+
+            val result = KlaviyoApiClient.resolveDestinationUrl(trackingUrl, profile)
+
+            assert(result is ResolveDestinationResult.Failure)
+            verifyEnqueuedClickTrack()
+
+            unmockkConstructor(UniversalClickTrackRequest::class)
+        }
+
+    @Test
+    fun `resolveDestinationUrl returns Failure and drops request on a definitive response`() = runTest {
+        setupResolveDestinationUrlTest(KlaviyoApiRequest.Status.Failed, requeue = false)
 
         val result = KlaviyoApiClient.resolveDestinationUrl(trackingUrl, profile)
 
