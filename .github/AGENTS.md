@@ -22,4 +22,4 @@ For agents and humans editing workflows and actions here. `CLAUDE.md` in this di
 
 ## Promotion check
 
-- `promotion-check.yml` runs `.github/scripts/promotion-check.py` on every PR. It is informational, so never add it as a required check. `GITHUB_TOKEN` cannot read org team membership, so keep `.github/promotion-check-team.txt` in sync with `@klaviyo/mobile-app-growth`.
+- `promotion-check.yml` runs `.github/scripts/promotion-check.sh` on every PR. It is informational, so never add it as a required check.

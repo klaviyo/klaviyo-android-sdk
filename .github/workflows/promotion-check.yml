@@ -29,13 +29,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          python3 .github/scripts/promotion-check.py \
-            --repo "$REPO" \
-            --pr "$PR_NUMBER" \
-            --author "$PR_AUTHOR" \
-            --base "origin/$BASE_REF" \
-            --head "$HEAD_SHA"
+          .github/scripts/promotion-check.sh \
+            "$REPO" "$PR_NUMBER" "origin/$BASE_REF" "$HEAD_SHA"
