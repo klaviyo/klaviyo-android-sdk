@@ -71,6 +71,14 @@ class SampleActivity : ComponentActivity() {
             return
         }
 
+        // SETUP NOTE: Start a draft in-app forms preview from the form editor's QR code or
+        // copied preview link with Klaviyo.handleFormsPreviewLink. It returns false, changing
+        // nothing, for every other link. The view model also shows the preview in its controls.
+        if (viewModel.handleFormsPreviewLink(intent?.data)) {
+            showToast("Forms preview started")
+            return
+        }
+
         // SETUP NOTE (Automatic / Option A): No Klaviyo.handlePush(intent) here.
         // Because com.klaviyo.push.automatic_push_open_tracking is enabled, the SDK automatically detects
         // notification taps and reports the open for you.

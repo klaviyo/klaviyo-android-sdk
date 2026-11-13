@@ -22,6 +22,27 @@ internal class InAppFormsNoOpTest : BaseTest() {
         }
     }
 
+    @Test
+    fun `startFormsPreview throws when provider not registered`() {
+        assertThrows(MissingKlaviyoModule::class.java) {
+            Klaviyo.startFormsPreview("token")
+        }
+    }
+
+    @Test
+    fun `endFormsPreview throws when provider not registered`() {
+        assertThrows(MissingKlaviyoModule::class.java) {
+            Klaviyo.endFormsPreview()
+        }
+    }
+
+    @Test
+    fun `handleFormsPreviewLink throws when provider not registered`() {
+        assertThrows(MissingKlaviyoModule::class.java) {
+            Klaviyo.handleFormsPreviewLink(null)
+        }
+    }
+
     @OptIn(AdvancedAPI::class)
     @Test
     fun `inAppFormsRegistrationState throws when provider not registered`() {

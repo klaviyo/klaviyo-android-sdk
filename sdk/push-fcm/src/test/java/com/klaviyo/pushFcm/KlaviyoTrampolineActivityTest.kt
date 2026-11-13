@@ -80,7 +80,7 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
      */
     private fun klaviyoIntent(): Intent = mockk(relaxed = true) {
         every { getStringExtra(PACKAGE_PREFIX + TRACKING_PARAMETER) } returns "tracking-id"
-        every { getStringExtra(KlaviyoTrampolineActivity.BROWSER_URL_EXTRA) } returns null
+        every { getStringExtra(Constants.BROWSER_URL_EXTRA) } returns null
         every { data } returns null
     }
 
@@ -88,7 +88,7 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
     fun `handleTrampolineIntent calls handlePush and launches browser intent`() {
         val intent = klaviyoIntent()
         every {
-            intent.getStringExtra(KlaviyoTrampolineActivity.BROWSER_URL_EXTRA)
+            intent.getStringExtra(Constants.BROWSER_URL_EXTRA)
         } returns "https://example.com"
         val parsedUri = mockk<Uri>(relaxed = true)
         every { Uri.parse("https://example.com") } returns parsedUri
@@ -101,6 +101,23 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         // or replaced silently with something else.
         verify { DeepLinking.makeExternalIntent(parsedUri) }
         verify { mockTrampolineContext.startActivity(mockBrowserIntent) }
+    }
+
+    @Test
+    fun `handleTrampolineIntent opens the browser URL as left by handlePush`() {
+        val intent = klaviyoIntent()
+        var browserUrl = "https://example.com/p?klaviyo-forms-preview=fixture-token"
+        every { intent.getStringExtra(Constants.BROWSER_URL_EXTRA) } answers { browserUrl }
+        every { Klaviyo.handlePush(intent) } answers {
+            browserUrl = "https://example.com/p"
+            Klaviyo
+        }
+        val parsedUri = mockk<Uri>(relaxed = true)
+        every { Uri.parse("https://example.com/p") } returns parsedUri
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verify { DeepLinking.makeExternalIntent(parsedUri) }
     }
 
     @Test
@@ -242,7 +259,7 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
     fun `handleTrampolineIntent dispatches non-web scheme URL via makeExternalIntent`() {
         val intent = klaviyoIntent()
         every {
-            intent.getStringExtra(KlaviyoTrampolineActivity.BROWSER_URL_EXTRA)
+            intent.getStringExtra(Constants.BROWSER_URL_EXTRA)
         } returns "mailto:user@example.com"
         val parsedUri = mockk<Uri>(relaxed = true)
         every { Uri.parse("mailto:user@example.com") } returns parsedUri
@@ -331,7 +348,7 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
     fun `handleTrampolineIntent still handles and dispatches the push when initialization fails`() {
         val intent = klaviyoIntent()
         every {
-            intent.getStringExtra(KlaviyoTrampolineActivity.BROWSER_URL_EXTRA)
+            intent.getStringExtra(Constants.BROWSER_URL_EXTRA)
         } returns "https://example.com"
         every { spyDataStore.fetch(StateKey.API_KEY.name) } throws MissingConfig()
 
