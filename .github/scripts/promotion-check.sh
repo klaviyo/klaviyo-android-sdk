@@ -7,14 +7,18 @@
 #     a reviewer who is not the PR author, not a bot, and whose review
 #     author_association is OWNER or MEMBER (an org member). Commits pushed after
 #     the approval are counted. Also passes, labeled exempt, when the commit has
-#     no source PR and both its author and committer are github-actions[bot].
+#     no source PR and is a version bump from automation: GitHub resolves its author
+#     to github-actions[bot], its committer is github-actions[bot], its subject
+#     starts with "rel: bump version", and it touches only the files bump-version.sh
+#     edits.
 #   Merge commit: passes only when `git show --remerge-diff` is empty.
 #
 # Writes failing commits first, then passing ones, to $GITHUB_STEP_SUMMARY (stdout
 # when unset). When the PR is a promotion (at least one commit came from an earlier
 # PR) it creates or updates one PR comment: OK to admin merge on a full pass, the
 # failing commits otherwise. A PR whose commits are all new gets no new comment, but
-# an existing one is updated. Informational: exits non-zero only on error.
+# an existing one is updated, including when no commits remain. Informational:
+# exits non-zero only on error.
 #
 # Usage: promotion-check.sh <owner/repo> <pr-number> <base-ref> <head-ref>
 # Env:   GH_TOKEN (required by gh)
@@ -37,7 +41,10 @@ MARKER="<!-- promotion-check -->"
 COMMENT_BOT="github-actions[bot]"
 COMMENT_LIMIT=60000
 MAX_AFTER_SHAS=5
+BUMP_SUBJECT_PREFIX="rel: bump version"
+BUMP_FILES=("README.md" "docs/index.html" "sdk/core/src/main/res/values/strings.xml" "versions.properties")
 PASS_HEADER="✅ Every commit in this PR was already reviewed in its own PR. OK to admin merge."
+EMPTY_HEADER="No commits left beyond the base branch. Nothing to check."
 NEW_LABEL="new in this PR (needs review)"
 
 TMP=$(mktemp -d)
@@ -105,6 +112,22 @@ evaluate_pr() {
 
 add_row() { printf '%s|%s|%s|%s|%s\n' "$1" "$2" "$3" "$4" "$5" >>"$ROWS"; }
 
+is_version_bump() {
+  local sha="$1" login file
+  [ "$(git log -1 --format='%cn' "$sha")" = "$COMMENT_BOT" ] || return 1
+  case "$(git log -1 --format='%s' "$sha")" in
+    "$BUMP_SUBJECT_PREFIX"*) ;;
+    *) return 1 ;;
+  esac
+  login=$(gh api "repos/$REPO/commits/$sha" --jq '.author.login // ""')
+  [ "$login" = "$COMMENT_BOT" ] || return 1
+  while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    printf '%s\n' "${BUMP_FILES[@]}" | grep -qxF -- "$file" || return 1
+  done < <(git diff-tree --no-commit-id --name-only -r "$sha")
+  return 0
+}
+
 check_commit() {
   local sha="$1"
 
@@ -127,7 +150,7 @@ check_commit() {
   any_other=$(jq --argjson current "$PR_NUMBER" '[.[] | select(.number != $current)] | length' <<<"$pulls")
 
   if [ -z "$numbers" ]; then
-    if [ "$(git log -1 --format='%an|%cn' "$sha")" = "$COMMENT_BOT|$COMMENT_BOT" ]; then
+    if is_version_bump "$sha"; then
       add_row "$sha" 1 "" "exempt: automation: $COMMENT_BOT" ""
     elif [ "$in_current" -gt 0 ]; then
       add_row "$sha" 0 "" "$NEW_LABEL" ""
@@ -207,6 +230,7 @@ render_table() {
 
 render_sections() {
   local limit="${1:-0}"
+  [ "$TOTAL" -eq 0 ] && return 0
   if [ "$FAILED" -eq 0 ]; then
     render_table all "$limit"
     return 0
@@ -278,7 +302,11 @@ SHAS=$(git rev-list --right-only --cherry-mark --topo-order --reverse "$BASE...$
   { grep -v '^=' || true; } | sed 's/^+//')
 
 if [ -z "$SHAS" ]; then
-  printf '## Promotion check\n\nNo commits beyond the base branch. Nothing to check.\n' | emit
+  TOTAL=0
+  PASSED=0
+  FAILED=0
+  OUTCOME=$(write_comment "$EMPTY_HEADER" false)
+  printf '## Promotion check\n\nNo commits beyond the base branch. Nothing to check.\n\n_%s_\n' "$OUTCOME" | emit
   exit 0
 fi
 

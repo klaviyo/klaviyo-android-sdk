@@ -4,10 +4,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, edited]
 
-concurrency:
-  group: promotion-check-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
   pull-requests: write
@@ -17,6 +13,9 @@ jobs:
     name: Promotion check
     if: github.event.action != 'edited' || github.event.changes.base != null
     runs-on: ubuntu-latest
+    concurrency:
+      group: promotion-check-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     steps:
       - name: Checkout PR head with full history
         uses: actions/checkout@v4
@@ -32,5 +31,8 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          .github/scripts/promotion-check.sh \
-            "$REPO" "$PR_NUMBER" "origin/$BASE_REF" "$HEAD_SHA"
+          SCRIPT="$RUNNER_TEMP/promotion-check.sh"
+          if ! git show "origin/$BASE_REF:.github/scripts/promotion-check.sh" >"$SCRIPT" 2>/dev/null; then
+            cp .github/scripts/promotion-check.sh "$SCRIPT"
+          fi
+          bash "$SCRIPT" "$REPO" "$PR_NUMBER" "origin/$BASE_REF" "$HEAD_SHA"
