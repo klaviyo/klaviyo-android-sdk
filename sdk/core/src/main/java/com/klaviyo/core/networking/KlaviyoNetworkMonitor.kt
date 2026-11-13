@@ -5,6 +5,7 @@ import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.os.Build
 import com.klaviyo.core.Registry
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -16,7 +17,11 @@ import java.util.concurrent.CopyOnWriteArrayList
  */
 internal object KlaviyoNetworkMonitor : NetworkMonitor {
 
-    private lateinit var networkRequest: NetworkRequest
+    /**
+     * True while [networkCallback] is registered with the system. Guarded by [registrationLock]
+     */
+    private var isCallbackRegistered = false
+    private val registrationLock = Any()
 
     private val connectivityManager: ConnectivityManager
         get() = Registry.config.applicationContext.getSystemService(ConnectivityManager::class.java)
@@ -49,8 +54,8 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
      * @param observer
      */
     override fun onNetworkChange(observer: NetworkObserver) {
-        initializeNetworkListener()
         networkChangeObservers += observer
+        initializeNetworkListener()
     }
 
     /**
@@ -60,6 +65,10 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
      */
     override fun offNetworkChange(observer: NetworkObserver) {
         networkChangeObservers -= observer
+
+        if (networkChangeObservers.isEmpty()) {
+            teardownNetworkListener()
+        }
     }
 
     /**
@@ -102,23 +111,53 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     }
 
     /**
-     * One-time setup to observe network changes with connectivityManager
+     * Setup to observe network changes with connectivityManager. No-op if already registered.
+     *
+     * We passively observe the system's default network, rather than actively requesting one,
+     * so we do not hold a network request open or count toward the app's request limit.
+     * - API 24+: [ConnectivityManager.registerDefaultNetworkCallback] tracks the same network
+     *   that [ConnectivityManager.getActiveNetwork] reports, which is what we query for state.
+     * - API 23: that method is unavailable, so fall back to [ConnectivityManager.registerNetworkCallback]
      */
-    private fun initializeNetworkListener() {
-        if (this::networkRequest.isInitialized) return
+    private fun initializeNetworkListener() = synchronized(registrationLock) {
+        if (isCallbackRegistered) return
 
-        Registry.log.verbose("Attached network monitor")
-
-        networkRequest = NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .build()
         try {
-            connectivityManager.requestNetwork(networkRequest, networkCallback)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                connectivityManager.registerDefaultNetworkCallback(networkCallback)
+            } else {
+                connectivityManager.registerNetworkCallback(
+                    NetworkRequest.Builder()
+                        .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        .build(),
+                    networkCallback
+                )
+            }
+            isCallbackRegistered = true
+            Registry.log.verbose("Attached network monitor")
         } catch (e: SecurityException) {
             Registry.log.warning(
                 "Failed to attach network monitor, degraded performance around requests may occur",
                 e
             )
+        }
+    }
+
+    /**
+     * Release the system callback once nobody is observing, so that it is not leaked
+     * and registration can be retried by the next observer.
+     */
+    private fun teardownNetworkListener() = synchronized(registrationLock) {
+        if (!isCallbackRegistered || networkChangeObservers.isNotEmpty()) return
+
+        try {
+            connectivityManager.unregisterNetworkCallback(networkCallback)
+            Registry.log.verbose("Detached network monitor")
+        } catch (e: IllegalArgumentException) {
+            // Thrown if the callback was not registered, which is the state we want anyway
+            Registry.log.warning("Network monitor was not registered", e)
+        } finally {
+            isCallbackRegistered = false
         }
     }
 }
