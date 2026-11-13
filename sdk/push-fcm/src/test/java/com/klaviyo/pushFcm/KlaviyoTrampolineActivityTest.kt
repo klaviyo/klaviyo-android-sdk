@@ -348,7 +348,7 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
     fun `handleTrampolineIntent still handles and dispatches the push when initialization fails`() {
         val intent = klaviyoIntent()
         every {
-            intent.getStringExtra(KlaviyoTrampolineActivity.BROWSER_URL_EXTRA)
+            intent.getStringExtra(Constants.BROWSER_URL_EXTRA)
         } returns "https://example.com"
         every { spyDataStore.fetch(StateKey.API_KEY.name) } throws MissingConfig()
 
