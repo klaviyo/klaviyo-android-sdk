@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import com.klaviyo.core.Registry
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Service for monitoring the application lifecycle and network connectivity
@@ -16,7 +17,30 @@ import java.util.concurrent.CopyOnWriteArrayList
  */
 internal object KlaviyoNetworkMonitor : NetworkMonitor {
 
-    private lateinit var networkRequest: NetworkRequest
+    /**
+     * Snapshot of connectivity state that observers care about
+     */
+    private data class NetworkState(
+        val isConnected: Boolean,
+        val networkType: NetworkMonitor.NetworkType
+    )
+
+    /**
+     * Guards registration with the system, so concurrent first observers register only once
+     */
+    private val registrationLock = Any()
+
+    /**
+     * True once the callback has been successfully registered with the system.
+     * Remains false after a failed attempt so that registration can be retried.
+     */
+    @Volatile
+    private var isRegistered = false
+
+    /**
+     * Last state broadcast to observers, used to suppress duplicate broadcasts
+     */
+    private val lastBroadcastState = AtomicReference<NetworkState?>(null)
 
     private val connectivityManager: ConnectivityManager
         get() = Registry.config.applicationContext.getSystemService(ConnectivityManager::class.java)
@@ -41,6 +65,11 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
             network: Network,
             linkProperties: LinkProperties
         ) = broadcastNetworkChange()
+
+        override fun onCapabilitiesChanged(
+            network: Network,
+            networkCapabilities: NetworkCapabilities
+        ) = broadcastNetworkChange()
     }
 
     /**
@@ -63,10 +92,15 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     }
 
     /**
-     * Invoke all registered observers with current state of network connectivity
+     * Invoke all registered observers with current state of network connectivity,
+     * unless it is unchanged since the last broadcast
      */
     private fun broadcastNetworkChange() {
         val isConnected = isNetworkConnected()
+
+        val state = NetworkState(isConnected, getNetworkType())
+
+        if (lastBroadcastState.getAndSet(state) == state) return
 
         Registry.log.verbose("Network ${if (isConnected) "available" else "unavailable"}")
 
@@ -102,23 +136,29 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     }
 
     /**
-     * One-time setup to observe network changes with connectivityManager
+     * Idempotent, thread-safe setup to observe network changes with connectivityManager.
+     * If registration fails, it will be attempted again the next time an observer is added.
      */
     private fun initializeNetworkListener() {
-        if (this::networkRequest.isInitialized) return
+        if (isRegistered) return
 
-        Registry.log.verbose("Attached network monitor")
+        synchronized(registrationLock) {
+            if (isRegistered) return
 
-        networkRequest = NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .build()
-        try {
-            connectivityManager.requestNetwork(networkRequest, networkCallback)
-        } catch (e: SecurityException) {
-            Registry.log.warning(
-                "Failed to attach network monitor, degraded performance around requests may occur",
-                e
-            )
+            val networkRequest = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+
+            try {
+                connectivityManager.requestNetwork(networkRequest, networkCallback)
+                isRegistered = true
+                Registry.log.verbose("Attached network monitor")
+            } catch (e: SecurityException) {
+                Registry.log.warning(
+                    "Failed to attach network monitor, degraded performance around requests may occur",
+                    e
+                )
+            }
         }
     }
 }
