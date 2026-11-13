@@ -9,6 +9,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.linking.DeepLinking
+import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getManifestBoolean
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
@@ -25,6 +26,8 @@ import io.mockk.slot
 import io.mockk.spyk
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import io.mockk.verifyOrder
+import java.util.UUID
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -71,9 +74,12 @@ class KlaviyoNotificationTest : BaseTest() {
         every { NotificationManagerCompat.from(any()) } returns this
     }
 
+    private val pushDispatcher = KlaviyoPushNotificationDispatcher()
+
     @Before
     override fun setup() {
         super.setup()
+        Registry.register<PushNotificationDispatcher>(pushDispatcher)
 
         // Mock NotificationCompat.Builder constructor to return our mock builder
         mockkConstructor(NotificationCompat.Builder::class)
@@ -129,6 +135,7 @@ class KlaviyoNotificationTest : BaseTest() {
 
     @After
     override fun cleanup() {
+        Registry.unregister<PushNotificationDispatcher>()
         MockIntent.unmockPendingIntent()
         unmockkStatic(Uri::class)
         unmockkStatic("com.klaviyo.core.config.KlaviyoConfigKt")
@@ -1037,5 +1044,67 @@ class KlaviyoNotificationTest : BaseTest() {
             bodyUid.captured,
             buttonUid.captured
         )
+    }
+
+    private fun observeNotifications(observer: KlaviyoNotificationObserver): KlaviyoNotificationObserver {
+        every { mockRemoteMessage.messageId } returns UUID.randomUUID().toString()
+        pushDispatcher.onKlaviyoNotification(observer)
+        return observer
+    }
+
+    @Test
+    fun `displayNotification dispatches to push observers before displaying`() {
+        val observer = observeNotifications(mockk(relaxed = true))
+
+        try {
+            notification.displayNotification(mockContext)
+
+            verifyOrder {
+                observer.onNotification(mockRemoteMessage)
+                mockNotificationManager.notify(any<String>(), any(), any())
+            }
+        } finally {
+            pushDispatcher.offKlaviyoNotification(observer)
+        }
+    }
+
+    @Test
+    fun `displayNotification still displays when a push observer throws`() {
+        val observer = observeNotifications { throw IllegalStateException("boom") }
+
+        try {
+            assertTrue(notification.displayNotification(mockContext))
+            verify { mockNotificationManager.notify(any<String>(), any(), any()) }
+        } finally {
+            pushDispatcher.offKlaviyoNotification(observer)
+        }
+    }
+
+    @Test
+    fun `displayNotification dispatches to push observers without notification permission`() {
+        every { notification.hasNotificationPermission(any()) } returns false
+        val observer = observeNotifications(mockk(relaxed = true))
+
+        try {
+            assertFalse(notification.displayNotification(mockContext))
+            verify { observer.onNotification(mockRemoteMessage) }
+        } finally {
+            pushDispatcher.offKlaviyoNotification(observer)
+        }
+    }
+
+    @Test
+    fun `displayNotification does not dispatch a message that is not a Klaviyo notification`() {
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.isKlaviyoNotification } returns false
+        }
+        val observer = observeNotifications(mockk(relaxed = true))
+
+        try {
+            notification.displayNotification(mockContext)
+            verify(exactly = 0) { observer.onNotification(any()) }
+        } finally {
+            pushDispatcher.offKlaviyoNotification(observer)
+        }
     }
 }

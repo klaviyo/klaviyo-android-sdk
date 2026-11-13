@@ -33,7 +33,7 @@ THROTTLE_BACKOFF_START=60
 THROTTLE_BACKOFF_MAX=240
 THROTTLE_MAX_WAIT=1800 # total seconds spent waiting out 429s per attempt before giving up polling
 
-EXPECTED_ARTIFACTS=("analytics" "core" "forms" "forms-core" "location" "location-core" "push-fcm")
+EXPECTED_ARTIFACTS=("analytics" "core" "forms" "forms-core" "location" "location-core" "inbox" "inbox-core" "push-fcm")
 
 TRANSIENT_PATTERN='Too Many Requests|status code 50[234]|50[234] (Bad Gateway|Service Unavailable|Gateway Time-?out)|Read timed out|Connect timed out|Connection reset'
 

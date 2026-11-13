@@ -28,13 +28,16 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <!--
-            Registers the FCM-backed PushTokenFetcher at process start so analytics can pull the
-            current push token at initialize() without depending on push-fcm. Mirrors the forms
-            module's FormsInitProvider.
+            Registers push-fcm services at process start: the FCM-backed PushTokenFetcher, so
+            analytics can pull the current push token at initialize() without depending on
+            push-fcm, and the PushNotificationDispatcher other modules observe. Mirrors the forms
+            module's FormsInitProvider. initOrder runs it before providers that read these services,
+            which use the default order of 0.
         -->
         <provider
             android:name="com.klaviyo.pushFcm.KlaviyoPushTokenInitProvider"
             android:authorities="${applicationId}.klaviyo.pushfcm.init"
-            android:exported="false" />
+            android:exported="false"
+            android:initOrder="100" />
     </application>
 </manifest>

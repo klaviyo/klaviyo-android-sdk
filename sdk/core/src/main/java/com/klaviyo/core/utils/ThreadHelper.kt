@@ -11,4 +11,9 @@ interface ThreadHelper {
     fun getHandler(looper: Looper): Handler
     fun getHandlerThread(name: String?): HandlerThread
     fun runOnUiThread(job: () -> Unit)
+
+    /**
+     * Whether the calling thread is the main (UI) thread
+     */
+    fun isMainThread(): Boolean
 }
