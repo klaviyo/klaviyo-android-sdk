@@ -38,6 +38,7 @@ EXEMPT_MERGER="evan-masseau"
 COMMENT_LIMIT=60000
 MAX_AFTER_SHAS=5
 PASS_HEADER="✅ Every commit in this PR was already reviewed in its own PR. OK to admin merge."
+NEW_LABEL="new in this PR (needs review)"
 STALE_HEADER="⚠️ This PR no longer passes the promotion check. Not every commit was already reviewed in its own PR."
 
 TMP=$(mktemp -d)
@@ -123,16 +124,22 @@ check_commit() {
     return 0
   fi
 
-  local numbers
-  numbers=$(gh api --paginate "repos/$REPO/commits/$sha/pulls?per_page=100" |
-    jq -r --argjson current "$PR_NUMBER" \
-      '.[] | select(.merged_at != null and .number != $current) | .number' | sort -nu)
+  local pulls numbers in_current any_other
+  pulls=$(gh api --paginate "repos/$REPO/commits/$sha/pulls?per_page=100" | jq -s 'add // []')
+  numbers=$(jq -r --argjson current "$PR_NUMBER" \
+    '.[] | select(.merged_at != null and .number != $current) | .number' <<<"$pulls" | sort -nu)
+  in_current=$(jq --argjson current "$PR_NUMBER" '[.[] | select(.number == $current)] | length' <<<"$pulls")
+  any_other=$(jq --argjson current "$PR_NUMBER" '[.[] | select(.number != $current)] | length' <<<"$pulls")
 
   if [ -z "$numbers" ]; then
     if [ "$(git log -1 --format='%an|%cn' "$sha")" = "$COMMENT_BOT|$COMMENT_BOT" ]; then
       add_row "$sha" 1 "" "exempt: automation: $COMMENT_BOT" ""
+    elif [ "$in_current" -gt 0 ]; then
+      add_row "$sha" 0 "" "$NEW_LABEL" ""
+    elif [ "$any_other" -gt 0 ]; then
+      add_row "$sha" 0 "" "no merged source PR" ""
     else
-      add_row "$sha" 0 "" "no merged source PR (direct push)" ""
+      add_row "$sha" 0 "" "no PR (direct push)" ""
     fi
     return 0
   fi
@@ -270,6 +277,9 @@ if [ "$PASSED" -eq "$TOTAL" ]; then
   OUTCOME=$(write_comment "$PASS_HEADER" true)
 else
   VERDICT="$((TOTAL - PASSED)) of $TOTAL commits do not pass."
+  if [ "$(grep -cF "$NEW_LABEL" "$ROWS" || true)" -eq "$TOTAL" ]; then
+    VERDICT="Not a promotion: this PR adds new code."
+  fi
   OUTCOME=$(write_comment "$STALE_HEADER" false)
 fi
 
