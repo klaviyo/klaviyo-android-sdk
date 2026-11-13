@@ -15,34 +15,76 @@ jobs:
       - name: Validate source branch
         env:
           HEAD_REF: ${{ github.head_ref }}
-          BASE_REF: ${{ github.base_ref }}
+          # Logged only. For a PR inside a GitHub stack this is the stack's base, not the PR's own base.
+          EVENT_BASE_REF: ${{ github.base_ref }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           LABEL: "needs: release branch"
         run: |
-          # If PR doesn't target master, this check doesn't apply — clean up any stale label and pass
-          if [[ "$BASE_REF" != "master" ]]; then
-            echo "PR targets '$BASE_REF' (not master) — check not required."
-            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "$LABEL" 2>/dev/null || true
-            exit 0
-          fi
+          MARKER="<!-- pr-target-check-warning -->"
 
-          if [[ "$HEAD_REF" == rel/* ]] || [[ "$HEAD_REF" == ci/* ]] || [[ "$HEAD_REF" == docs/* ]] || [[ "$HEAD_REF" == dependabot/* ]]; then
-            echo "Branch '$HEAD_REF' is allowed to target master."
+          # IDs of the warning comments this workflow has posted on the PR. Matching on github-actions[bot]
+          # ties this to GH_TOKEN being github.token; change both together.
+          warning_comment_ids() {
+            gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+              --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARKER\"))) | .id"
+          }
+
+          # Pass the check: remove the label and any warning comment left by an earlier failing run
+          pass() {
+            echo "$1"
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "$LABEL" 2>/dev/null || true
+            local ids id
+            if ids=$(warning_comment_ids); then
+              for id in $ids; do
+                gh api --method DELETE "repos/$REPO/issues/comments/$id" >/dev/null \
+                  || echo "::warning::Could not delete warning comment $id."
+              done
+            else
+              echo "::warning::Could not list PR comments to remove the warning comment."
+            fi
             exit 0
-          fi
+          }
+
+          # An API failure must not let a PR through silently
+          fail_closed() {
+            echo "::error::$1 Failing closed; re-run this check."
+            exit 1
+          }
+
+          allowed_branch() {
+            [[ "$1" == rel/* ]] || [[ "$1" == ci/* ]] || [[ "$1" == docs/* ]] || [[ "$1" == dependabot/* ]]
+          }
 
           # A conventional-commit PR title is another valid path: ci, chore, docs, or rel
           # (case-insensitive, optional scope and breaking-change marker, e.g. "ci(workflows)!: ...")
-          TITLE_LC=$(printf '%s' "$PR_TITLE" | tr '[:upper:]' '[:lower:]')
           TITLE_REGEX='^(ci|chore|docs|rel)(\([^)]*\))?!?:[[:space:]]'
-          if [[ "$TITLE_LC" =~ $TITLE_REGEX ]]; then
-            echo "PR title '$PR_TITLE' has an allowed conventional-commit prefix — allowed to target master."
-            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "$LABEL" 2>/dev/null || true
-            exit 0
+          allowed_title() {
+            local title_lc
+            title_lc=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+            [[ "$title_lc" =~ $TITLE_REGEX ]]
+          }
+
+          # github.base_ref reports the stack's base for a PR inside a GitHub stack, not the PR's own base,
+          # so read the PR's base from the API
+          BASE_REF=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.base.ref') \
+            || fail_closed "Could not fetch PR #$PR_NUMBER from the GitHub API."
+          [ -n "$BASE_REF" ] || fail_closed "The GitHub API returned no base branch for PR #$PR_NUMBER."
+          echo "Base branch: '$BASE_REF' (event base_ref: '$EVENT_BASE_REF')."
+
+          # If PR doesn't target master, this check doesn't apply
+          if [[ "$BASE_REF" != "master" ]]; then
+            pass "PR targets '$BASE_REF' (not master) — check not required."
+          fi
+
+          if allowed_branch "$HEAD_REF"; then
+            pass "Branch '$HEAD_REF' is allowed to target master."
+          fi
+
+          if allowed_title "$PR_TITLE"; then
+            pass "PR title '$PR_TITLE' has an allowed conventional-commit prefix — allowed to target master."
           fi
 
           # Check for manual-merge override label
@@ -50,15 +92,15 @@ jobs:
             --jq '.[] | select(.name == "manual-merge") | .name' | head -1)
 
           if [ -n "$HAS_OVERRIDE" ]; then
-            echo "manual-merge label present — bypassing check. This PR will merge directly to master without a release branch."
-            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "$LABEL" 2>/dev/null || true
-            exit 0
+            pass "manual-merge label present — bypassing check. This PR will merge directly to master without a release branch."
           fi
 
-          # Post a comment only if one hasn't been posted already
-          MARKER="<!-- pr-target-check-warning -->"
-          EXISTING=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
-            --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | head -1)
+          # Post a comment only if one hasn't been posted already. If the comments can't be listed,
+          # skip posting rather than risk a duplicate; the label and the failing status still apply.
+          if ! EXISTING=$(warning_comment_ids); then
+            echo "::warning::Could not list PR comments; not posting the warning comment."
+            EXISTING=unknown
+          fi
 
           if [ -z "$EXISTING" ]; then
             gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
