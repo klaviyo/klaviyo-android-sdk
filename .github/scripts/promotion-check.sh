@@ -7,7 +7,9 @@
 #     a reviewer who is not the PR author, not a bot, and who has admin, maintain,
 #     or write access to the repo. Repo access comes from the collaborator
 #     permission API, looked up once per reviewer. Commits pushed after
-#     the approval are counted. Also passes, labeled exempt, when the commit has
+#     the approval are counted. A source PR whose changed files are all unowned
+#     in CODEOWNERS also passes, since no review is required for those paths.
+#     Also passes, labeled exempt, when the commit has
 #     no source PR and is a version bump from automation: its author and committer
 #     are both github-actions[bot] with the bot's noreply email, its subject starts
 #     with "rel: bump version", and it touches only the files bump-version.sh edits.
@@ -93,6 +95,124 @@ has_write_access() {
         *) printf 'no\n' >"$cache" ;;
       esac
     fi
+  fi
+  [ "$(cat "$cache")" = "yes" ]
+}
+
+# Translates a CODEOWNERS pattern to an extended regex body: `**` crosses "/",
+# `*` and `?` stop at "/", regex metacharacters are escaped.
+codeowners_regex() {
+  local body="$1" out="" i=0 c
+  while [ "$i" -lt "${#body}" ]; do
+    c="${body:$i:1}"
+    case "$c" in
+      '*')
+        if [ "${body:$((i + 1)):1}" = "*" ]; then
+          if [ "${body:$((i + 2)):1}" = "/" ]; then
+            out="$out(.*/)?"
+            i=$((i + 3))
+            continue
+          fi
+          out="$out.*"
+          i=$((i + 2))
+          continue
+        fi
+        out="${out}[^/]*"
+        ;;
+      '?') out="${out}[^/]" ;;
+      '.' | '+' | '(' | ')' | '[' | ']' | '{' | '}' | '^' | '$' | '|' | "\\")
+        out="$out\\$c"
+        ;;
+      *) out="$out$c" ;;
+    esac
+    i=$((i + 1))
+  done
+  printf '%s' "$out"
+}
+
+# Loads CODEOWNERS from $BASE, in GitHub's lookup order, into $CODEOWNERS_FILE as
+# "<owned>|<regex>" lines in file order. A pattern without a slash outside its
+# ends matches at any depth; a pattern also covers everything beneath it. The
+# last matching line decides ownership.
+CODEOWNERS_FILE="$TMP/codeowners"
+CODEOWNERS_LOADED=0
+CODEOWNERS_FOUND=0
+load_codeowners() {
+  [ "$CODEOWNERS_LOADED" = "1" ] && return 0
+  CODEOWNERS_LOADED=1
+  : >"$CODEOWNERS_FILE"
+
+  local path raw="" found=0 line pattern owners body anchored
+  CODEOWNERS_FOUND=0
+  for path in .github/CODEOWNERS CODEOWNERS docs/CODEOWNERS; do
+    if raw=$(git show "$BASE:$path" 2>/dev/null); then
+      found=1
+      break
+    fi
+    raw=""
+  done
+  [ "$found" = "1" ] || return 0
+  CODEOWNERS_FOUND=1
+
+  while IFS= read -r line; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [ -z "$line" ] && continue
+    case "$line" in '#'*) continue ;; esac
+
+    pattern="${line%%[[:space:]]*}"
+    owners="${line#"$pattern"}"
+    owners="${owners#"${owners%%[![:space:]]*}"}"
+
+    anchored=0
+    case "$pattern" in /*) anchored=1 ;; esac
+    pattern="${pattern#/}"
+    pattern="${pattern%/}"
+    case "$pattern" in */*) anchored=1 ;; esac
+    body=$(codeowners_regex "$pattern")
+    if [ "$anchored" = "1" ]; then
+      pattern="^$body"
+    else
+      pattern="^(.*/)?$body"
+    fi
+
+    case "$owners" in
+      '') printf '0|%s(/.*)?$\n' "$pattern" >>"$CODEOWNERS_FILE" ;;
+      *) printf '1|%s(/.*)?$\n' "$pattern" >>"$CODEOWNERS_FILE" ;;
+    esac
+  done <<<"$raw"
+  return 0
+}
+
+# Succeeds when CODEOWNERS leaves path $1 without any owner. No CODEOWNERS file
+# at all owns every path.
+is_unowned() {
+  local file="$1" owned=0 flag regex
+  load_codeowners
+  [ "$CODEOWNERS_FOUND" = "1" ] || return 1
+  while IFS='|' read -r flag regex; do
+    if [[ "$file" =~ $regex ]]; then
+      owned="$flag"
+    fi
+  done <"$CODEOWNERS_FILE"
+  [ "$owned" = "0" ]
+}
+
+# Succeeds when every file changed by PR $1 is unowned. One API call per PR.
+pr_all_unowned() {
+  local n="$1" cache="$TMP/unowned-$1" files="" file all=yes
+  if [ ! -f "$cache" ]; then
+    files=$(gh api --paginate "repos/$REPO/pulls/$n/files?per_page=100" \
+      --jq '.[].filename' 2>/dev/null || true)
+    if [ -z "$files" ]; then
+      all=no
+    else
+      while IFS= read -r file; do
+        [ -z "$file" ] && continue
+        is_unowned "$file" || all=no
+      done <<<"$files"
+    fi
+    printf '%s\n' "$all" >"$cache"
   fi
   [ "$(cat "$cache")" = "yes" ]
 }
@@ -227,7 +347,11 @@ check_commit() {
       add_row "$sha" 1 "$chosen" "$detail" "$after_text"
       ;;
     *)
-      add_row "$sha" 0 "$chosen" "merged by @${merged_by:-unknown} without a qualifying approval" "" "$BYPASS"
+      if pr_all_unowned "$chosen"; then
+        add_row "$sha" 1 "$chosen" "no review required (unowned paths)" ""
+      else
+        add_row "$sha" 0 "$chosen" "merged by @${merged_by:-unknown} without a qualifying approval" "" "$BYPASS"
+      fi
       ;;
   esac
 }
