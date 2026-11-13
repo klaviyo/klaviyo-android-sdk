@@ -301,14 +301,16 @@ def main():
         summary += "\n\n" + "\n".join(notes)
 
     qualifies = all_pass and author_on_team
-    header = PASS_HEADER if qualifies else STALE_HEADER
-    outcome = post_comment(
-        args.repo,
-        args.pr,
-        comment_body(header, rows, args.repo),
-        args.dry_run,
-        create_allowed=qualifies,
-    )
+    if all_pass and not author_on_team:
+        outcome = "no comment: PR author is not on the team"
+    else:
+        outcome = post_comment(
+            args.repo,
+            args.pr,
+            comment_body(PASS_HEADER if qualifies else STALE_HEADER, rows, args.repo),
+            args.dry_run,
+            create_allowed=qualifies,
+        )
     summary += f"\n\n_{outcome}_"
     write_summary(summary)
 
