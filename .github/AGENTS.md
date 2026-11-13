@@ -18,4 +18,9 @@ For agents and humans editing workflows and actions here. `CLAUDE.md` in this di
 ## Workflow conventions
 
 - Pin actions by tag. Use a full SHA with a `# vX.Y.Z` comment for actions that handle credentials or release data (`linear/linear-release-action`, `slackapi/slack-github-action`).
-- `publish-release.yml` and `jitpack.yml` use `concurrency` groups with `cancel-in-progress: false`.
+- `publish-release.yml` and `jitpack.yml` use `concurrency` groups with `cancel-in-progress: false`, except `jitpack.yml` pushes to `master`, which share one `jitpack-master` group that cancels the older run.
+
+## Promotion check
+
+- `promotion-check.yml` runs `.github/scripts/promotion-check.sh` on every PR. It is informational, so never add it as a required check.
+- A commit's source PR counts as reviewed only on an APPROVED review from someone other than the author and not a bot, who has `admin`, `maintain`, or `write` repo access according to the collaborator permission API. Repo access is what qualifies an approver, not org membership or `author_association`; the workflow's `GITHUB_TOKEN` cannot see private org membership.

@@ -11,8 +11,14 @@ on:
         required: false
         type: string
         default: ''
+      triggered_by:
+        description: Login of the person who started this run. Set by publish-release.yml; leave empty to use the actor
+        type: string
+        required: false
+        default: ''
 
 env:
+  TRIGGERED_BY: ${{ github.event_name == 'schedule' && 'schedule' || inputs.triggered_by || (endsWith(github.triggering_actor || github.actor, '[bot]') && format('{0} (automation)', github.workflow) || github.triggering_actor || github.actor) }}
   SLACK_USERNAME: Android SDK
   SLACK_ICON_EMOJI: ':merlin-orb-android:'
 
@@ -36,7 +42,7 @@ jobs:
 
       - name: Set up JDK 17
         id: jdk
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v6
         with:
           distribution: 'zulu'
           java-version: 17
@@ -81,7 +87,7 @@ jobs:
             Version: `${{ github.ref_name }}`
             Commit: `${{ steps.commit.outputs.short_sha }}`
             Trigger: `${{ github.event_name }}`
-            Author: ${{ github.actor }}
+            Triggered by: `${{ env.TRIGGERED_BY }}`
           links: |
             Docs|https://klaviyo.github.io/klaviyo-android-sdk/
             Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
@@ -133,7 +139,7 @@ jobs:
             Version: `${{ github.ref_name }}`
             Commit: `${{ steps.commit.outputs.short_sha }}`
             Trigger: `${{ github.event_name }}`
-            Author: ${{ github.actor }}
+            Triggered by: `${{ env.TRIGGERED_BY }}`
           links: Docs|https://klaviyo.github.io/klaviyo-android-sdk/
 
       - name: Wait for Pages build
@@ -240,5 +246,5 @@ jobs:
             Version: `${{ github.ref_name }}`
             Commit: `${{ steps.commit.outputs.short_sha }}`
             Trigger: `${{ github.event_name }}`
-            Author: ${{ github.actor }}
+            Triggered by: `${{ env.TRIGGERED_BY }}`
           links: Docs|https://klaviyo.github.io/klaviyo-android-sdk/

@@ -133,7 +133,7 @@ The Klaviyo Android SDK is organized into multiple modules, each with specific r
 | `feat/*` | New features | No — target active `rel/*` |
 | `{initials}/*` | Personal/WIP branches | No — target active `rel/*` |
 
-A required status check blocks merges to `master` from any branch not in the allowed list. A conventional-commit PR title prefixed with `ci:`, `chore:`, `docs:`, or `rel:` (case-insensitive, scopes allowed) also satisfies the check. The check posts a comment with retargeting instructions and applies a `needs: release branch` label. To bypass in exceptional cases, a maintainer can add the `manual-merge` label — use sparingly.
+A required status check blocks merges to `master` from any branch not in the allowed list. A conventional-commit PR title prefixed with `ci:`, `chore:`, `docs:`, or `rel:` (case-insensitive, scopes allowed) also satisfies the check. The check judges each PR by its own base branch, read from the GitHub API. It doesn't use `github.base_ref`, which reports the stack's base for a PR inside a GitHub stack, so a PR stacked on another PR's branch is not treated as targeting `master`. The check posts a comment with retargeting instructions and applies a `needs: release branch` label. To bypass in exceptional cases, a maintainer can add the `manual-merge` label — use sparingly.
 
 ### CI/CD Pipeline
 
