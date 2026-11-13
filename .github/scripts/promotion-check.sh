@@ -4,8 +4,9 @@
 #
 # Commit set: base...head minus commits already on base by patch-id.
 #   Non-merge commit: passes when its merged source PR has an APPROVED review from
-#     a reviewer who is not the PR author, not a bot, and whose review
-#     author_association is OWNER or MEMBER (an org member). Commits pushed after
+#     a reviewer who is not the PR author, not a bot, and who has admin, maintain,
+#     or write access to the repo. Repo access comes from the collaborator
+#     permission API, looked up once per reviewer. Commits pushed after
 #     the approval are counted. Also passes, labeled exempt, when the commit has
 #     no source PR and is a version bump from automation: its author and committer
 #     are both github-actions[bot] with the bot's noreply email, its subject starts
@@ -50,7 +51,9 @@ NEW_LABEL="new in this PR (needs review)"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 ROWS="$TMP/rows"
+PERMISSIONS="$TMP/permissions"
 : >"$ROWS"
+mkdir -p "$PERMISSIONS"
 PROMOTION=0
 
 short_list() {
@@ -68,6 +71,27 @@ short_list() {
   printf '%s' "$out"
 }
 
+# Succeeds when the login has admin, maintain, or write access to $REPO.
+# One API call per login per run; a failed lookup counts as no access.
+has_write_access() {
+  local login="$1" cache="$PERMISSIONS/$1" found permission role
+  if [ ! -f "$cache" ]; then
+    found=$(gh api "repos/$REPO/collaborators/$login/permission" \
+      --jq '"\(.permission // "") \(.role_name // "")"' 2>/dev/null || true)
+    permission="${found%% *}"
+    role="${found#* }"
+    if [ "$permission" = "admin" ] || [ "$permission" = "write" ]; then
+      printf 'yes\n' >"$cache"
+    else
+      case "$role" in
+        admin | maintain | write) printf 'yes\n' >"$cache" ;;
+        *) printf 'no\n' >"$cache" ;;
+      esac
+    fi
+  fi
+  [ "$(cat "$cache")" = "yes" ]
+}
+
 # Writes "$TMP/pr-<n>" as: status|approvers|after_count|after_shas_csv|after_known|merged_by
 evaluate_pr() {
   local n="$1" file="$TMP/pr-$1"
@@ -75,18 +99,26 @@ evaluate_pr() {
 
   local pr author merged_by approvals approvers latest status
   local after="" after_count=0 after_known=1 pr_commits
+  local candidates login commit submitted
   pr=$(gh api "repos/$REPO/pulls/$n")
   author=$(jq -r '.user.login' <<<"$pr")
   merged_by=$(jq -r '.merged_by.login // ""' <<<"$pr")
 
-  approvals=$(gh api --paginate "repos/$REPO/pulls/$n/reviews?per_page=100" |
+  candidates=$(gh api --paginate "repos/$REPO/pulls/$n/reviews?per_page=100" |
     jq -r --arg author "$author" '
       .[]
       | select(.state == "APPROVED" and .user != null and .user.type != "Bot")
       | select(.user.login | endswith("[bot]") | not)
       | select((.user.login | ascii_downcase) != ($author | ascii_downcase))
-      | select(.author_association == "OWNER" or .author_association == "MEMBER")
       | [.user.login, .commit_id, .submitted_at] | join("|")')
+
+  approvals=""
+  while IFS='|' read -r login commit submitted; do
+    [ -z "$login" ] && continue
+    if has_write_access "$login"; then
+      approvals="${approvals}${approvals:+$'\n'}$login|$commit|$submitted"
+    fi
+  done <<<"$candidates"
 
   if [ -n "$approvals" ]; then
     status="approved"
