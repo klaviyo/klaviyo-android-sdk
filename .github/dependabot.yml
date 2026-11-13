@@ -10,6 +10,17 @@ updates:
   commit-message:
     prefix: chore
     include: scope
+  # Held until the build moves to AGP 9. Remove both entries in that change.
+  ignore:
+  # Gradle 9 can't apply AGP 8.11.
+  - dependency-name: 'gradle-wrapper'
+    update-types:
+    - 'version-update:semver-major'
+  # core-ktx 1.19+ needs compileSdk 37 and AGP 9.1. Only the sample app
+  # names it directly; the SDK modules get it from versions.properties.
+  - dependency-name: 'androidx.core:core-ktx'
+    versions:
+    - '>= 1.19.0'
   groups:
     gradle-shipped-minor-patch:
       applies-to: version-updates
