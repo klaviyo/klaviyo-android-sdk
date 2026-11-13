@@ -14,7 +14,10 @@
 #   Merge commit: passes only when `git show --remerge-diff` is empty.
 #
 # Writes failing commits first, then passing ones, to $GITHUB_STEP_SUMMARY (stdout
-# when unset). When the PR is a promotion (at least one commit came from an earlier
+# when unset). Failing commits are marked ❌ when review was bypassed elsewhere (the
+# source PR merged without a qualifying approval, no merged source PR, or no PR at
+# all) and ⚠️ when the gap is in this PR (a new commit, or a merge commit adding
+# changes). When the PR is a promotion (at least one commit came from an earlier
 # PR) it creates or updates one PR comment: OK to admin merge on a full pass, the
 # failing commits otherwise. A PR whose commits are all new gets no new comment, but
 # an existing one is updated, including when no commits remain. Informational:
@@ -47,6 +50,8 @@ BUMP_FILES=("README.md" "docs/index.html" "sdk/core/src/main/res/values/strings.
 PASS_HEADER="✅ Every commit in this PR was already reviewed in its own PR. OK to admin merge."
 EMPTY_HEADER="No commits left beyond the base branch. Nothing to check."
 NEW_LABEL="new in this PR (needs review)"
+BYPASS="bypass"
+NEEDS_REVIEW="needs-review"
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -142,7 +147,9 @@ evaluate_pr() {
     "$(paste -sd, - <<<"$after")" "$after_known" "$merged_by" >"$file"
 }
 
-add_row() { printf '%s|%s|%s|%s|%s\n' "$1" "$2" "$3" "$4" "$5" >>"$ROWS"; }
+# Row fields: sha|passed|source_pr|detail|after_approval|severity
+# severity is "" for a pass, $BYPASS or $NEEDS_REVIEW for a failure.
+add_row() { printf '%s|%s|%s|%s|%s|%s\n' "$1" "$2" "$3" "$4" "$5" "${6:-}" >>"$ROWS"; }
 
 is_version_bump() {
   local sha="$1" file
@@ -165,7 +172,7 @@ check_commit() {
   parents=$(git rev-list --parents -n 1 "$sha" | wc -w | tr -d ' ')
   if [ "$((parents - 1))" -gt 1 ]; then
     if [ -n "$(git show --remerge-diff --format= "$sha")" ]; then
-      add_row "$sha" 0 "" "merge commit introduces changes beyond its parents" ""
+      add_row "$sha" 0 "" "merge commit introduces changes beyond its parents" "" "$NEEDS_REVIEW"
     else
       add_row "$sha" 1 "" "merge commit, nothing beyond its parents" ""
     fi
@@ -183,11 +190,11 @@ check_commit() {
     if is_version_bump "$sha"; then
       add_row "$sha" 1 "" "exempt: automation: $COMMENT_BOT" ""
     elif [ "$in_current" -gt 0 ]; then
-      add_row "$sha" 0 "" "$NEW_LABEL" ""
+      add_row "$sha" 0 "" "$NEW_LABEL" "" "$NEEDS_REVIEW"
     elif [ "$any_other" -gt 0 ]; then
-      add_row "$sha" 0 "" "no merged source PR" ""
+      add_row "$sha" 0 "" "no merged source PR" "" "$BYPASS"
     else
-      add_row "$sha" 0 "" "no PR (direct push)" ""
+      add_row "$sha" 0 "" "no PR (direct push)" "" "$BYPASS"
     fi
     return 0
   fi
@@ -220,7 +227,7 @@ check_commit() {
       add_row "$sha" 1 "$chosen" "$detail" "$after_text"
       ;;
     *)
-      add_row "$sha" 0 "$chosen" "merged by @${merged_by:-unknown} without a qualifying approval" ""
+      add_row "$sha" 0 "$chosen" "merged by @${merged_by:-unknown} without a qualifying approval" "" "$BYPASS"
       ;;
   esac
 }
@@ -231,16 +238,17 @@ count_rows() {
   case "$1" in
     pass) grep -c '^[^|]*|1|' "$ROWS" || true ;;
     fail) grep -c '^[^|]*|0|' "$ROWS" || true ;;
+    bypass) grep -c "^[^|]*|0|[^|]*|[^|]*|[^|]*|$BYPASS\$" "$ROWS" || true ;;
     *) grep -c . "$ROWS" || true ;;
   esac
 }
 
 render_table() {
-  local filter="$1" limit="${2:-0}" shown=0 sha ok pr detail after mark pr_cell total
+  local filter="$1" limit="${2:-0}" shown=0 sha ok pr detail after severity mark pr_cell total
   total=$(count_rows "$filter")
   printf '| Commit | Source PR | Approver / reason | After approval |\n'
   printf '| --- | --- | --- | --- |\n'
-  while IFS='|' read -r sha ok pr detail after; do
+  while IFS='|' read -r sha ok pr detail after severity; do
     [ "$filter" = "pass" ] && [ "$ok" != "1" ] && continue
     [ "$filter" = "fail" ] && [ "$ok" != "0" ] && continue
     if [ "$limit" -gt 0 ] && [ "$shown" -ge "$limit" ]; then
@@ -249,6 +257,7 @@ render_table() {
     shown=$((shown + 1))
     mark="⚠️"
     [ "$ok" = "1" ] && mark="✅"
+    [ "$severity" = "$BYPASS" ] && mark="❌"
     pr_cell="none"
     [ -n "$pr" ] && pr_cell="[#$pr](https://github.com/$REPO/pull/$pr)"
     printf '| %s %s | %s | %s | %s |\n' "$mark" "$(sha_link "$sha")" "$pr_cell" "$detail" "$after"
@@ -346,6 +355,7 @@ done <<<"$SHAS"
 
 TOTAL=$(count_rows all)
 PASSED=$(count_rows pass)
+BYPASSED=$(count_rows bypass)
 FAILED=$((TOTAL - PASSED))
 CREATE=false
 [ "$PROMOTION" -eq 1 ] && CREATE=true
@@ -354,7 +364,12 @@ if [ "$FAILED" -eq 0 ]; then
   VERDICT="$PASS_HEADER"
   FAIL_HEADER=""
 else
-  FAIL_HEADER="⚠️ $FAILED of $TOTAL commits weren't reviewed in an earlier PR"
+  verdict_mark="⚠️"
+  [ "$BYPASSED" -gt 0 ] && verdict_mark="❌"
+  FAIL_HEADER="$verdict_mark $FAILED of $TOTAL commits weren't reviewed in an earlier PR"
+  if [ "$BYPASSED" -gt 0 ] && [ "$BYPASSED" -lt "$FAILED" ]; then
+    FAIL_HEADER="$FAIL_HEADER ($BYPASSED bypassed review, $((FAILED - BYPASSED)) need review here)"
+  fi
   VERDICT="$FAIL_HEADER"
   if [ "$(grep -cF "$NEW_LABEL" "$ROWS" || true)" -eq "$TOTAL" ]; then
     VERDICT="Not a promotion: this PR adds new code."
