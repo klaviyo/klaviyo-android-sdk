@@ -7,7 +7,9 @@
 #     a reviewer who is not the PR author, not a bot, and whose review
 #     author_association is OWNER or MEMBER (an org member). Commits pushed after
 #     the approval are counted. Also passes, labeled exempt, when the commit has
-#     no source PR and both its author and committer are github-actions[bot].
+#     no source PR and is a version bump from automation: its author and committer
+#     are both github-actions[bot] with the bot's noreply email, its subject starts
+#     with "rel: bump version", and it touches only the files bump-version.sh edits.
 #   Merge commit: passes only when `git show --remerge-diff` is empty.
 #
 # Writes failing commits first, then passing ones, to $GITHUB_STEP_SUMMARY (stdout
@@ -38,6 +40,9 @@ MARKER="<!-- promotion-check -->"
 COMMENT_BOT="github-actions[bot]"
 COMMENT_LIMIT=60000
 MAX_AFTER_SHAS=5
+BOT_EMAIL="41898333+github-actions[bot]@users.noreply.github.com"
+BUMP_SUBJECT_PREFIX="rel: bump version"
+BUMP_FILES=("README.md" "docs/index.html" "sdk/core/src/main/res/values/strings.xml" "versions.properties")
 PASS_HEADER="✅ Every commit in this PR was already reviewed in its own PR. OK to admin merge."
 EMPTY_HEADER="No commits left beyond the base branch. Nothing to check."
 NEW_LABEL="new in this PR (needs review)"
@@ -107,6 +112,20 @@ evaluate_pr() {
 
 add_row() { printf '%s|%s|%s|%s|%s\n' "$1" "$2" "$3" "$4" "$5" >>"$ROWS"; }
 
+is_version_bump() {
+  local sha="$1" file
+  [ "$(git log -1 --format='%an|%ae|%cn|%ce' "$sha")" = "$COMMENT_BOT|$BOT_EMAIL|$COMMENT_BOT|$BOT_EMAIL" ] || return 1
+  case "$(git log -1 --format='%s' "$sha")" in
+    "$BUMP_SUBJECT_PREFIX"*) ;;
+    *) return 1 ;;
+  esac
+  while IFS= read -r file; do
+    [ -z "$file" ] && continue
+    printf '%s\n' "${BUMP_FILES[@]}" | grep -qxF -- "$file" || return 1
+  done < <(git diff-tree --no-commit-id --name-only -r "$sha")
+  return 0
+}
+
 check_commit() {
   local sha="$1"
 
@@ -129,7 +148,7 @@ check_commit() {
   any_other=$(jq --argjson current "$PR_NUMBER" '[.[] | select(.number != $current)] | length' <<<"$pulls")
 
   if [ -z "$numbers" ]; then
-    if [ "$(git log -1 --format='%an|%cn' "$sha")" = "$COMMENT_BOT|$COMMENT_BOT" ]; then
+    if is_version_bump "$sha"; then
       add_row "$sha" 1 "" "exempt: automation: $COMMENT_BOT" ""
     elif [ "$in_current" -gt 0 ]; then
       add_row "$sha" 0 "" "$NEW_LABEL" ""
