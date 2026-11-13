@@ -24,3 +24,4 @@ For agents and humans editing workflows and actions here. `CLAUDE.md` in this di
 
 - `promotion-check.yml` runs `.github/scripts/promotion-check.sh` on every PR. It is informational, so never add it as a required check.
 - A commit's source PR counts as reviewed only on an APPROVED review from someone other than the author and not a bot, who has `admin`, `maintain`, or `write` repo access according to the collaborator permission API. Repo access is what qualifies an approver, not org membership or `author_association`; the workflow's `GITHUB_TOKEN` cannot see private org membership.
+- A source PR merged without a qualifying approval passes when every file it changed is unowned in `CODEOWNERS` at the base revision, because rulesets then require no review. CODEOWNERS lookup follows GitHub's `.github/`, root, then `docs/` order; no file means every path is owned.

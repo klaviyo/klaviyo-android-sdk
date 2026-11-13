@@ -7,14 +7,19 @@
 #     a reviewer who is not the PR author, not a bot, and who has admin, maintain,
 #     or write access to the repo. Repo access comes from the collaborator
 #     permission API, looked up once per reviewer. Commits pushed after
-#     the approval are counted. Also passes, labeled exempt, when the commit has
+#     the approval are counted. A source PR whose changed files are all unowned
+#     in CODEOWNERS also passes, since no review is required for those paths.
+#     Also passes, labeled exempt, when the commit has
 #     no source PR and is a version bump from automation: its author and committer
 #     are both github-actions[bot] with the bot's noreply email, its subject starts
 #     with "rel: bump version", and it touches only the files bump-version.sh edits.
 #   Merge commit: passes only when `git show --remerge-diff` is empty.
 #
 # Writes failing commits first, then passing ones, to $GITHUB_STEP_SUMMARY (stdout
-# when unset). When the PR is a promotion (at least one commit came from an earlier
+# when unset). Failing commits are marked ❌ when review was bypassed elsewhere (the
+# source PR merged without a qualifying approval, no merged source PR, or no PR at
+# all) and ⚠️ when the gap is in this PR (a new commit, or a merge commit adding
+# changes). When the PR is a promotion (at least one commit came from an earlier
 # PR) it creates or updates one PR comment: OK to admin merge on a full pass, the
 # failing commits otherwise. A PR whose commits are all new gets no new comment, but
 # an existing one is updated, including when no commits remain. Informational:
@@ -47,6 +52,8 @@ BUMP_FILES=("README.md" "docs/index.html" "sdk/core/src/main/res/values/strings.
 PASS_HEADER="✅ Every commit in this PR was already reviewed in its own PR. OK to admin merge."
 EMPTY_HEADER="No commits left beyond the base branch. Nothing to check."
 NEW_LABEL="new in this PR (needs review)"
+BYPASS="bypass"
+NEEDS_REVIEW="needs-review"
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -88,6 +95,124 @@ has_write_access() {
         *) printf 'no\n' >"$cache" ;;
       esac
     fi
+  fi
+  [ "$(cat "$cache")" = "yes" ]
+}
+
+# Translates a CODEOWNERS pattern to an extended regex body: `**` crosses "/",
+# `*` and `?` stop at "/", regex metacharacters are escaped.
+codeowners_regex() {
+  local body="$1" out="" i=0 c
+  while [ "$i" -lt "${#body}" ]; do
+    c="${body:$i:1}"
+    case "$c" in
+      '*')
+        if [ "${body:$((i + 1)):1}" = "*" ]; then
+          if [ "${body:$((i + 2)):1}" = "/" ]; then
+            out="$out(.*/)?"
+            i=$((i + 3))
+            continue
+          fi
+          out="$out.*"
+          i=$((i + 2))
+          continue
+        fi
+        out="${out}[^/]*"
+        ;;
+      '?') out="${out}[^/]" ;;
+      '.' | '+' | '(' | ')' | '[' | ']' | '{' | '}' | '^' | '$' | '|' | "\\")
+        out="$out\\$c"
+        ;;
+      *) out="$out$c" ;;
+    esac
+    i=$((i + 1))
+  done
+  printf '%s' "$out"
+}
+
+# Loads CODEOWNERS from $BASE, in GitHub's lookup order, into $CODEOWNERS_FILE as
+# "<owned>|<regex>" lines in file order. A pattern without a slash outside its
+# ends matches at any depth; a pattern also covers everything beneath it. The
+# last matching line decides ownership.
+CODEOWNERS_FILE="$TMP/codeowners"
+CODEOWNERS_LOADED=0
+CODEOWNERS_FOUND=0
+load_codeowners() {
+  [ "$CODEOWNERS_LOADED" = "1" ] && return 0
+  CODEOWNERS_LOADED=1
+  : >"$CODEOWNERS_FILE"
+
+  local path raw="" found=0 line pattern owners body anchored
+  CODEOWNERS_FOUND=0
+  for path in .github/CODEOWNERS CODEOWNERS docs/CODEOWNERS; do
+    if raw=$(git show "$BASE:$path" 2>/dev/null); then
+      found=1
+      break
+    fi
+    raw=""
+  done
+  [ "$found" = "1" ] || return 0
+  CODEOWNERS_FOUND=1
+
+  while IFS= read -r line; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [ -z "$line" ] && continue
+    case "$line" in '#'*) continue ;; esac
+
+    pattern="${line%%[[:space:]]*}"
+    owners="${line#"$pattern"}"
+    owners="${owners#"${owners%%[![:space:]]*}"}"
+
+    anchored=0
+    case "$pattern" in /*) anchored=1 ;; esac
+    pattern="${pattern#/}"
+    pattern="${pattern%/}"
+    case "$pattern" in */*) anchored=1 ;; esac
+    body=$(codeowners_regex "$pattern")
+    if [ "$anchored" = "1" ]; then
+      pattern="^$body"
+    else
+      pattern="^(.*/)?$body"
+    fi
+
+    case "$owners" in
+      '') printf '0|%s(/.*)?$\n' "$pattern" >>"$CODEOWNERS_FILE" ;;
+      *) printf '1|%s(/.*)?$\n' "$pattern" >>"$CODEOWNERS_FILE" ;;
+    esac
+  done <<<"$raw"
+  return 0
+}
+
+# Succeeds when CODEOWNERS leaves path $1 without any owner. No CODEOWNERS file
+# at all owns every path.
+is_unowned() {
+  local file="$1" owned=0 flag regex
+  load_codeowners
+  [ "$CODEOWNERS_FOUND" = "1" ] || return 1
+  while IFS='|' read -r flag regex; do
+    if [[ "$file" =~ $regex ]]; then
+      owned="$flag"
+    fi
+  done <"$CODEOWNERS_FILE"
+  [ "$owned" = "0" ]
+}
+
+# Succeeds when every file changed by PR $1 is unowned. One API call per PR.
+pr_all_unowned() {
+  local n="$1" cache="$TMP/unowned-$1" files="" file all=yes
+  if [ ! -f "$cache" ]; then
+    files=$(gh api --paginate "repos/$REPO/pulls/$n/files?per_page=100" \
+      --jq '.[].filename' 2>/dev/null || true)
+    if [ -z "$files" ]; then
+      all=no
+    else
+      while IFS= read -r file; do
+        [ -z "$file" ] && continue
+        is_unowned "$file" || all=no
+      done <<<"$files"
+    fi
+    printf '%s\n' "$all" >"$cache"
   fi
   [ "$(cat "$cache")" = "yes" ]
 }
@@ -142,7 +267,9 @@ evaluate_pr() {
     "$(paste -sd, - <<<"$after")" "$after_known" "$merged_by" >"$file"
 }
 
-add_row() { printf '%s|%s|%s|%s|%s\n' "$1" "$2" "$3" "$4" "$5" >>"$ROWS"; }
+# Row fields: sha|passed|source_pr|detail|after_approval|severity
+# severity is "" for a pass, $BYPASS or $NEEDS_REVIEW for a failure.
+add_row() { printf '%s|%s|%s|%s|%s|%s\n' "$1" "$2" "$3" "$4" "$5" "${6:-}" >>"$ROWS"; }
 
 is_version_bump() {
   local sha="$1" file
@@ -165,7 +292,7 @@ check_commit() {
   parents=$(git rev-list --parents -n 1 "$sha" | wc -w | tr -d ' ')
   if [ "$((parents - 1))" -gt 1 ]; then
     if [ -n "$(git show --remerge-diff --format= "$sha")" ]; then
-      add_row "$sha" 0 "" "merge commit introduces changes beyond its parents" ""
+      add_row "$sha" 0 "" "merge commit introduces changes beyond its parents" "" "$NEEDS_REVIEW"
     else
       add_row "$sha" 1 "" "merge commit, nothing beyond its parents" ""
     fi
@@ -183,11 +310,11 @@ check_commit() {
     if is_version_bump "$sha"; then
       add_row "$sha" 1 "" "exempt: automation: $COMMENT_BOT" ""
     elif [ "$in_current" -gt 0 ]; then
-      add_row "$sha" 0 "" "$NEW_LABEL" ""
+      add_row "$sha" 0 "" "$NEW_LABEL" "" "$NEEDS_REVIEW"
     elif [ "$any_other" -gt 0 ]; then
-      add_row "$sha" 0 "" "no merged source PR" ""
+      add_row "$sha" 0 "" "no merged source PR" "" "$BYPASS"
     else
-      add_row "$sha" 0 "" "no PR (direct push)" ""
+      add_row "$sha" 0 "" "no PR (direct push)" "" "$BYPASS"
     fi
     return 0
   fi
@@ -220,7 +347,11 @@ check_commit() {
       add_row "$sha" 1 "$chosen" "$detail" "$after_text"
       ;;
     *)
-      add_row "$sha" 0 "$chosen" "merged by @${merged_by:-unknown} without a qualifying approval" ""
+      if pr_all_unowned "$chosen"; then
+        add_row "$sha" 1 "$chosen" "no review required (unowned paths)" ""
+      else
+        add_row "$sha" 0 "$chosen" "merged by @${merged_by:-unknown} without a qualifying approval" "" "$BYPASS"
+      fi
       ;;
   esac
 }
@@ -231,24 +362,26 @@ count_rows() {
   case "$1" in
     pass) grep -c '^[^|]*|1|' "$ROWS" || true ;;
     fail) grep -c '^[^|]*|0|' "$ROWS" || true ;;
+    bypass) grep -c "^[^|]*|0|[^|]*|[^|]*|[^|]*|$BYPASS\$" "$ROWS" || true ;;
     *) grep -c . "$ROWS" || true ;;
   esac
 }
 
 render_table() {
-  local filter="$1" limit="${2:-0}" shown=0 sha ok pr detail after mark pr_cell total
+  local filter="$1" limit="${2:-0}" shown=0 sha ok pr detail after severity mark pr_cell total
   total=$(count_rows "$filter")
   printf '| Commit | Source PR | Approver / reason | After approval |\n'
   printf '| --- | --- | --- | --- |\n'
-  while IFS='|' read -r sha ok pr detail after; do
+  while IFS='|' read -r sha ok pr detail after severity; do
     [ "$filter" = "pass" ] && [ "$ok" != "1" ] && continue
     [ "$filter" = "fail" ] && [ "$ok" != "0" ] && continue
     if [ "$limit" -gt 0 ] && [ "$shown" -ge "$limit" ]; then
       break
     fi
     shown=$((shown + 1))
-    mark="❌"
+    mark="⚠️"
     [ "$ok" = "1" ] && mark="✅"
+    [ "$severity" = "$BYPASS" ] && mark="❌"
     pr_cell="none"
     [ -n "$pr" ] && pr_cell="[#$pr](https://github.com/$REPO/pull/$pr)"
     printf '| %s %s | %s | %s | %s |\n' "$mark" "$(sha_link "$sha")" "$pr_cell" "$detail" "$after"
@@ -346,6 +479,7 @@ done <<<"$SHAS"
 
 TOTAL=$(count_rows all)
 PASSED=$(count_rows pass)
+BYPASSED=$(count_rows bypass)
 FAILED=$((TOTAL - PASSED))
 CREATE=false
 [ "$PROMOTION" -eq 1 ] && CREATE=true
@@ -354,7 +488,12 @@ if [ "$FAILED" -eq 0 ]; then
   VERDICT="$PASS_HEADER"
   FAIL_HEADER=""
 else
-  FAIL_HEADER="❌ $FAILED of $TOTAL commits weren't reviewed in an earlier PR"
+  verdict_mark="⚠️"
+  [ "$BYPASSED" -gt 0 ] && verdict_mark="❌"
+  FAIL_HEADER="$verdict_mark $FAILED of $TOTAL commits weren't reviewed in an earlier PR"
+  if [ "$BYPASSED" -gt 0 ] && [ "$BYPASSED" -lt "$FAILED" ]; then
+    FAIL_HEADER="$FAIL_HEADER ($BYPASSED bypassed review, $((FAILED - BYPASSED)) need review here)"
+  fi
   VERDICT="$FAIL_HEADER"
   if [ "$(grep -cF "$NEW_LABEL" "$ROWS" || true)" -eq "$TOTAL" ]; then
     VERDICT="Not a promotion: this PR adds new code."
