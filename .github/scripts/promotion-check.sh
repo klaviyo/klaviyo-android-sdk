@@ -14,7 +14,8 @@
 # when unset). When the PR is a promotion (at least one commit came from an earlier
 # PR) it creates or updates one PR comment: OK to admin merge on a full pass, the
 # failing commits otherwise. A PR whose commits are all new gets no new comment, but
-# an existing one is updated. Informational: exits non-zero only on error.
+# an existing one is updated, including when no commits remain. Informational:
+# exits non-zero only on error.
 #
 # Usage: promotion-check.sh <owner/repo> <pr-number> <base-ref> <head-ref>
 # Env:   GH_TOKEN (required by gh)
@@ -38,6 +39,7 @@ COMMENT_BOT="github-actions[bot]"
 COMMENT_LIMIT=60000
 MAX_AFTER_SHAS=5
 PASS_HEADER="✅ Every commit in this PR was already reviewed in its own PR. OK to admin merge."
+EMPTY_HEADER="No commits left beyond the base branch. Nothing to check."
 NEW_LABEL="new in this PR (needs review)"
 
 TMP=$(mktemp -d)
@@ -207,6 +209,7 @@ render_table() {
 
 render_sections() {
   local limit="${1:-0}"
+  [ "$TOTAL" -eq 0 ] && return 0
   if [ "$FAILED" -eq 0 ]; then
     render_table all "$limit"
     return 0
@@ -278,7 +281,11 @@ SHAS=$(git rev-list --right-only --cherry-mark --topo-order --reverse "$BASE...$
   { grep -v '^=' || true; } | sed 's/^+//')
 
 if [ -z "$SHAS" ]; then
-  printf '## Promotion check\n\nNo commits beyond the base branch. Nothing to check.\n' | emit
+  TOTAL=0
+  PASSED=0
+  FAILED=0
+  OUTCOME=$(write_comment "$EMPTY_HEADER" false)
+  printf '## Promotion check\n\nNo commits beyond the base branch. Nothing to check.\n\n_%s_\n' "$OUTCOME" | emit
   exit 0
 fi
 
