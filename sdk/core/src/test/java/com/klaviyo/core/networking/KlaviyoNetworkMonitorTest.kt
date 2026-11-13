@@ -5,12 +5,15 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.os.Build
 import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.clearAllMocks
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.mockkConstructor
+import io.mockk.runs
 import io.mockk.slot
 import io.mockk.unmockkObject
 import io.mockk.verify
@@ -51,12 +54,17 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         mockkConstructor(NetworkRequest.Builder::class)
         every { NetworkRequest.Builder().addCapability(any()) } returns mockBuilder
         every { mockBuilder.build() } returns mockRequest
+        every { connectivityManagerMock.registerDefaultNetworkCallback(capture(netCallbackSlot)) } just runs
         every {
-            connectivityManagerMock.requestNetwork(
-                mockRequest,
-                capture(netCallbackSlot)
+            connectivityManagerMock.registerNetworkCallback(mockRequest, capture(netCallbackSlot))
+        } just runs
+        every {
+            connectivityManagerMock.unregisterNetworkCallback(
+                any<ConnectivityManager.NetworkCallback>()
             )
-        } returns mockk()
+        } just runs
+        netCallbackSlot.clear()
+        setSdkInt(Build.VERSION_CODES.N)
     }
 
     @After
@@ -64,12 +72,13 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         super.cleanup()
         clearAllMocks()
 
-        // Reset KlaviyoNetworkMonitor's networkRequest to allow re-initialization in subsequent tests
-        val field = KlaviyoNetworkMonitor::class.java.getDeclaredField("networkRequest")
-        val originalAccessibility = field.isAccessible // Store original accessibility
+        // Reset singleton state so the next test starts clean: no leaked observers or registration
+        val observers = KlaviyoNetworkMonitor::class.java.getDeclaredField("networkChangeObservers")
+        observers.isAccessible = true
+        (observers.get(KlaviyoNetworkMonitor) as MutableCollection<*>).clear()
+        val field = KlaviyoNetworkMonitor::class.java.getDeclaredField("isCallbackRegistered")
         field.isAccessible = true
-        field.set(KlaviyoNetworkMonitor, null) // Set the lateinit var's backing field to null
-        field.isAccessible = originalAccessibility // Restore original accessibility
+        field.setBoolean(KlaviyoNetworkMonitor, false)
     }
 
     @Test
@@ -154,7 +163,7 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
 
     @Test
     fun `Network changes are logged`() {
-        KlaviyoNetworkMonitor // Initialize, which would normally just happen when app launches
+        KlaviyoNetworkMonitor.onNetworkChange {} // attaching an observer registers the callback
         assert(netCallbackSlot.isCaptured)
 
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns true
@@ -209,20 +218,13 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         job2.start()
     }
 
-    @Test()
-    fun `Thrown network exception doesn't crash app`() {
+    @Test
+    fun `Thrown network exception doesn't crash app and registration is retried`() {
         val exception = SecurityException("missing permission")
-        every {
-            connectivityManagerMock.requestNetwork(
-                mockRequest,
-                any<ConnectivityManager.NetworkCallback>()
-            )
-        } throws exception
+        every { connectivityManagerMock.registerDefaultNetworkCallback(any()) } throws exception
 
         var callCount = 0
-        val observer: NetworkObserver = {
-            callCount++
-        }
+        val observer: NetworkObserver = { callCount++ }
         KlaviyoNetworkMonitor.onNetworkChange(observer)
 
         verify {
@@ -231,6 +233,104 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
                 exception
             )
         }
-        assertEquals(callCount, 0)
+        assertEquals(0, callCount)
+
+        // Next observer retries registration, which now succeeds
+        every { connectivityManagerMock.registerDefaultNetworkCallback(capture(netCallbackSlot)) } just runs
+        val observer2: NetworkObserver = { callCount++ }
+        KlaviyoNetworkMonitor.onNetworkChange(observer2)
+        assert(netCallbackSlot.isCaptured)
+        KlaviyoNetworkMonitor.offNetworkChange(observer)
+        KlaviyoNetworkMonitor.offNetworkChange(observer2)
     }
+
+    @Test
+    fun `Registers default network callback on API 24+`() {
+        val observer: NetworkObserver = {}
+        KlaviyoNetworkMonitor.onNetworkChange(observer)
+
+        verify(exactly = 1) { connectivityManagerMock.registerDefaultNetworkCallback(any()) }
+        verify(exactly = 0) {
+            connectivityManagerMock.registerNetworkCallback(
+                any<NetworkRequest>(),
+                any<ConnectivityManager.NetworkCallback>()
+            )
+        }
+        KlaviyoNetworkMonitor.offNetworkChange(observer)
+    }
+
+    @Test
+    fun `Falls back to registerNetworkCallback on API 23`() {
+        setSdkInt(Build.VERSION_CODES.M)
+        val observer: NetworkObserver = {}
+        KlaviyoNetworkMonitor.onNetworkChange(observer)
+
+        verify(exactly = 0) { connectivityManagerMock.registerDefaultNetworkCallback(any()) }
+        verify(exactly = 1) {
+            connectivityManagerMock.registerNetworkCallback(
+                mockRequest,
+                any<ConnectivityManager.NetworkCallback>()
+            )
+        }
+        assert(netCallbackSlot.isCaptured)
+        KlaviyoNetworkMonitor.offNetworkChange(observer)
+    }
+
+    @Test
+    fun `Registers only once for multiple observers`() {
+        val observer: NetworkObserver = {}
+        val observer2: NetworkObserver = {}
+        KlaviyoNetworkMonitor.onNetworkChange(observer)
+        KlaviyoNetworkMonitor.onNetworkChange(observer2)
+
+        verify(exactly = 1) { connectivityManagerMock.registerDefaultNetworkCallback(any()) }
+        KlaviyoNetworkMonitor.offNetworkChange(observer)
+        KlaviyoNetworkMonitor.offNetworkChange(observer2)
+    }
+
+    @Test
+    fun `Unregisters callback when last observer is removed and re-registers on next`() {
+        val observer: NetworkObserver = {}
+        val observer2: NetworkObserver = {}
+        KlaviyoNetworkMonitor.onNetworkChange(observer)
+        KlaviyoNetworkMonitor.onNetworkChange(observer2)
+
+        KlaviyoNetworkMonitor.offNetworkChange(observer)
+        verify(exactly = 0) {
+            connectivityManagerMock.unregisterNetworkCallback(
+                any<ConnectivityManager.NetworkCallback>()
+            )
+        }
+
+        KlaviyoNetworkMonitor.offNetworkChange(observer2)
+        verify(exactly = 1) {
+            connectivityManagerMock.unregisterNetworkCallback(
+                netCallbackSlot.captured
+            )
+        }
+
+        KlaviyoNetworkMonitor.onNetworkChange(observer)
+        verify(exactly = 2) { connectivityManagerMock.registerDefaultNetworkCallback(any()) }
+        KlaviyoNetworkMonitor.offNetworkChange(observer)
+    }
+
+    @Test
+    fun `Unregister failure doesn't crash and allows re-registration`() {
+        every {
+            connectivityManagerMock.unregisterNetworkCallback(
+                any<ConnectivityManager.NetworkCallback>()
+            )
+        } throws IllegalArgumentException("not registered")
+        val observer: NetworkObserver = {}
+        KlaviyoNetworkMonitor.onNetworkChange(observer)
+        KlaviyoNetworkMonitor.offNetworkChange(observer)
+        verify { spyLog.warning(any(), any()) }
+
+        KlaviyoNetworkMonitor.onNetworkChange(observer)
+        verify(exactly = 2) { connectivityManagerMock.registerDefaultNetworkCallback(any()) }
+        KlaviyoNetworkMonitor.offNetworkChange(observer)
+    }
+
+    private fun setSdkInt(level: Int) =
+        setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), level)
 }
