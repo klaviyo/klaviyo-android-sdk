@@ -55,7 +55,7 @@ jobs:
         id: commit
         run: echo "short_sha=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Android Build Environment
         uses: ./.github/actions/setup
@@ -147,7 +147,7 @@ jobs:
       - name: Checkout Slack action
         if: (failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')) && github.event_name == 'push'
         continue-on-error: true
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           sparse-checkout: .github/actions
           path: _slack
