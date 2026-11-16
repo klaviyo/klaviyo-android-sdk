@@ -48,6 +48,7 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns capabilitiesMock
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns true
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) } returns true
         every { capabilitiesMock.hasTransport(any()) } returns false
 
         mockkConstructor(NetworkRequest.Builder::class)
@@ -302,12 +303,13 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
     @Test
     fun `Network type change with same connectivity is broadcast`() {
         var callCount = 0
+        mockNetwork(cellular = true)
         KlaviyoNetworkMonitor.onNetworkChange { callCount++ }
 
         netCallbackSlot.captured.onAvailable(mockk())
         assertEquals(1, callCount)
 
-        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) } returns true
+        mockNetwork(wifi = true)
         netCallbackSlot.captured.onCapabilitiesChanged(mockk(), mockk())
         assertEquals(2, callCount)
     }
