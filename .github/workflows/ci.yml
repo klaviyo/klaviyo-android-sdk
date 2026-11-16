@@ -102,7 +102,7 @@ jobs:
 
       - name: Slack
         continue-on-error: true
-        uses: ./.github/actions/notify-slack
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           status: failure
