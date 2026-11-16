@@ -116,7 +116,7 @@ jobs:
             echo "Instrumented tests completed"
 
       - name: Upload test reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-reports-api-${{ steps.api-setup.outputs.api_level }}-${{ steps.api-setup.outputs.arch }}
@@ -126,7 +126,7 @@ jobs:
           retention-days: 7
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results-api-${{ steps.api-setup.outputs.api_level }}-${{ steps.api-setup.outputs.arch }}
