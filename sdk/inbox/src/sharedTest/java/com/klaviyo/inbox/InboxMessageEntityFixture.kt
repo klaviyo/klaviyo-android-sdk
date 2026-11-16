@@ -21,7 +21,12 @@ internal fun inboxMessageEntity(
     attributionJson: String? = null,
     isRead: Boolean = false,
     isArchived: Boolean = false,
-    sortTime: Long = sentAt ?: receivedAt
+    sortTime: Long = sentAt ?: receivedAt,
+    expiresAt: Long? = null,
+    readUpdatedAt: Long? = null,
+    archivedUpdatedAt: Long? = null,
+    isReadPending: Boolean = false,
+    isArchivedPending: Boolean = false
 ) = InboxMessageEntity(
     transmissionId = transmissionId,
     companyId = companyId,
@@ -39,5 +44,10 @@ internal fun inboxMessageEntity(
     attributionJson = attributionJson,
     isRead = isRead,
     isArchived = isArchived,
-    sortTime = sortTime
+    sortTime = sortTime,
+    expiresAt = expiresAt,
+    readUpdatedAt = readUpdatedAt,
+    archivedUpdatedAt = archivedUpdatedAt,
+    isReadPending = isReadPending,
+    isArchivedPending = isArchivedPending
 )

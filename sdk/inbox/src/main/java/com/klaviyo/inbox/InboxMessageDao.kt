@@ -98,7 +98,7 @@ internal abstract class InboxMessageDao {
     @Query(
         """
         UPDATE ${InboxMessageEntity.TABLE_NAME}
-        SET isRead = :isRead, stateUpdatedAt = :updatedAt, isStatePending = 1
+        SET isRead = :isRead, readUpdatedAt = :updatedAt, isReadPending = 1
         WHERE companyId = :companyId AND transmissionId = :transmissionId AND isRead != :isRead
         """
     )
@@ -112,7 +112,7 @@ internal abstract class InboxMessageDao {
     @Query(
         """
         UPDATE ${InboxMessageEntity.TABLE_NAME}
-        SET isArchived = :isArchived, stateUpdatedAt = :updatedAt, isStatePending = 1
+        SET isArchived = :isArchived, archivedUpdatedAt = :updatedAt, isArchivedPending = 1
         WHERE companyId = :companyId AND transmissionId = :transmissionId
             AND isArchived != :isArchived
         """
@@ -133,8 +133,9 @@ internal abstract class InboxMessageDao {
     protected abstract suspend fun count(companyId: String, transmissionId: String): Int
 
     /**
-     * Applies [change] to the company's message, marking it as pending sync only when the change
-     * alters it, so a repeat of the same change leaves the row and its timestamp alone.
+     * Applies [change] to the company's message, stamping and marking pending only the changed
+     * field, and only when the change alters it, so a repeat of the same change leaves the row and
+     * its timestamp alone.
      *
      * @return True when the company has the message, whether or not the change altered it
      */

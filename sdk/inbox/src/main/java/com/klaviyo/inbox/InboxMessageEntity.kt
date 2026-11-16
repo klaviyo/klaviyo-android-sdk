@@ -18,11 +18,15 @@ import androidx.room.PrimaryKey
  * @property badge The push's app-icon badge count, when the payload sets one
  * @property attributionJson The full `_k` tracking object with the device push token removed
  * @property sortTime [sentAt], or [receivedAt] when the send time is unknown
- * @property stateUpdatedAt When [isRead] or [isArchived] last changed on this device, in epoch
- *  milliseconds. Null until the host changes one. Lets a later sync with the server keep the
- *  newer of two conflicting changes.
- * @property isStatePending True while a local state change has not been sent to the server. A
- *  sync sends the pending rows and clears the flag once the server accepts them.
+ * @property expiresAt When the server expires the message, in epoch milliseconds. Null when the
+ *  message has no known expiry, such as one captured from a push.
+ * @property readUpdatedAt When [isRead] last changed, in epoch milliseconds. Null until it
+ *  changes. Lets a later sync with the server keep the newer of two conflicting read changes.
+ * @property archivedUpdatedAt When [isArchived] last changed, in epoch milliseconds. Null until
+ *  it changes. Tracked apart from [readUpdatedAt] because the two states change independently.
+ * @property isReadPending True while a local read change has not been sent to the server. A sync
+ *  sends the pending changes and clears the flag once the server accepts them.
+ * @property isArchivedPending True while a local archived change has not been sent to the server
  */
 @Entity(
     tableName = InboxMessageEntity.TABLE_NAME,
@@ -46,8 +50,11 @@ internal data class InboxMessageEntity(
     val isRead: Boolean = false,
     val isArchived: Boolean = false,
     val sortTime: Long = sentAt ?: receivedAt,
-    val stateUpdatedAt: Long? = null,
-    val isStatePending: Boolean = false
+    val expiresAt: Long? = null,
+    val readUpdatedAt: Long? = null,
+    val archivedUpdatedAt: Long? = null,
+    val isReadPending: Boolean = false,
+    val isArchivedPending: Boolean = false
 ) {
     companion object {
         const val TABLE_NAME = "inbox_message"
