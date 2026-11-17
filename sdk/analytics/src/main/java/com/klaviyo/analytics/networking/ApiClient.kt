@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.networking
 
+import androidx.annotation.RestrictTo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.Subscription
@@ -7,6 +8,7 @@ import com.klaviyo.analytics.networking.requests.AggregateEventPayload
 import com.klaviyo.analytics.networking.requests.ApiRequest
 import com.klaviyo.analytics.networking.requests.FetchGeofencesCallback
 import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
+import com.klaviyo.analytics.networking.requests.InboxApiResponse
 import com.klaviyo.analytics.networking.requests.ResolveDestinationCallback
 import com.klaviyo.analytics.networking.requests.ResolveDestinationResult
 
@@ -177,6 +179,33 @@ interface ApiClient {
         longitude: Double? = null,
         callback: FetchGeofencesCallback
     ): ApiRequest
+
+    /**
+     * Fetch one page of the profile's Mobile Inbox. The token is sent as a bearer and never logged,
+     * queued or broadcast to observers. One attempt, no retries.
+     *
+     * @param token Bearer token
+     * @param profileId Profile to fetch the inbox for
+     * @param cursor Raw, still percent-encoded `page[cursor]` value from `links.next`, sent as-is
+     * @param pageSize Number of messages to request
+     */
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    suspend fun fetchInboxPage(
+        token: String,
+        profileId: String,
+        cursor: String?,
+        pageSize: Int
+    ): InboxApiResponse
+
+    /**
+     * Submit Mobile Inbox state changes. [body] is the complete JSON:API request body.
+     * Same token handling as [fetchInboxPage].
+     */
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    suspend fun submitInboxStateChanges(
+        token: String,
+        body: String
+    ): InboxApiResponse
 
     /**
      * Register an observer to be notified when an API request is enqueued or changes state
