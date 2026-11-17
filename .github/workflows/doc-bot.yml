@@ -66,7 +66,7 @@ jobs:
         id: slack_start
         timeout-minutes: 2
         continue-on-error: true
-        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
@@ -117,7 +117,7 @@ jobs:
         timeout-minutes: 2
         if: steps.push.outputs.pushed == 'true'
         continue-on-error: true
-        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ steps.slack_start.outputs.ts }}
@@ -223,7 +223,7 @@ jobs:
       - name: Report docs result on Slack
         if: always()
         continue-on-error: true
-        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ steps.slack_stage.outputs.ts || steps.slack_start.outputs.ts }}

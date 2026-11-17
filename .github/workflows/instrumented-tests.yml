@@ -147,7 +147,7 @@ jobs:
       - name: Send Slack notification on push failure
         if: (failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')) && github.event_name == 'push'
         continue-on-error: true
-        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           status: ${{ job.status == 'cancelled' && 'stopped' || 'failure' }}
