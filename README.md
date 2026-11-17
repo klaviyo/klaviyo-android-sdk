@@ -1032,8 +1032,6 @@ object to the `registerForInAppForms()` method. For example, to set a session ti
 
 ### Personalized Forms Authentication
 
->  ℹ️ Personalization is currently in limited availability for select Klaviyo customers. Please contact your CSM to be enrolled.
->
 >  ℹ️ Personalization is available in SDK version `4.6.0` and higher.
 
 Personalized In-App Forms show content from the signed-in user's Klaviyo profile. Your app proves who the user is with a JSON Web Token (JWT).
