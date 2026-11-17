@@ -1,5 +1,6 @@
 package com.klaviyo.core.utils
 
+import com.klaviyo.core.utils.JSONUtil.optNonBlankString
 import com.klaviyo.core.utils.JSONUtil.toArray
 import com.klaviyo.core.utils.JSONUtil.toHashMap
 import kotlin.collections.get
@@ -134,5 +135,19 @@ class JSONUtilTest {
         assertTrue(array[2] is HashMap<*, *>)
         val innerObj = array[2] as HashMap<*, *>
         assertEquals("innerValue", innerObj["innerKey"])
+    }
+
+    @Test
+    fun `optNonBlankString returns the value when present`() {
+        assertEquals("value", JSONObject("""{"key":"value"}""").optNonBlankString("key"))
+    }
+
+    @Test
+    fun `optNonBlankString returns null for missing, JSON null, and blank values`() {
+        val json = JSONObject("""{"nullKey":null,"blankKey":"  "}""")
+
+        assertNull(json.optNonBlankString("missingKey"))
+        assertNull(json.optNonBlankString("nullKey"))
+        assertNull(json.optNonBlankString("blankKey"))
     }
 }
