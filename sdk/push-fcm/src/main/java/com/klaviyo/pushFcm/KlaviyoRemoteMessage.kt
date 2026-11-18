@@ -413,7 +413,10 @@ object KlaviyoRemoteMessage {
      * @param jsonObject The card's JSON object.
      */
     private fun parseCarouselCard(position: Int, jsonObject: JSONObject): CarouselCard? {
-        val imageUrl = jsonObject.optNonBlankString("image_url")?.toURL()
+        // Unlike [toURL], this never logs the parse failure: a MalformedURLException message
+        // embeds the full URL, which must not reach logs. Only the position and scheme are logged.
+        val imageUrlString = jsonObject.optNonBlankString("image_url")
+        val imageUrl = imageUrlString?.let { runCatching { URL(it) }.getOrNull() }
         if (imageUrl == null) {
             Registry.log.warning("Skipping carousel card $position: missing or invalid image_url")
             return null
