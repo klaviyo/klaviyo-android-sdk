@@ -96,9 +96,11 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
      * unless it is unchanged since the last broadcast
      */
     private fun broadcastNetworkChange() {
-        val isConnected = isNetworkConnected()
-
-        val state = NetworkState(isConnected, getNetworkType())
+        // Read the active network once, so connectivity and type cannot disagree if the
+        // system's active network changes between two reads
+        val capabilities = activeNetworkCapabilities()
+        val isConnected = isConnected(capabilities)
+        val state = NetworkState(isConnected, networkTypeOf(capabilities))
 
         if (lastBroadcastState.getAndSet(state) == state) return
 
@@ -108,22 +110,30 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     }
 
     /**
+     * Capabilities of the network currently servicing the device, if any
+     */
+    private fun activeNetworkCapabilities(): NetworkCapabilities? = connectivityManager
+        .getNetworkCapabilities(connectivityManager.activeNetwork)
+
+    private fun isConnected(capabilities: NetworkCapabilities?): Boolean =
+        capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) ?: false
+
+    /**
      * Instant check of network connectivity
      *
      * @return
      */
-    override fun isNetworkConnected(): Boolean = connectivityManager
-        .getNetworkCapabilities(connectivityManager.activeNetwork)
-        ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) ?: false
+    override fun isNetworkConnected(): Boolean = isConnected(activeNetworkCapabilities())
 
     /**
      * Check what type of network connection is currently servicing the device
      *
      * @return The current network type
      */
-    override fun getNetworkType(): NetworkMonitor.NetworkType {
-        val net = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+    override fun getNetworkType(): NetworkMonitor.NetworkType =
+        networkTypeOf(activeNetworkCapabilities())
 
+    private fun networkTypeOf(net: NetworkCapabilities?): NetworkMonitor.NetworkType {
         return if (net?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
             NetworkMonitor.NetworkType.Wifi
         } else if (net?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true ||

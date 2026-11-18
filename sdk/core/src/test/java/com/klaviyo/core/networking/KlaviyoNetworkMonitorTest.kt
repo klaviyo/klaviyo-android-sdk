@@ -273,6 +273,38 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
     }
 
     @Test
+    fun `Connectivity and network type come from one snapshot of the active network`() {
+        KlaviyoNetworkMonitor.onNetworkChange { }
+        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) } returns true
+
+        // The system's active network changes between reads: present first, then gone
+        every { connectivityManagerMock.activeNetwork } returnsMany listOf(networkMock, null)
+
+        netCallbackSlot.captured.onAvailable(mockk())
+
+        // One read of the active network per broadcast, so a second read can't disagree with the first
+        verify(exactly = 1) { connectivityManagerMock.activeNetwork }
+
+        val state = KlaviyoNetworkMonitor::class.java.getDeclaredField("lastBroadcastState")
+            .apply { isAccessible = true }
+            .get(KlaviyoNetworkMonitor) as AtomicReference<*>
+        assertEquals("NetworkState(isConnected=true, networkType=Wifi)", state.get().toString())
+    }
+
+    @Test
+    fun `Losing the active network is broadcast as offline`() {
+        val states = mutableListOf<Boolean>()
+        KlaviyoNetworkMonitor.onNetworkChange { states += it }
+
+        netCallbackSlot.captured.onAvailable(mockk())
+
+        every { connectivityManagerMock.activeNetwork } returns null
+        netCallbackSlot.captured.onLost(mockk())
+
+        assertEquals(listOf(true, false), states)
+    }
+
+    @Test
     fun `Validation completing after availability is broadcast via capabilities change`() {
         val states = mutableListOf<Boolean>()
         KlaviyoNetworkMonitor.onNetworkChange { states += it }
