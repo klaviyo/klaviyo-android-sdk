@@ -92,7 +92,7 @@ internal object CarouselNotificationBuilder {
             setTextViewText(R.id.klaviyo_carousel_counter, counter)
             setOnClickPendingIntent(
                 R.id.klaviyo_carousel_prev,
-                arrowIntent(
+                broadcastIntent(
                     context,
                     CAROUSEL_ACTION_PREV,
                     CAROUSEL_PREV_OFFSET,
@@ -104,7 +104,7 @@ internal object CarouselNotificationBuilder {
             )
             setOnClickPendingIntent(
                 R.id.klaviyo_carousel_next,
-                arrowIntent(
+                broadcastIntent(
                     context,
                     CAROUSEL_ACTION_NEXT,
                     CAROUSEL_NEXT_OFFSET,
@@ -137,19 +137,6 @@ internal object CarouselNotificationBuilder {
     }
 
     /**
-     * Build the PendingIntent for one arrow tap.
-     */
-    private fun arrowIntent(
-        context: Context,
-        action: String,
-        offset: Int,
-        message: RemoteMessage,
-        tag: String,
-        notificationUid: String,
-        requestCodeBase: Int
-    ) = broadcastIntent(context, action, offset, message, tag, notificationUid, requestCodeBase)
-
-    /**
      * Build a broadcast PendingIntent to [KlaviyoCarouselReceiver] carrying everything the receiver
      * needs to re-post (or clear) the notification. No target index travels: the receiver reads the
      * current index from [CarouselStateStore], so a stale intent can never rewind a card.
@@ -168,7 +155,11 @@ internal object CarouselNotificationBuilder {
     ) = PendingIntent.getBroadcast(
         context,
         requestCodeBase + offset,
-        Intent(context, KlaviyoCarouselReceiver::class.java).apply {
+        // setClassName rather than the 2-arg Intent constructor: the JVM unit-test environment
+        // can't satisfy the native ComponentName resolution the constructor performs. Same seam
+        // as KlaviyoTrampolineActivity's intent factories.
+        Intent().apply {
+            setClassName(context.packageName, KlaviyoCarouselReceiver::class.java.name)
             this.action = action
             putExtra(CAROUSEL_PAYLOAD_EXTRA, message.data.toBundle())
             putExtra(CAROUSEL_SENDER_EXTRA, message.from)
