@@ -36,5 +36,14 @@
             android:name="com.klaviyo.pushFcm.KlaviyoPushTokenInitProvider"
             android:authorities="${applicationId}.klaviyo.pushfcm.init"
             android:exported="false" />
+        <!--
+            Handles carousel notification arrow taps and dismissal. Reached only by explicit
+            broadcast from a carousel notification's arrows and delete intent, so it has no intent
+            filter. Fully qualified: the module namespace is com.klaviyo.push_fcm, but the Kotlin
+            package is com.klaviyo.pushFcm, so a leading-dot name would resolve to the wrong class.
+        -->
+        <receiver
+            android:name="com.klaviyo.pushFcm.carousel.KlaviyoCarouselReceiver"
+            android:exported="false" />
     </application>
 </manifest>
