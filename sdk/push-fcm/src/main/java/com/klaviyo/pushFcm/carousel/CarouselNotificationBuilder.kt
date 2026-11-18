@@ -51,7 +51,6 @@ internal object CarouselNotificationBuilder {
      *  opened-push dedupe key is stable across arrow taps.
      * @param requestCodeBase The notification's request-code base; arrow and delete codes are this
      *  base plus [CAROUSEL_PREV_OFFSET], [CAROUSEL_NEXT_OFFSET] and [CAROUSEL_DELETE_OFFSET].
-     * @param autoTracking Whether taps should route through the trampoline.
      * @param contentIntent The body-tap intent for this card, built by the caller through the
      *  standard open-intent path so a card opens its own destination.
      */
@@ -64,7 +63,6 @@ internal object CarouselNotificationBuilder {
         tag: String,
         notificationUid: String,
         requestCodeBase: Int,
-        autoTracking: Boolean,
         contentIntent: PendingIntent?
     ) {
         val safeIndex = index.coerceIn(0, cards.lastIndex)

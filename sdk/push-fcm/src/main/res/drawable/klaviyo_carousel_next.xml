@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Right-pointing chevron for the carousel "next card" arrow. Tinted at runtime by the
-    notification's content color so it stays legible in dark mode.
+    Right-pointing chevron for the carousel "next card" arrow. Nothing tints it at runtime;
+    the android:tint attribute resolves ?android:attr/textColorPrimary from the theme that
+    inflates the notification, so it follows dark mode.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"

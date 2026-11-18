@@ -148,8 +148,10 @@ object Constants {
 
     /**
      * Intent extra carrying the 1-based original position of the carousel card whose body was
-     * tapped, for `$opened_push` card attribution. Absent on standard push taps.
-     * Uses [INTERNAL_PREFIX] to stay out of analytics event properties, like [NOTIFICATION_TAG_EXTRA].
+     * tapped. An internal handoff only: because it uses [INTERNAL_PREFIX], `appendKlaviyoExtras`
+     * never copies it into the tap's analytics event properties, so it is not yet reported on
+     * `$opened_push`. The future card-attribution ticket reads it directly off the intent.
+     * Absent on standard push taps.
      */
     const val CAROUSEL_POSITION_EXTRA = INTERNAL_PREFIX + "carousel_position"
 

@@ -142,10 +142,11 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         val cards = message.carouselCards
 
         if (cards != null) {
-            // A re-sent push under the same tag must start at card 1, not wherever the previous
-            // carousel was left. Store this before building so the receiver reads the new index.
+            // A re-sent push under the same tag starts fresh: reset the index to card 1 and drop
+            // any bitmaps cached for the previous carousel before downloading the new cards, so a
+            // reused tag never serves a stale image. Both happen before building.
             CarouselStateStore.setIndex(context, notificationTag, 0)
-            // Download all card images up front so arrow taps can re-render without a network call.
+            CarouselImageLoader.evict(notificationTag)
             CarouselImageLoader.loadAll(notificationTag, cards)
         }
 
@@ -286,7 +287,6 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                     tag = notificationTag,
                     notificationUid = resolvedNotificationUid,
                     requestCodeBase = resolvedRequestCodeBase,
-                    autoTracking = autoTracking,
                     contentIntent = contentIntent
                 )
             }
