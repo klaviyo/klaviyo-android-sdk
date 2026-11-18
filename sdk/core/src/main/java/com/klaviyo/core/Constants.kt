@@ -60,6 +60,33 @@ object Constants {
     const val BUTTON_LINK_PARAMETER = "Button Link"
 
     /**
+     * Payload key holding a carousel's cards as a JSON array string. Each card carries an
+     * `image_url`, optional `title`/`description`, and an `action` (`open_app`|`deep_link`|
+     * `open_url`) with a `url` where required. A carousel notification is only rendered when
+     * [MIN_CAROUSEL_CARDS] to [MAX_CAROUSEL_CARDS] valid cards remain after parsing; otherwise the
+     * push falls back to the standard notification path.
+     */
+    const val CAROUSEL_CARDS_PARAMETER = "carousel_cards"
+
+    /**
+     * Broadcast action advancing a carousel notification to its previous card. Sent by the
+     * notification's prev arrow to `KlaviyoCarouselReceiver`.
+     */
+    const val CAROUSEL_ACTION_PREV = PUSH_PREFIX + "carousel.prev"
+
+    /**
+     * Broadcast action advancing a carousel notification to its next card. Sent by the
+     * notification's next arrow to `KlaviyoCarouselReceiver`.
+     */
+    const val CAROUSEL_ACTION_NEXT = PUSH_PREFIX + "carousel.next"
+
+    /**
+     * Broadcast action clearing a carousel notification's persisted state. Fired by the
+     * notification's `deleteIntent` when the user dismisses it.
+     */
+    const val CAROUSEL_ACTION_DELETE = PUSH_PREFIX + "carousel.delete"
+
+    /**
      * Intent extra key for the notification tag, used to dismiss the notification
      * when an action button is tapped and [handlePush] processes the intent.
      *
@@ -94,6 +121,66 @@ object Constants {
      * Uses [INTERNAL_PREFIX] to stay out of analytics event properties, like [NOTIFICATION_TAG_EXTRA].
      */
     const val SUPPRESS_DEEP_LINK_HANDLER_EXTRA = INTERNAL_PREFIX + "suppress_deep_link_handler"
+
+    /**
+     * Intent extra carrying a carousel push's original `data` map as a [android.os.Bundle], so the
+     * carousel receiver can rebuild the [com.google.firebase.messaging.RemoteMessage] and re-post
+     * the notification without the process that first displayed it.
+     * Uses [INTERNAL_PREFIX] to stay out of analytics event properties, like [NOTIFICATION_TAG_EXTRA].
+     */
+    const val CAROUSEL_PAYLOAD_EXTRA = INTERNAL_PREFIX + "carousel_payload"
+
+    /**
+     * Intent extra carrying a carousel push's `from` sender, required to rebuild the
+     * [com.google.firebase.messaging.RemoteMessage] in the carousel receiver
+     * ([com.google.firebase.messaging.RemoteMessage.Builder] rejects an empty sender).
+     * Uses [INTERNAL_PREFIX] to stay out of analytics event properties, like [NOTIFICATION_TAG_EXTRA].
+     */
+    const val CAROUSEL_SENDER_EXTRA = INTERNAL_PREFIX + "carousel_sender"
+
+    /**
+     * Intent extra carrying a carousel notification's original request-code base, so a re-post
+     * reuses it and [android.app.PendingIntent.FLAG_UPDATE_CURRENT] replaces the old tokens instead
+     * of accumulating new ones.
+     * Uses [INTERNAL_PREFIX] to stay out of analytics event properties, like [NOTIFICATION_TAG_EXTRA].
+     */
+    const val CAROUSEL_REQUEST_CODE_BASE_EXTRA = INTERNAL_PREFIX + "carousel_request_code_base"
+
+    /**
+     * Intent extra carrying the 1-based original position of the carousel card whose body was
+     * tapped, for `$opened_push` card attribution. Absent on standard push taps.
+     * Uses [INTERNAL_PREFIX] to stay out of analytics event properties, like [NOTIFICATION_TAG_EXTRA].
+     */
+    const val CAROUSEL_POSITION_EXTRA = INTERNAL_PREFIX + "carousel_position"
+
+    /**
+     * Minimum number of valid carousel cards required to render a carousel. Below this the push
+     * falls back to the standard notification path.
+     */
+    const val MIN_CAROUSEL_CARDS = 2
+
+    /**
+     * Maximum number of carousel cards accepted. Payloads exceeding this fall back to the standard
+     * notification path.
+     */
+    const val MAX_CAROUSEL_CARDS = 5
+
+    /**
+     * Request-code offset for a carousel notification's previous-card arrow. Added to the
+     * notification's request-code base, like the action-button offsets, so each PendingIntent's
+     * request code is unique. Deliberately clear of the body (`base`) and buttons (`base + 1..3`).
+     */
+    const val CAROUSEL_PREV_OFFSET = 10
+
+    /**
+     * Request-code offset for a carousel notification's next-card arrow. See [CAROUSEL_PREV_OFFSET].
+     */
+    const val CAROUSEL_NEXT_OFFSET = 11
+
+    /**
+     * Request-code offset for a carousel notification's delete intent. See [CAROUSEL_PREV_OFFSET].
+     */
+    const val CAROUSEL_DELETE_OFFSET = 12
 
     /**
      * Manifest `<meta-data>` key a host app sets to opt into automatic push open tracking.
