@@ -43,8 +43,14 @@ internal object CarouselImageLoader {
      */
     private const val CACHE_SIZE_BYTES = 5 * 1024 * 1024
 
-    private val cache = object : LruCache<String, Bitmap>(CACHE_SIZE_BYTES) {
-        override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
+    /**
+     * Cache key: the notification tag plus the card's original position. A data class gives exact
+     * [equals]/[hashCode] so [evict] can match one tag without the prefix hazards of a joined string.
+     */
+    private data class CardKey(val tag: String, val position: Int)
+
+    private val cache = object : LruCache<CardKey, Bitmap>(CACHE_SIZE_BYTES) {
+        override fun sizeOf(key: CardKey, value: Bitmap): Int = value.byteCount
     }
 
     /**
@@ -107,7 +113,7 @@ internal object CarouselImageLoader {
      * @param position The card's original [CarouselCard.position].
      * @return The cached bitmap, or null when it was never downloaded or has been evicted.
      */
-    fun get(tag: String, position: Int): Bitmap? = cache.get(cacheKey(tag, position))
+    fun get(tag: String, position: Int): Bitmap? = cache.get(CardKey(tag, position))
 
     /**
      * Download a single card and cache it. For the receiver's cache-miss path after process death.
@@ -126,7 +132,7 @@ internal object CarouselImageLoader {
      */
     fun evict(tag: String) {
         cache.snapshot().keys
-            .filter { it.startsWith("$tag:") }
+            .filter { it.tag == tag }
             .forEach { cache.remove(it) }
     }
 
@@ -197,14 +203,9 @@ internal object CarouselImageLoader {
     }
 
     /**
-     * Cache and evict share this key shape; [evict] matches the "$tag:" prefix.
-     */
-    private fun cacheKey(tag: String, position: Int) = "$tag:$position"
-
-    /**
-     * Insert into the cache, ignoring keys the cache rejects.
+     * Insert into the cache; the LruCache evicts least-recently-used entries past the budget.
      */
     private fun put(tag: String, position: Int, bitmap: Bitmap) {
-        cache.put(cacheKey(tag, position), bitmap)
+        cache.put(CardKey(tag, position), bitmap)
     }
 }
