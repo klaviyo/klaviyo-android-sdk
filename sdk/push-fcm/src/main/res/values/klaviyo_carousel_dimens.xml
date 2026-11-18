@@ -1,17 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--
-        Carousel card image height. The provisional card ratio is 2:1 (PUSH-1934 decides the
-        final value): the image fills the notification width, so one fixed height sets the ratio.
+        Carousel card image height. The card ratio is 2:1 (PUSH-1934 may change it): 156dp is half
+        the 312dp content width of the reference device, and the image is center-cropped to fill
+        whatever width the device gives it.
     -->
-    <dimen name="klaviyo_carousel_image_height">140dp</dimen>
+    <dimen name="klaviyo_carousel_image_height">156dp</dimen>
 
-    <!-- Padding around the expanded carousel card content. -->
-    <dimen name="klaviyo_carousel_content_padding">16dp</dimen>
+    <!-- Image corner radius. Clipped on API 31+ only; RemoteViews cannot clip views before that. -->
+    <dimen name="klaviyo_carousel_image_corner_radius">12dp</dimen>
 
-    <!-- Size of the prev/next chevron touch targets. -->
+    <!-- Gap between stacked elements, and the inset of the arrows and dots from the image edge. -->
+    <dimen name="klaviyo_carousel_spacing">8dp</dimen>
+
+    <!-- Prev/next arrow circle, and the inset of the chevron inside it. -->
     <dimen name="klaviyo_carousel_arrow_size">32dp</dimen>
+    <dimen name="klaviyo_carousel_arrow_padding">6dp</dimen>
 
-    <!-- Gap between the counter and the arrows in the expanded footer. -->
-    <dimen name="klaviyo_carousel_footer_spacing">8dp</dimen>
+    <!-- Page-dot pill: its height and side padding, each dot and the gap between dots. -->
+    <dimen name="klaviyo_carousel_dots_height">16dp</dimen>
+    <dimen name="klaviyo_carousel_dots_padding">8dp</dimen>
+    <dimen name="klaviyo_carousel_dot_size">6dp</dimen>
+    <dimen name="klaviyo_carousel_dot_gap">6dp</dimen>
+
+    <!-- Collapsed-view thumbnail of card 1, and its corner radius (API 31+). -->
+    <dimen name="klaviyo_carousel_thumbnail_size">48dp</dimen>
+    <dimen name="klaviyo_carousel_thumbnail_corner_radius">8dp</dimen>
 </resources>

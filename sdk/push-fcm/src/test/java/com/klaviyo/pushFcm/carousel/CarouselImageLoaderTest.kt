@@ -229,6 +229,79 @@ internal class CarouselImageLoaderTest : BaseTest() {
     }
 
     @Test
+    fun `thumbnail is null when the card's image is not cached`() {
+        assertNull(CarouselImageLoader.thumbnail(TAG, 1))
+    }
+
+    @Test
+    fun `thumbnail center-crops the cached image to a square, caches it and keeps the source`() {
+        val source = mockk<Bitmap>(relaxed = true)
+        every { source.width } returns 512
+        every { source.height } returns 256
+        stubDecode().let { decoded ->
+            every { decoded.width } returns 512
+            every { decoded.height } returns 256
+        }
+        CarouselImageLoader.loadOne(TAG, card(1, downloadableUrl()))
+        val cachedSource = CarouselImageLoader.get(TAG, 1)
+
+        val square = mockk<Bitmap>(relaxed = true)
+        val scaled = mockk<Bitmap>(relaxed = true)
+        var cropX = -1
+        var cropSide = -1
+        mockkStatic(Bitmap::class)
+        try {
+            every { Bitmap.createBitmap(any<Bitmap>(), any(), any(), any(), any()) } answers {
+                cropX = secondArg()
+                cropSide = arg(3)
+                square
+            }
+            every { Bitmap.createScaledBitmap(square, 192, 192, any()) } returns scaled
+
+            val first = CarouselImageLoader.thumbnail(TAG, 1)
+            val second = CarouselImageLoader.thumbnail(TAG, 1)
+
+            assertTrue(first === scaled)
+            assertTrue("the thumbnail is cached", second === scaled)
+            assertEquals("crops the middle 256 of 512", 128, cropX)
+            assertEquals(256, cropSide)
+            io.mockk.verify(exactly = 1) {
+                Bitmap.createBitmap(any<Bitmap>(), any(), any(), any(), any())
+            }
+            io.mockk.verify { square.recycle() }
+            io.mockk.verify(exactly = 0) { cachedSource?.recycle() }
+            assertTrue(
+                "the full image stays cached",
+                CarouselImageLoader.get(TAG, 1) === cachedSource
+            )
+        } finally {
+            unmockkStatic(Bitmap::class)
+        }
+    }
+
+    @Test
+    fun `evict drops a tag's thumbnails too`() {
+        stubDecode()
+        CarouselImageLoader.loadOne(TAG, card(1, downloadableUrl()))
+        mockkStatic(Bitmap::class)
+        try {
+            every {
+                Bitmap.createBitmap(any<Bitmap>(), any(), any(), any(), any())
+            } returns mockk(relaxed = true)
+            every {
+                Bitmap.createScaledBitmap(any(), any(), any(), any())
+            } returns mockk(relaxed = true)
+            CarouselImageLoader.thumbnail(TAG, 1)
+
+            CarouselImageLoader.evict(TAG)
+
+            assertTrue(entries.isEmpty())
+        } finally {
+            unmockkStatic(Bitmap::class)
+        }
+    }
+
+    @Test
     fun `loadAll returns cached bitmaps without downloading`() {
         val bitmap = stubDecode()
         CarouselImageLoader.loadOne(TAG, card(1, downloadableUrl()))

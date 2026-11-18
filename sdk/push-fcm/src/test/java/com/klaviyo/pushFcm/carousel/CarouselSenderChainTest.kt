@@ -127,6 +127,7 @@ internal class CarouselSenderChainTest : BaseTest() {
 
         mockkObject(CarouselImageLoader)
         every { CarouselImageLoader.get(any(), any()) } returns mockk<Bitmap>(relaxed = true)
+        every { CarouselImageLoader.thumbnail(any(), any()) } returns mockk<Bitmap>(relaxed = true)
         every { CarouselImageLoader.loadOne(any(), any()) } returns null
         every { CarouselImageLoader.evict(any()) } returns Unit
 
@@ -299,6 +300,8 @@ internal class CarouselSenderChainTest : BaseTest() {
         every { anyConstructed<RemoteViews>().setImageViewBitmap(any(), any()) } returns Unit
         every { anyConstructed<RemoteViews>().setViewVisibility(any(), any()) } returns Unit
         every { anyConstructed<RemoteViews>().setOnClickPendingIntent(any(), any()) } returns Unit
+        every { anyConstructed<RemoteViews>().setImageViewResource(any(), any()) } returns Unit
+        every { anyConstructed<RemoteViews>().setContentDescription(any(), any()) } returns Unit
     }
 
     /**

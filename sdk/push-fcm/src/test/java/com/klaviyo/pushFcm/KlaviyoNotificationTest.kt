@@ -1094,7 +1094,7 @@ class KlaviyoNotificationTest : BaseTest() {
 
     /**
      * Install the shared carousel setup: parsed cards on the message, a cached bitmap from the
-     * image loader, the store writes, RemoteViews constructor mocking, the counter string and the
+     * image loader, the store writes, RemoteViews constructor mocking, the position string and the
      * Intent/Bundle constructor mocking the carousel's broadcast intents need.
      */
     @Suppress("LongMethod")
@@ -1104,6 +1104,7 @@ class KlaviyoNotificationTest : BaseTest() {
         }
         mockkObject(CarouselImageLoader)
         every { CarouselImageLoader.get(any(), any()) } returns mockk(relaxed = true)
+        every { CarouselImageLoader.thumbnail(any(), any()) } returns mockk(relaxed = true)
         every { CarouselImageLoader.loadAll(any(), any()) } returns emptyMap()
         // displayNotification evicts a tag's previously cached bitmaps before reloading, so a
         // re-sent push under a reused tag never serves a stale image.
@@ -1119,11 +1120,13 @@ class KlaviyoNotificationTest : BaseTest() {
         every { anyConstructed<RemoteViews>().setImageViewBitmap(any(), any()) } returns Unit
         every { anyConstructed<RemoteViews>().setViewVisibility(any(), any()) } returns Unit
         every { anyConstructed<RemoteViews>().setOnClickPendingIntent(any(), any()) } returns Unit
+        every { anyConstructed<RemoteViews>().setImageViewResource(any(), any()) } returns Unit
+        every { anyConstructed<RemoteViews>().setContentDescription(any(), any()) } returns Unit
 
-        // The counter is built with getString(id, index + 1, size).
+        // The dots' description is built with getString(id, index + 1, size).
         every { mockContext.getString(any(), *anyVararg()) } answers {
             val args = invocation.args[1] as Array<*>
-            "${args[0]} / ${args[1]}"
+            "Card ${args[0]} of ${args[1]}"
         }
 
         // Arrow/delete intents are built with a no-arg Intent() + setters; the JVM stub throws.
@@ -1228,8 +1231,51 @@ class KlaviyoNotificationTest : BaseTest() {
     }
 
     @Test
-    fun `carousel counter shows the one-based card position`() {
-        // AC-1: "1 / 4" for the first card of four.
+    fun `carousel dots fill the current card and hide unused dots`() {
+        // AC-1 (design): page dots replace the "1 / 4" counter; card 2 of 4 fills dot 2.
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                carouselIndex = 1
+            )
+
+            verify {
+                anyConstructed<RemoteViews>().setImageViewResource(
+                    R.id.klaviyo_carousel_dot_2,
+                    R.drawable.klaviyo_carousel_dot_active
+                )
+            }
+            listOf(
+                R.id.klaviyo_carousel_dot_1,
+                R.id.klaviyo_carousel_dot_3,
+                R.id.klaviyo_carousel_dot_4
+            ).forEach { id ->
+                verify {
+                    anyConstructed<RemoteViews>().setImageViewResource(
+                        id,
+                        R.drawable.klaviyo_carousel_dot_inactive
+                    )
+                }
+            }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setViewVisibility(R.id.klaviyo_carousel_dot_5, View.GONE)
+            }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setContentDescription(R.id.klaviyo_carousel_dots, "Card 2 of 4")
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel hides the prev arrow on the first card`() {
         withCarouselPush()
         try {
             notification.buildNotification(
@@ -1241,10 +1287,45 @@ class KlaviyoNotificationTest : BaseTest() {
             )
 
             verify {
-                anyConstructed<RemoteViews>().setTextViewText(
-                    R.id.klaviyo_carousel_counter,
-                    "1 / 4"
-                )
+                anyConstructed<RemoteViews>()
+                    .setViewVisibility(R.id.klaviyo_carousel_prev, View.GONE)
+            }
+            verify(exactly = 0) {
+                anyConstructed<RemoteViews>()
+                    .setOnClickPendingIntent(eq(R.id.klaviyo_carousel_prev), any())
+            }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setOnClickPendingIntent(eq(R.id.klaviyo_carousel_next), any())
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel hides the next arrow on the last card`() {
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                carouselIndex = CAROUSEL_SIZE - 1
+            )
+
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setViewVisibility(R.id.klaviyo_carousel_next, View.GONE)
+            }
+            verify(exactly = 0) {
+                anyConstructed<RemoteViews>()
+                    .setOnClickPendingIntent(eq(R.id.klaviyo_carousel_next), any())
+            }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setOnClickPendingIntent(eq(R.id.klaviyo_carousel_prev), any())
             }
         } finally {
             withoutCarouselPush()
@@ -1274,7 +1355,9 @@ class KlaviyoNotificationTest : BaseTest() {
     }
 
     @Test
-    fun `carousel shows the current card title in the collapsed view`() {
+    fun `carousel collapsed view shows the notification text and card 1's thumbnail`() {
+        // Design A1: the collapsed view is the notification title and body, whichever card is on
+        // screen, with card 1's image as the thumbnail.
         withCarouselPush()
         try {
             notification.buildNotification(
@@ -1287,11 +1370,68 @@ class KlaviyoNotificationTest : BaseTest() {
 
             verify {
                 anyConstructed<RemoteViews>()
-                    .setTextViewText(R.id.klaviyo_carousel_collapsed_title, "Card 3 title")
+                    .setTextViewText(R.id.klaviyo_carousel_collapsed_title, "Test Title")
             }
             verify {
                 anyConstructed<RemoteViews>()
-                    .setTextViewText(R.id.klaviyo_carousel_collapsed_counter, "3 / 4")
+                    .setTextViewText(R.id.klaviyo_carousel_collapsed_body, "Test Body")
+            }
+            verify { CarouselImageLoader.thumbnail(TEST_TAG, 1) }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setImageViewBitmap(R.id.klaviyo_carousel_thumbnail, any())
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel hides the thumbnail when card 1's image is not cached`() {
+        withCarouselPush()
+        try {
+            every { CarouselImageLoader.thumbnail(any(), any()) } returns null
+
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID
+            )
+
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setViewVisibility(R.id.klaviyo_carousel_thumbnail, View.GONE)
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel hides a card's missing title and description`() {
+        withCarouselPush()
+        try {
+            with(KlaviyoRemoteMessage) {
+                every { mockRemoteMessage.carouselCards } returns carouselCards.map {
+                    it.copy(title = null, description = null)
+                }
+            }
+
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID
+            )
+
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setViewVisibility(R.id.klaviyo_carousel_title, View.GONE)
+            }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setViewVisibility(R.id.klaviyo_carousel_description, View.GONE)
             }
         } finally {
             withoutCarouselPush()
@@ -1361,14 +1501,16 @@ class KlaviyoNotificationTest : BaseTest() {
 
     @Test
     fun `carousel arrow taps go to the carousel receiver`() {
-        // AC-2: prev and next are RemoteViews click targets bound to internal broadcasts.
+        // AC-2: prev and next are RemoteViews click targets bound to internal broadcasts. A middle
+        // card shows both arrows.
         withCarouselPush()
         try {
             notification.buildNotification(
                 mockContext,
                 TEST_TAG,
                 requestCodeBase = TEST_REQUEST_CODE_BASE,
-                notificationUid = TEST_UID
+                notificationUid = TEST_UID,
+                carouselIndex = 1
             )
 
             verify {
@@ -1471,7 +1613,9 @@ class KlaviyoNotificationTest : BaseTest() {
                 mockContext,
                 TEST_TAG,
                 requestCodeBase = TEST_REQUEST_CODE_BASE,
-                notificationUid = TEST_UID
+                notificationUid = TEST_UID,
+                // A middle card, so both arrows are present.
+                carouselIndex = 1
             )
 
             // prev, next and delete, each at its own offset.
@@ -1507,7 +1651,9 @@ class KlaviyoNotificationTest : BaseTest() {
                 mockContext,
                 TEST_TAG,
                 requestCodeBase = TEST_REQUEST_CODE_BASE,
-                notificationUid = TEST_UID
+                notificationUid = TEST_UID,
+                // A middle card, so both arrows are present.
+                carouselIndex = 1
             )
 
             assertEquals(3, flags.size)
@@ -1704,10 +1850,12 @@ class KlaviyoNotificationTest : BaseTest() {
             )
 
             verify {
-                anyConstructed<RemoteViews>().setTextViewText(
-                    R.id.klaviyo_carousel_counter,
-                    "4 / 4"
-                )
+                anyConstructed<RemoteViews>()
+                    .setTextViewText(R.id.klaviyo_carousel_title, "Card 4 title")
+            }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setContentDescription(R.id.klaviyo_carousel_dots, "Card 4 of 4")
             }
         } finally {
             withoutCarouselPush()

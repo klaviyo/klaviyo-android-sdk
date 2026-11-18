@@ -118,6 +118,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         mockkObject(CarouselImageLoader)
         every { CarouselImageLoader.get(any(), any()) } answers { cachedBitmap }
         every { CarouselImageLoader.loadOne(any(), any()) } returns null
+        every { CarouselImageLoader.loadAll(any(), any()) } returns emptyMap()
         every { CarouselImageLoader.evict(any()) } returns Unit
     }
 
@@ -223,23 +224,27 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
     }
 
     @Test
-    fun `next wraps from the last card to the first`() {
+    fun `next on the last card does not wrap or re-post`() {
+        // Design: the next arrow is hidden on the last card, so a stale tap changes nothing.
         storedIndex = CARD_COUNT - 1
 
         receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
 
-        verify { CarouselStateStore.setIndex(mockContext, TAG, 0) }
-        verifyRepost(index = 0)
+        verifyNoMove()
     }
 
     @Test
-    fun `prev wraps from the first card to the last`() {
+    fun `prev on the first card does not wrap or re-post`() {
         storedIndex = 0
 
         receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_PREV))
 
-        verify { CarouselStateStore.setIndex(mockContext, TAG, CARD_COUNT - 1) }
-        verifyRepost(index = CARD_COUNT - 1)
+        verifyNoMove()
+    }
+
+    private fun verifyNoMove() {
+        verify(exactly = 0) { CarouselStateStore.setIndex(any(), any(), any()) }
+        verify(exactly = 0) { notificationManager.notify(any(), any(), any()) }
     }
 
     @Test
@@ -253,13 +258,13 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
     }
 
     @Test
-    fun `a stored index out of range is clamped before advancing`() {
+    fun `a stored index out of range is clamped before moving`() {
         storedIndex = 99
 
-        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_PREV))
 
-        // clamped to the last card (index 2), then wraps to 0
-        verify { CarouselStateStore.setIndex(mockContext, TAG, 0) }
+        // clamped to the last card (index 2), then back one
+        verify { CarouselStateStore.setIndex(mockContext, TAG, 1) }
     }
 
     @Test
@@ -315,8 +320,23 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
 
         verify { receiver["goAsync"]() }
         // The executor thread downloads then reposts; wait for it so the assertions are stable.
+        // Card 1's image is gone too, so it is fetched alongside for the collapsed thumbnail.
+        verify(timeout = 5_000) { CarouselImageLoader.loadAll(TAG, listOf(cards[1], cards[0])) }
+        verify(timeout = 5_000) { pendingResult.finish() }
+    }
+
+    @Test
+    fun `a cache miss with card 1 still cached downloads only the target card`() {
+        every { CarouselImageLoader.get(TAG, cards[0].position) } returns mockk(relaxed = true)
+        every { CarouselImageLoader.get(TAG, cards[1].position) } returns null
+        val pendingResult = mockk<BroadcastReceiver.PendingResult>(relaxed = true)
+
+        receiverReturning(pendingResult)
+            .onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+
         verify(timeout = 5_000) { CarouselImageLoader.loadOne(TAG, cards[1]) }
         verify(timeout = 5_000) { pendingResult.finish() }
+        verify(exactly = 0) { CarouselImageLoader.loadAll(any(), any()) }
     }
 
     @Test
@@ -445,12 +465,12 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         mockkObject(Registry)
         every { Registry.log } returns spyLog
 
-        storedIndex = 0
+        storedIndex = 2
 
         receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_PREV))
 
-        verify { CarouselStateStore.setIndex(mockContext, TAG, CARD_COUNT - 1) }
-        verifyRepost(index = CARD_COUNT - 1)
+        verify { CarouselStateStore.setIndex(mockContext, TAG, 1) }
+        verifyRepost(index = 1)
     }
 
     @Test

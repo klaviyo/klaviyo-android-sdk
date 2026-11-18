@@ -22,7 +22,8 @@ import java.util.concurrent.Executors
  * intent.
  *
  * PREV/NEXT: rebuild the [RemoteMessage] from the payload and sender carried on the intent, read
- * the current card index from [CarouselStateStore], advance it with wrap-around, then re-post the
+ * the current card index from [CarouselStateStore], move it one card (stopping at the first and last
+ * card, where the matching arrow is hidden), then re-post the
  * notification under the same tag, with the original `NOTIFICATION_UID_EXTRA` and request-code base
  * so the opened-push dedupe key is stable and `FLAG_UPDATE_CURRENT` replaces the old tokens rather
  * than piling up new ones. The image cache is keyed by the card's original position, not the store
@@ -103,8 +104,13 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
         }
 
         val currentIndex = CarouselStateStore.getIndex(context, tag).coerceIn(0, cards.lastIndex)
-        // Wrap around at both ends: 0 -> last on prev, last -> 0 on next.
-        val nextIndex = Math.floorMod(currentIndex + direction, cards.size)
+        // No wrap-around: the arrow is hidden at each end, so a tap past the end can only come
+        // from a stale view (e.g. a double tap before the re-post lands) and changes nothing.
+        val nextIndex = (currentIndex + direction).coerceIn(0, cards.lastIndex)
+        if (nextIndex == currentIndex) {
+            Registry.log.verbose("Carousel arrow tapped at the end of the cards; ignoring")
+            return
+        }
         CarouselStateStore.setIndex(context, tag, nextIndex)
 
         val card = cards[nextIndex]
@@ -130,7 +136,16 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
         try {
             executor.execute {
                 try {
-                    CarouselImageLoader.loadOne(tag, card)
+                    // Card 1 also feeds the collapsed thumbnail, so fetch both in one parallel,
+                    // deadline-bounded pass when card 1's image is gone too.
+                    val first = cards.first()
+                    if (first.position != card.position &&
+                        CarouselImageLoader.get(tag, first.position) == null
+                    ) {
+                        CarouselImageLoader.loadAll(tag, listOf(card, first))
+                    } else {
+                        CarouselImageLoader.loadOne(tag, card)
+                    }
                     repost(
                         context,
                         notification,

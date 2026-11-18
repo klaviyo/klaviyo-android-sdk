@@ -1,15 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Right-pointing chevron for the carousel "next card" arrow. Nothing tints it at runtime;
-    the android:tint attribute resolves ?android:attr/textColorPrimary from the theme that
-    inflates the notification, so it follows dark mode.
+    Right-pointing white chevron for the carousel "next card" arrow. It sits on
+    a translucent dark circle over the card image, so it stays white in light and dark mode.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24"
-    android:tint="?android:attr/textColorPrimary">
+    android:autoMirrored="true">
     <path
         android:fillColor="@android:color/white"
         android:pathData="M8.59,16.59L10,18l6,-6 -6,-6 -1.41,1.41L13.17,12z" />

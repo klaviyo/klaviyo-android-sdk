@@ -79,10 +79,21 @@ internal object CarouselImageLoader {
     private const val MAX_DOWNLOAD_BYTES = 5 * 1024 * 1024
 
     /**
-     * Cache key: the notification tag plus the card's original position. A data class gives exact
+     * Edge of the collapsed view's square thumbnail in pixels: 48dp at xxxhdpi is 192px, so this
+     * stays sharp on every density while costing at most 144 KiB.
+     */
+    private const val THUMBNAIL_PX = 192
+
+    /**
+     * Cache key: the notification tag plus the card's original position, and whether the entry is
+     * the card's collapsed-view thumbnail rather than its full image. A data class gives exact
      * [equals]/[hashCode] so [evict] can match one tag without the prefix hazards of a joined string.
      */
-    private data class CardKey(val tag: String, val position: Int)
+    private data class CardKey(
+        val tag: String,
+        val position: Int,
+        val thumbnail: Boolean = false
+    )
 
     private val cache = object : LruCache<CardKey, Bitmap>(CACHE_SIZE_BYTES) {
         override fun sizeOf(key: CardKey, value: Bitmap): Int = value.byteCount
@@ -159,6 +170,38 @@ internal object CarouselImageLoader {
      * @return The cached bitmap, or null when it was never downloaded or has been evicted.
      */
     fun get(tag: String, position: Int): Bitmap? = cache.get(CardKey(tag, position))
+
+    /**
+     * The collapsed view's square thumbnail of a card: its cached image, center-cropped to a
+     * square and scaled to [THUMBNAIL_PX]. Built once from the full image, then cached under the
+     * same tag so [evict] drops it too.
+     *
+     * @param tag The notification tag identifying the carousel.
+     * @param position The card's original [CarouselCard.position].
+     * @return The thumbnail, or null when the card's full image is not cached.
+     */
+    fun thumbnail(tag: String, position: Int): Bitmap? {
+        val key = CardKey(tag, position, thumbnail = true)
+        cache.get(key)?.let { return it }
+        val source = get(tag, position) ?: return null
+        return centerCropSquare(source, THUMBNAIL_PX).also { cache.put(key, it) }
+    }
+
+    /**
+     * Center-crop [source] to a square and scale it to [size]×[size]. The source is never
+     * recycled: it is still the card's cached full image.
+     */
+    internal fun centerCropSquare(source: Bitmap, size: Int): Bitmap {
+        val side = minOf(source.width, source.height).coerceAtLeast(1)
+        val x = ((source.width - side) / 2).coerceAtLeast(0)
+        val y = ((source.height - side) / 2).coerceAtLeast(0)
+        val square = Bitmap.createBitmap(source, x, y, side, side)
+        val scaled = square.scale(size, size)
+        if (scaled !== square && square !== source) {
+            square.recycle()
+        }
+        return scaled
+    }
 
     /**
      * Download a single card and cache it. For the receiver's cache-miss path after process death.

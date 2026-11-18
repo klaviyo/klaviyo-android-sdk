@@ -17,20 +17,22 @@ import com.klaviyo.core.Constants.CAROUSEL_PAYLOAD_EXTRA
 import com.klaviyo.core.Constants.CAROUSEL_PREV_OFFSET
 import com.klaviyo.core.Constants.CAROUSEL_REQUEST_CODE_BASE_EXTRA
 import com.klaviyo.core.Constants.CAROUSEL_SENDER_EXTRA
+import com.klaviyo.core.Constants.MAX_CAROUSEL_CARDS
 import com.klaviyo.core.Constants.NOTIFICATION_TAG_EXTRA
 import com.klaviyo.core.Constants.NOTIFICATION_UID_EXTRA
 import com.klaviyo.core.Registry
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.CarouselCard
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.title
 import com.klaviyo.push_fcm.R
 
 /**
  * Renders a carousel push onto a [NotificationCompat.Builder].
  *
- * Uses [NotificationCompat.DecoratedCustomViewStyle] with two custom views: a text-only collapsed
- * view and an expanded view carrying the current card's bitmap, title, description, a "n / N"
- * counter and prev/next arrows. Only the expanded view holds the bitmap, so a posted notification
- * carries one card image and stays well under the binder limit.
+ * Uses [NotificationCompat.DecoratedCustomViewStyle] with two custom views. The collapsed view
+ * shows the notification title and body with a thumbnail of card 1. The expanded view shows the
+ * current card only: its image, with prev/next arrows and page dots over it, then the card title
+ * and description. The arrows are hidden on the first and last card, so the carousel does not wrap.
  *
  * Arrows are [RemoteViews] click targets, never `addAction` — the three-button budget belongs to
  * `action_buttons`, which the caller adds separately. Each arrow broadcasts to
@@ -71,15 +73,17 @@ internal object CarouselNotificationBuilder {
     ) {
         val safeIndex = index.coerceIn(0, cards.lastIndex)
         val card = cards[safeIndex]
-        val counter = context.getString(
-            R.string.klaviyo_carousel_counter,
-            safeIndex + 1,
-            cards.size
-        )
 
         val collapsed = RemoteViews(context.packageName, R.layout.klaviyo_carousel_collapsed).apply {
-            setTextViewText(R.id.klaviyo_carousel_collapsed_title, card.title ?: message.title)
-            setTextViewText(R.id.klaviyo_carousel_collapsed_counter, counter)
+            setTextViewText(R.id.klaviyo_carousel_collapsed_title, message.title)
+            setTextViewText(R.id.klaviyo_carousel_collapsed_body, message.body)
+            // Always card 1, whichever card is on screen, so the collapsed view never changes.
+            val thumbnail = CarouselImageLoader.thumbnail(tag, cards.first().position)
+            if (thumbnail != null) {
+                setImageViewBitmap(R.id.klaviyo_carousel_thumbnail, thumbnail)
+            } else {
+                setViewVisibility(R.id.klaviyo_carousel_thumbnail, View.GONE)
+            }
         }
 
         val expanded = RemoteViews(context.packageName, R.layout.klaviyo_carousel_expanded).apply {
@@ -87,37 +91,48 @@ internal object CarouselNotificationBuilder {
             if (bitmap != null) {
                 setImageViewBitmap(R.id.klaviyo_carousel_image, bitmap)
             } else {
+                // The frame's placeholder stays, so the arrows and dots remain usable.
                 setViewVisibility(R.id.klaviyo_carousel_image, View.GONE)
             }
-            setTextViewText(R.id.klaviyo_carousel_title, card.title ?: message.title)
-            setTextViewText(R.id.klaviyo_carousel_description, card.description)
-            setTextViewText(R.id.klaviyo_carousel_counter, counter)
-            setOnClickPendingIntent(
-                R.id.klaviyo_carousel_prev,
-                broadcastIntent(
-                    context,
-                    CAROUSEL_ACTION_PREV,
-                    CAROUSEL_PREV_OFFSET,
-                    message,
-                    tag,
-                    notificationUid,
-                    requestCodeBase,
-                    sender
+            setOptionalText(R.id.klaviyo_carousel_title, card.title)
+            setOptionalText(R.id.klaviyo_carousel_description, card.description)
+            setDots(context, safeIndex, cards.size)
+
+            if (safeIndex > 0) {
+                setOnClickPendingIntent(
+                    R.id.klaviyo_carousel_prev,
+                    broadcastIntent(
+                        context,
+                        CAROUSEL_ACTION_PREV,
+                        CAROUSEL_PREV_OFFSET,
+                        message,
+                        tag,
+                        notificationUid,
+                        requestCodeBase,
+                        sender
+                    )
                 )
-            )
-            setOnClickPendingIntent(
-                R.id.klaviyo_carousel_next,
-                broadcastIntent(
-                    context,
-                    CAROUSEL_ACTION_NEXT,
-                    CAROUSEL_NEXT_OFFSET,
-                    message,
-                    tag,
-                    notificationUid,
-                    requestCodeBase,
-                    sender
+            } else {
+                setViewVisibility(R.id.klaviyo_carousel_prev, View.GONE)
+            }
+
+            if (safeIndex < cards.lastIndex) {
+                setOnClickPendingIntent(
+                    R.id.klaviyo_carousel_next,
+                    broadcastIntent(
+                        context,
+                        CAROUSEL_ACTION_NEXT,
+                        CAROUSEL_NEXT_OFFSET,
+                        message,
+                        tag,
+                        notificationUid,
+                        requestCodeBase,
+                        sender
+                    )
                 )
-            )
+            } else {
+                setViewVisibility(R.id.klaviyo_carousel_next, View.GONE)
+            }
         }
 
         builder
@@ -139,6 +154,46 @@ internal object CarouselNotificationBuilder {
             )
 
         Registry.log.verbose("Applied carousel view for card ${safeIndex + 1} of ${cards.size}")
+    }
+
+    /**
+     * Page-dot views in the expanded layout, one per possible card ([MAX_CAROUSEL_CARDS]).
+     */
+    private val DOT_IDS = listOf(
+        R.id.klaviyo_carousel_dot_1,
+        R.id.klaviyo_carousel_dot_2,
+        R.id.klaviyo_carousel_dot_3,
+        R.id.klaviyo_carousel_dot_4,
+        R.id.klaviyo_carousel_dot_5
+    )
+
+    /**
+     * Show one dot per card, fill the dot for [index], hide the unused dots, and describe the
+     * position for accessibility ("Card 2 of 4").
+     */
+    private fun RemoteViews.setDots(context: Context, index: Int, count: Int) {
+        DOT_IDS.forEachIndexed { dot, id ->
+            when {
+                dot >= count -> setViewVisibility(id, View.GONE)
+                dot == index -> setImageViewResource(id, R.drawable.klaviyo_carousel_dot_active)
+                else -> setImageViewResource(id, R.drawable.klaviyo_carousel_dot_inactive)
+            }
+        }
+        setContentDescription(
+            R.id.klaviyo_carousel_dots,
+            context.getString(R.string.klaviyo_carousel_position_description, index + 1, count)
+        )
+    }
+
+    /**
+     * Set [text] on [viewId], or hide the view when the card has no such field.
+     */
+    private fun RemoteViews.setOptionalText(viewId: Int, text: String?) {
+        if (text.isNullOrBlank()) {
+            setViewVisibility(viewId, View.GONE)
+        } else {
+            setTextViewText(viewId, text)
+        }
     }
 
     /**
