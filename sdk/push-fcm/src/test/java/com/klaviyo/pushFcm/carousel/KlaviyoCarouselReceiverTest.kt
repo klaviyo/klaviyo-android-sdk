@@ -28,6 +28,7 @@ import io.mockk.unmockkConstructor
 import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import org.json.JSONArray
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -140,14 +141,21 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         every { TextUtils.isEmpty(any()) } answers {
             (firstArg<CharSequence?>())?.isEmpty() ?: true
         }
+        // Model a Bundle as a real string map so the receiver's Bundle -> Map conversion and the
+        // Builder's copy both see actual payload contents.
+        val bundleContents = mutableMapOf<String, String>()
         mockkConstructor(Bundle::class)
-        every { anyConstructed<Bundle>().putString(any(), any()) } returns Unit
+        every { anyConstructed<Bundle>().putString(any(), any()) } answers {
+            bundleContents[firstArg()] = secondArg()
+        }
+        every { anyConstructed<Bundle>().getString(any()) } answers { bundleContents[firstArg()] }
+        every { anyConstructed<Bundle>().getString(any(), any()) } answers {
+            bundleContents[firstArg()] ?: secondArg()
+        }
+        every { anyConstructed<Bundle>().keySet() } answers { bundleContents.keys.toSet() }
+        every { anyConstructed<Bundle>().isEmpty } answers { bundleContents.isEmpty() }
         every { anyConstructed<Bundle>().putAll(any<Bundle>()) } returns Unit
         every { anyConstructed<Bundle>().remove(any()) } returns Unit
-        every { anyConstructed<Bundle>().getString(any()) } returns null
-        every { anyConstructed<Bundle>().getString(any(), any()) } returns null
-        every { anyConstructed<Bundle>().keySet() } returns emptySet()
-        every { anyConstructed<Bundle>().isEmpty } returns true
     }
 
     /** A spyk receiver whose `goAsync` is stubbed so the cache-miss branch can run without a thread. */
@@ -169,6 +177,24 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
             REQUEST_CODE_BASE
         every { getBundleExtra(Constants.CAROUSEL_PAYLOAD_EXTRA) } returns payload
     }
+
+    /** Two valid cards as the wire format sends them, for the payload round-trip test. */
+    private fun realCarouselJson(): String = JSONArray(
+        listOf(
+            mapOf(
+                "image_url" to "https://cdn.example.com/one.png",
+                "title" to "Card title one",
+                "description" to "Description one",
+                "action" to "open_app"
+            ),
+            mapOf(
+                "image_url" to "https://cdn.example.com/two.png",
+                "title" to "Card title two",
+                "description" to "Description two",
+                "action" to "open_app"
+            )
+        )
+    ).toString()
 
     private fun verifyRepost(index: Int) {
         verify {
@@ -287,6 +313,44 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         // The executor thread downloads then reposts; wait for it so the assertions are stable.
         verify(timeout = 5_000) { CarouselImageLoader.loadOne(TAG, cards[1]) }
         verify(timeout = 5_000) { pendingResult.finish() }
+    }
+
+    @Test
+    fun `the receiver converts the payload bundle to a string map`() {
+        // The receiver rebuilds the RemoteMessage from CAROUSEL_PAYLOAD_EXTRA via its private
+        // Bundle.toStringMap(). A bug there (dropped keys, non-string values leaking through)
+        // would silently stop the carousel from ever re-posting, so exercise it directly.
+        val payload = mockk<Bundle>(relaxed = true)
+        every { payload.keySet() } returns setOf("_k", "carousel_cards", "not_a_string")
+        every { payload.getString("_k") } returns "test_tracking_id"
+        every { payload.getString("carousel_cards") } returns realCarouselJson()
+        // A non-string extra must be dropped rather than crash the map build.
+        every { payload.getString("not_a_string") } returns null
+
+        val method = KlaviyoCarouselReceiver::class.java.declaredMethods
+            .first { it.name == "toStringMap" }
+        method.isAccessible = true
+        @Suppress("UNCHECKED_CAST")
+        val converted = method.invoke(KlaviyoCarouselReceiver(), payload) as Map<String, String>
+
+        assertEquals("test_tracking_id", converted["_k"])
+        assertEquals(realCarouselJson(), converted["carousel_cards"])
+        assertEquals(
+            "non-string extras must be dropped, not passed through",
+            setOf("_k", "carousel_cards"),
+            converted.keys
+        )
+    }
+
+    @Test
+    fun `the rebuilt message is constructed with the intent's sender`() {
+        // RemoteMessage.Builder rejects an empty sender, so a dropped CAROUSEL_SENDER_EXTRA would
+        // throw on every arrow tap and leave the carousel frozen on one card.
+        cachedBitmap = mockk(relaxed = true)
+
+        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+
+        verify { RemoteMessage.Builder(SENDER) }
     }
 
     @Test

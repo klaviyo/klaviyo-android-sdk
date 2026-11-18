@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.View
 import android.widget.RemoteViews
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
@@ -34,8 +35,10 @@ import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.spyk
 import io.mockk.unmockkConstructor
+import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import io.mockk.verifyOrder
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -1102,6 +1105,9 @@ class KlaviyoNotificationTest : BaseTest() {
         mockkObject(CarouselImageLoader)
         every { CarouselImageLoader.get(any(), any()) } returns mockk(relaxed = true)
         every { CarouselImageLoader.loadAll(any(), any()) } returns emptyMap()
+        // displayNotification evicts a tag's previously cached bitmaps before reloading, so a
+        // re-sent push under a reused tag never serves a stale image.
+        every { CarouselImageLoader.evict(any()) } returns Unit
         mockkObject(CarouselStateStore)
         every { CarouselStateStore.setIndex(any(), any(), any()) } returns Unit
 
@@ -1144,8 +1150,8 @@ class KlaviyoNotificationTest : BaseTest() {
         unmockkConstructor(Bundle::class)
         unmockkConstructor(Intent::class)
         unmockkConstructor(RemoteViews::class)
-        io.mockk.unmockkObject(CarouselStateStore)
-        io.mockk.unmockkObject(CarouselImageLoader)
+        unmockkObject(CarouselStateStore)
+        unmockkObject(CarouselImageLoader)
     }
 
     @Test
@@ -1260,7 +1266,7 @@ class KlaviyoNotificationTest : BaseTest() {
 
             verify {
                 anyConstructed<RemoteViews>()
-                    .setViewVisibility(R.id.klaviyo_carousel_image, android.view.View.GONE)
+                    .setViewVisibility(R.id.klaviyo_carousel_image, View.GONE)
             }
         } finally {
             withoutCarouselPush()
@@ -1604,7 +1610,9 @@ class KlaviyoNotificationTest : BaseTest() {
 
     @Test
     fun `carousel display resets the stored index and preloads every card image`() {
-        // AC-3: a re-sent push starts at card 1; all cards are downloaded up front.
+        // AC-3: a re-sent push starts at card 1 and refreshes every card image. The evict must
+        // come before the reload, or a reused tag could keep serving the previous carousel's
+        // bitmaps for the new card positions.
         withCarouselPush()
         try {
             with(KlaviyoRemoteMessage) { every { mockRemoteMessage.notificationTag } returns TEST_TAG }
@@ -1612,7 +1620,10 @@ class KlaviyoNotificationTest : BaseTest() {
             notification.displayNotification(mockContext)
 
             verify { CarouselStateStore.setIndex(mockContext, TEST_TAG, 0) }
-            verify { CarouselImageLoader.loadAll(TEST_TAG, carouselCards) }
+            verifyOrder {
+                CarouselImageLoader.evict(TEST_TAG)
+                CarouselImageLoader.loadAll(TEST_TAG, carouselCards)
+            }
         } finally {
             withoutCarouselPush()
         }

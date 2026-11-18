@@ -11,9 +11,13 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkClass
 import io.mockk.mockkStatic
+import io.mockk.slot
 import io.mockk.unmockkStatic
+import java.io.ByteArrayInputStream
 import java.io.IOException
+import java.io.InputStream
 import java.net.URL
+import java.net.URLConnection
 import java.util.TreeMap
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -31,12 +35,45 @@ import org.junit.Test
  * plain map. The mock reproduces real cache semantics: entries are keyed by the loader's
  * `CardKey(tag, position)` data class, so equality and eviction behave as they would on device.
  *
- * Network is never used: [URL.openStream] is stubbed to return bytes or to throw.
+ * Network is never used: [URL.openConnection] is stubbed to return an in-memory body or to throw.
  */
 internal class CarouselImageLoaderTest : BaseTest() {
     private companion object {
         const val TAG = "carousel-tag"
+
+        /** Mirrors the loader's [CarouselImageLoader.MAX_BITMAP_BYTES] ceiling (600 KiB). */
+        const val MAX_BITMAP_BYTES = 600 * 1024
+
+        /** Mirrors the loader's [CarouselImageLoader.MAX_DOWNLOAD_BYTES] body cap (5 MiB). */
+        const val MAX_DOWNLOAD_BYTES = 5 * 1024 * 1024
+
+        /** Mirrors the loader's per-socket timeout, half of the shared download budget. */
+        const val SOCKET_TIMEOUT_MS = DOWNLOAD_TIMEOUT_MS / 2
     }
+
+    /**
+     * Invoke the loader's private `capToBudget`, which is where the 600 KiB ceiling is enforced.
+     * It returns the decoded bitmap unchanged when in budget, so it cannot be exercised through
+     * the public surface alone.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun capToBudget(bitmap: Bitmap, position: Int): Bitmap {
+        val method = CarouselImageLoader::class.java.declaredMethods
+            .first { it.name == "capToBudget" }
+        method.isAccessible = true
+        return method.invoke(CarouselImageLoader, bitmap, position) as Bitmap
+    }
+
+    /** One row of the reviewer's bitmap-budget table. */
+    private data class ReviewedCard(
+        val sourceWidth: Int,
+        val sourceHeight: Int,
+        val sampleSize: Int,
+        val decodedWidth: Int,
+        val decodedHeight: Int,
+        val finalWidth: Int,
+        val finalHeight: Int
+    )
 
     /** Stands in for the cache's backing store; keys are real `CardKey` instances. */
     private val entries = mutableMapOf<Any?, Bitmap>()
@@ -90,15 +127,24 @@ internal class CarouselImageLoaderTest : BaseTest() {
 
     private fun mockUrl() = mockk<URL>(relaxed = true)
 
-    /** A URL whose download returns one byte, so decode is the only remaining step. */
-    private fun downloadableUrl() = mockk<URL>(relaxed = true).apply {
-        every { openStream() } returns byteArrayOf(1).inputStream()
+    /** The connection a mocked URL hands back; captured so the timeout/read assertions can use it. */
+    private fun connectionFor(bytes: ByteArray): URLConnection = mockk<URLConnection>(
+        relaxed = true
+    ).apply {
+        every { getInputStream() } returns ByteArrayInputStream(bytes)
     }
 
-    /** A URL whose download fails. */
+    /** A URL whose download returns [bytes], so decode is the only remaining step. */
+    private fun downloadableUrl(bytes: ByteArray = byteArrayOf(1)) =
+        mockk<URL>(relaxed = true).apply {
+            every { protocol } returns "https"
+            every { openConnection() } returns connectionFor(bytes)
+        }
+
+    /** A URL whose connection cannot be opened. */
     private fun failingUrl() = mockk<URL>(relaxed = true).apply {
         every { protocol } returns "https"
-        every { openStream() } throws IOException("boom")
+        every { openConnection() } throws IOException("boom")
     }
 
     /**
@@ -304,6 +350,318 @@ internal class CarouselImageLoaderTest : BaseTest() {
         CarouselImageLoader.evict(TAG)
 
         assertTrue(entries.isEmpty())
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Bitmap budget (reviewer hardening, c4cae3436c)
+    // ---------------------------------------------------------------------------------------
+
+    @Test
+    fun `sampling plus the cap keeps every reviewed source within 600 KiB`() {
+        // The reviewer's budget table, end to end: sample size for the source, then the final
+        // dimensions and byte count after capToBudget. ARGB_8888 is 4 bytes per pixel.
+        val reviewed = listOf(
+            // source w, source h, expected sample, post-sample w, post-sample h, final w, final h
+            ReviewedCard(512, 512, 1, 512, 512, 391, 391),
+            ReviewedCard(1000, 1000, 2, 500, 500, 391, 391),
+            ReviewedCard(4000, 3000, 8, 500, 375, 452, 339),
+            ReviewedCard(300, 2000, 4, 75, 500, 75, 500)
+        )
+
+        reviewed.forEach { case ->
+            assertEquals(
+                "sample size for ${case.sourceWidth}×${case.sourceHeight}",
+                case.sampleSize,
+                CarouselImageLoader.calculateInSampleSize(
+                    case.sourceWidth,
+                    case.sourceHeight,
+                    512,
+                    256
+                )
+            )
+
+            val source = mockk<Bitmap>(relaxed = true)
+            every { source.width } returns case.decodedWidth
+            every { source.height } returns case.decodedHeight
+            every { source.byteCount } returns case.decodedWidth * case.decodedHeight * 4
+
+            val scaled = mockk<Bitmap>(relaxed = true)
+            every { scaled.width } returns case.finalWidth
+            every { scaled.height } returns case.finalHeight
+            every { scaled.byteCount } returns case.finalWidth * case.finalHeight * 4
+
+            var requestedWidth = 0
+            var requestedHeight = 0
+            mockkStatic(Bitmap::class)
+            try {
+                every {
+                    Bitmap.createScaledBitmap(any(), any(), any(), any())
+                } answers {
+                    requestedWidth = secondArg()
+                    requestedHeight = thirdArg()
+                    scaled
+                }
+
+                val capped = capToBudget(source, position = 1)
+
+                assertEquals(
+                    "final width for ${case.sourceWidth}×${case.sourceHeight}",
+                    case.finalWidth,
+                    requestedWidth.takeIf { it > 0 } ?: capped.width
+                )
+                assertEquals(
+                    "final height for ${case.sourceWidth}×${case.sourceHeight}",
+                    case.finalHeight,
+                    requestedHeight.takeIf { it > 0 } ?: capped.height
+                )
+                assertTrue(
+                    "${case.sourceWidth}×${case.sourceHeight} must fit 600 KiB, got ${capped.byteCount}",
+                    capped.byteCount <= MAX_BITMAP_BYTES
+                )
+            } finally {
+                unmockkStatic(Bitmap::class)
+            }
+        }
+    }
+
+    @Test
+    fun `capToBudget leaves a bitmap already under budget untouched`() {
+        val source = mockk<Bitmap>(relaxed = true)
+        every { source.byteCount } returns 611_524
+
+        val capped = capToBudget(source, position = 1)
+
+        assertTrue("an in-budget bitmap must be returned as-is", capped === source)
+        io.mockk.verify(exactly = 0) { source.recycle() }
+    }
+
+    @Test
+    fun `capToBudget scales and recycles an oversized bitmap`() {
+        val source = mockk<Bitmap>(relaxed = true)
+        every { source.width } returns 500
+        every { source.height } returns 500
+        every { source.byteCount } returns 1_000_000
+        val scaled = mockk<Bitmap>(relaxed = true)
+        every { scaled.width } returns 391
+        every { scaled.height } returns 391
+        every { scaled.byteCount } returns 611_524
+
+        var requestedWidth = 0
+        var requestedHeight = 0
+        mockkStatic(Bitmap::class)
+        try {
+            every {
+                Bitmap.createScaledBitmap(any(), any(), any(), any())
+            } answers {
+                requestedWidth = secondArg()
+                requestedHeight = thirdArg()
+                scaled
+            }
+
+            val capped = capToBudget(source, position = 1)
+
+            assertTrue(capped === scaled)
+            assertEquals("a 500×500 source shrinks to 391 wide", 391, requestedWidth)
+            assertEquals("a 500×500 source shrinks to 391 tall", 391, requestedHeight)
+            io.mockk.verify { source.recycle() }
+        } finally {
+            unmockkStatic(Bitmap::class)
+        }
+    }
+
+    @Test
+    fun `capToBudget never asks for a zero-sized bitmap`() {
+        // A very wide, very short source could round a scaled dimension to 0; the helper clamps
+        // both dimensions to at least 1 so Bitmap.scale cannot throw.
+        val source = mockk<Bitmap>(relaxed = true)
+        every { source.width } returns 100_000
+        every { source.height } returns 2
+        // Above the 600 KiB budget, so the scale path runs.
+        every { source.byteCount } returns 100_000 * 2 * 4
+        val scaled = mockk<Bitmap>(relaxed = true)
+        every { scaled.byteCount } returns 1024
+
+        var requestedWidth = 0
+        var requestedHeight = 0
+        mockkStatic(Bitmap::class)
+        try {
+            every {
+                Bitmap.createScaledBitmap(any(), any(), any(), any())
+            } answers {
+                requestedWidth = secondArg()
+                requestedHeight = thirdArg()
+                scaled
+            }
+
+            capToBudget(source, position = 1)
+
+            assertTrue("width must be positive, got $requestedWidth", requestedWidth >= 1)
+            assertTrue("height must be positive, got $requestedHeight", requestedHeight >= 1)
+        } finally {
+            unmockkStatic(Bitmap::class)
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Download limits (reviewer hardening, c4cae3436c)
+    // ---------------------------------------------------------------------------------------
+
+    @Test
+    fun `download sets connect and read timeouts on the connection`() {
+        val connectTimeout = slot<Int>()
+        val readTimeout = slot<Int>()
+        val connection = mockk<URLConnection>(relaxed = true).apply {
+            every { getInputStream() } returns ByteArrayInputStream(byteArrayOf(1))
+            every { setConnectTimeout(capture(connectTimeout)) } returns Unit
+            every { setReadTimeout(capture(readTimeout)) } returns Unit
+        }
+        val url = mockk<URL>(relaxed = true).apply {
+            every { protocol } returns "https"
+            every { openConnection() } returns connection
+        }
+
+        CarouselImageLoader.loadOne(TAG, card(1, url))
+
+        assertEquals(SOCKET_TIMEOUT_MS, connectTimeout.captured)
+        assertEquals(SOCKET_TIMEOUT_MS, readTimeout.captured)
+    }
+
+    @Test
+    fun `a body over 5 MiB is rejected`() {
+        // One byte past the cap; readBytes must abandon before decoding it.
+        val tooBig = ByteArray(MAX_DOWNLOAD_BYTES + 1)
+
+        val result = CarouselImageLoader.loadOne(TAG, card(1, downloadableUrl(tooBig)))
+
+        assertNull("an oversized body must not produce a bitmap", result)
+        assertNull(CarouselImageLoader.get(TAG, 1))
+    }
+
+    @Test
+    fun `a body exactly at 5 MiB is accepted`() {
+        // Boundary: the cap is "greater than", not "greater than or equal".
+        val bitmap = stubDecode()
+
+        val result = CarouselImageLoader.loadOne(
+            TAG,
+            card(1, downloadableUrl(ByteArray(MAX_DOWNLOAD_BYTES)))
+        )
+
+        assertEquals(bitmap, result)
+    }
+
+    @Test
+    fun `a zero-length read ends the body instead of spinning`() {
+        // A broken stream that keeps reporting 0 (rather than -1) must terminate the loop. If it
+        // spun, this call would never return and the test would time out.
+        val zeroThenEof = mockk<InputStream>()
+        var reads = 0
+        every { zeroThenEof.read(any()) } answers {
+            reads++
+            if (reads <= 3) 0 else -1
+        }
+        val streamUrl = mockk<URL>(relaxed = true).apply {
+            every { protocol } returns "https"
+            every { openConnection() } returns mockk<URLConnection>(relaxed = true).apply {
+                every { getInputStream() } returns zeroThenEof
+            }
+        }
+
+        val result = CarouselImageLoader.loadOne(TAG, card(1, streamUrl))
+
+        // The first non-positive read ends the body, so the stream is read exactly once.
+        assertEquals("a 0-byte read must break the loop immediately", 1, reads)
+        assertNull("no bytes means nothing to decode", result)
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Per-card isolation and log hygiene (reviewer hardening, c4cae3436c)
+    // ---------------------------------------------------------------------------------------
+
+    @Test
+    fun `loadAll keeps the other cards when one download fails`() {
+        val bitmap = stubDecode()
+
+        val result = CarouselImageLoader.loadAll(
+            TAG,
+            listOf(card(1, downloadableUrl()), card(2, failingUrl()), card(3, downloadableUrl()))
+        )
+
+        assertEquals("cards 1 and 3 must survive card 2's failure", setOf(1, 3), result.keys)
+        assertEquals(bitmap, result[1])
+        assertEquals(bitmap, result[3])
+    }
+
+    @Test
+    fun `loadAll keeps the other cards when one image cannot be decoded`() {
+        // Card 1 decodes; card 2's bounds pass reports an unusable size. Position is keyed off the
+        // sampled options, so a single stub serves both cards without any call ordering.
+        val bitmap = mockk<Bitmap>(relaxed = true)
+        val undecodable = mockk<URL>(relaxed = true).apply {
+            every { protocol } returns "https"
+            every { openConnection() } returns mockk<URLConnection>(relaxed = true).apply {
+                // A body whose first byte identifies the undecodable card.
+                every { getInputStream() } returns ByteArrayInputStream(byteArrayOf(2))
+            }
+        }
+        val decodable = mockk<URL>(relaxed = true).apply {
+            every { protocol } returns "https"
+            every { openConnection() } returns mockk<URLConnection>(relaxed = true).apply {
+                every { getInputStream() } returns ByteArrayInputStream(byteArrayOf(1))
+            }
+        }
+        every { BitmapFactory.decodeByteArray(any(), any(), any(), any()) } answers {
+            val bytes = firstArg<ByteArray>()
+            val options = invocation.args[3] as BitmapFactory.Options
+            if (options.inJustDecodeBounds) {
+                options.outWidth = if (bytes.first() == 2.toByte()) -1 else 1024
+                options.outHeight = if (bytes.first() == 2.toByte()) -1 else 512
+                null
+            } else {
+                bitmap
+            }
+        }
+
+        val result = CarouselImageLoader.loadAll(
+            TAG,
+            listOf(card(1, decodable), card(2, undecodable))
+        )
+
+        assertEquals("only the decodable card should survive", setOf(1), result.keys)
+    }
+
+    @Test
+    fun `a failed download logs the scheme but never the URL`() {
+        val secretHost = "cdn.secret-host.example.com"
+        val url = mockk<URL>(relaxed = true)
+        every { url.protocol } returns "https"
+        every { url.host } returns secretHost
+        every { url.toString() } returns "https://$secretHost/card.png"
+        every { url.toExternalForm() } returns "https://$secretHost/card.png"
+        every { url.openConnection() } throws IOException(
+            "failed reading https://$secretHost/card.png"
+        )
+
+        val messages = mutableListOf<String>()
+        val throwables = mutableListOf<Throwable?>()
+        every { spyLog.warning(any(), any()) } answers {
+            messages.add(firstArg())
+            throwables.add(secondArg())
+        }
+
+        CarouselImageLoader.loadOne(TAG, card(1, url))
+
+        // The warning names the position and scheme, and passes no throwable (whose message could
+        // embed the URL).
+        assertTrue("expected a warning, got $messages", messages.isNotEmpty())
+        val warning = messages.first()
+        assertTrue(
+            "should name the card position: $warning",
+            warning.contains("card 1", ignoreCase = true)
+        )
+        assertTrue("should name the scheme: $warning", warning.contains("scheme: https"))
+        assertTrue("must not log the host: $warning", !warning.contains(secretHost))
+        assertTrue("must not pass a throwable", throwables.all { it == null })
     }
 
     /**
