@@ -77,7 +77,12 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val KEY_VALUE_PAIRS_KEY = Constants.KEY_VALUE_PAIRS
         internal const val ACTION_BUTTONS_KEY = Constants.ACTION_BUTTONS_PARAMETER
         internal const val WEB_URL_KEY = Constants.WEB_URL_PARAMETER
-        private const val DOWNLOAD_TIMEOUT_MS = 5_000
+
+        /**
+         * How long to wait for a rich-push image download before displaying without it.
+         * Shared with `CarouselImageLoader`, which caps its parallel card downloads the same way.
+         */
+        internal const val DOWNLOAD_TIMEOUT_MS = 5_000
         private const val ACTION_REQUEST_CODE_OFFSET = 1
 
         /**
