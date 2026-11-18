@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Card counter shown in both views, e.g. "1 / 4". -->
+    <string name="klaviyo_carousel_counter">%1$d / %2$d</string>
+
+    <!-- Accessibility labels for the arrow controls. -->
+    <string name="klaviyo_carousel_prev_description">Previous card</string>
+    <string name="klaviyo_carousel_next_description">Next card</string>
+</resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Carousel card image height. The provisional card ratio is 2:1 (PUSH-1934 decides the
+        final value): the image fills the notification width, so one fixed height sets the ratio.
+    -->
+    <dimen name="klaviyo_carousel_image_height">140dp</dimen>
+
+    <!-- Padding around the expanded carousel card content. -->
+    <dimen name="klaviyo_carousel_content_padding">16dp</dimen>
+
+    <!-- Size of the prev/next chevron touch targets. -->
+    <dimen name="klaviyo_carousel_arrow_size">32dp</dimen>
+
+    <!-- Gap between the counter and the arrows in the expanded footer. -->
+    <dimen name="klaviyo_carousel_footer_spacing">8dp</dimen>
+</resources>

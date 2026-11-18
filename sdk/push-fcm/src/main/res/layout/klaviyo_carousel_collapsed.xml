@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Collapsed carousel notification: title and card counter only, no bitmap, so a posted
+    notification holds no image in its collapsed state.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingStart="@dimen/klaviyo_carousel_content_padding"
+    android:paddingEnd="@dimen/klaviyo_carousel_content_padding"
+    android:paddingTop="@dimen/klaviyo_carousel_footer_spacing"
+    android:paddingBottom="@dimen/klaviyo_carousel_footer_spacing">
+
+    <TextView
+        android:id="@+id/klaviyo_carousel_collapsed_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textAppearance="@style/TextAppearance.Compat.Notification.Title" />
+
+    <TextView
+        android:id="@+id/klaviyo_carousel_collapsed_counter"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/klaviyo_carousel_footer_spacing"
+        android:maxLines="1"
+        android:textAppearance="@style/TextAppearance.Compat.Notification.Info" />
+</LinearLayout>
