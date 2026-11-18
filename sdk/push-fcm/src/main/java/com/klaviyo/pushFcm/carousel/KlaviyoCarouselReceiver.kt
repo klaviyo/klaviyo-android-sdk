@@ -42,6 +42,14 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
          * seconds off the main thread, which is plenty for one image.
          */
         private val executor = Executors.newSingleThreadExecutor()
+
+        /**
+         * Non-empty stand-in passed to [RemoteMessage.Builder] when the arrow intent has no sender.
+         * The builder only validates that its `to` argument is non-empty and never uses it to
+         * populate `from`, so this only satisfies the constructor. The real sender, when present,
+         * is re-stamped onto the intents this receiver builds.
+         */
+        private const val FALLBACK_SENDER = "com.klaviyo.carousel"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -72,8 +80,10 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
             Constants.CAROUSEL_REQUEST_CODE_BASE_EXTRA,
             Int.MIN_VALUE
         ).takeIf { it != Int.MIN_VALUE } ?: return logMissing("request code base")
+        // A rebuilt RemoteMessage cannot carry `from` (Builder(String) sets the `to` field), so a
+        // re-post's arrow intents may lack the sender. Treat it as optional and fall back to a
+        // fixed non-empty placeholder for the rebuild, which only needs a non-empty `to`.
         val sender = intent.getStringExtra(Constants.CAROUSEL_SENDER_EXTRA)
-            ?: return logMissing("sender")
         val payload = intent.getBundleExtra(Constants.CAROUSEL_PAYLOAD_EXTRA)
             ?: return logMissing("payload")
 
@@ -82,7 +92,7 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
             return
         }
 
-        val message = RemoteMessage.Builder(sender)
+        val message = RemoteMessage.Builder(sender ?: FALLBACK_SENDER)
             .setData(payload.toStringMap())
             .build()
         val cards = message.carouselCards
@@ -101,7 +111,16 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
         val notification = KlaviyoNotification(message)
 
         if (CarouselImageLoader.get(tag, card.position) != null) {
-            repost(context, notification, card, tag, notificationUid, requestCodeBase, nextIndex)
+            repost(
+                context,
+                notification,
+                card,
+                tag,
+                notificationUid,
+                requestCodeBase,
+                nextIndex,
+                sender
+            )
             return
         }
 
@@ -119,7 +138,8 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
                         tag,
                         notificationUid,
                         requestCodeBase,
-                        nextIndex
+                        nextIndex,
+                        sender
                     )
                 } catch (e: Exception) {
                     Registry.log.error("Carousel cache-miss re-post failed", e)
@@ -139,7 +159,8 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
                     tag,
                     notificationUid,
                     requestCodeBase,
-                    nextIndex
+                    nextIndex,
+                    sender
                 )
             } finally {
                 pendingResult.finish()
@@ -159,14 +180,16 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
         tag: String,
         notificationUid: String,
         requestCodeBase: Int,
-        index: Int
+        index: Int,
+        sender: String?
     ) {
         val built = notification.buildNotification(
             context,
             tag,
             requestCodeBase = requestCodeBase,
             notificationUid = notificationUid,
-            carouselIndex = index
+            carouselIndex = index,
+            carouselSender = sender
         )
         NotificationManagerCompat
             .from(context)

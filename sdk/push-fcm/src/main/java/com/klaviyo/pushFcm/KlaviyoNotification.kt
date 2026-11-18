@@ -192,6 +192,10 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * @param notificationUid The per-notification dedup uid. A re-post passes the original so the
      *  opened-push dedupe key survives arrow taps. Null (the default) mints a new uid.
      * @param carouselIndex The 0-based card to display for a carousel push; ignored otherwise.
+     * @param carouselSender The FCM sender to stamp on the carousel's arrow intents. A re-post
+     *  passes the sender it received, because the `RemoteMessage` it rebuilds cannot carry `from`
+     *  (the `Builder(String)` argument is the `to` field). Defaults to [RemoteMessage.getFrom] for
+     *  the first post.
      * @return [Notification.Builder] to display
      */
     internal fun buildNotification(
@@ -199,12 +203,16 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         notificationTag: String,
         requestCodeBase: Int? = null,
         notificationUid: String? = null,
-        carouselIndex: Int = 0
+        carouselIndex: Int = 0,
+        carouselSender: String? = null
     ): NotificationCompat.Builder {
         // null means "generate"; resolved here rather than in a default expression so a mocked
         // Registry.clock is never touched while a caller (or test) records the call.
         val resolvedRequestCodeBase = requestCodeBase ?: generateId()
         val resolvedNotificationUid = notificationUid ?: UUID.randomUUID().toString()
+        // Only the first post reads the message; a re-post's rebuilt message has no `from`, so it
+        // supplies the sender it received to keep the extra stable across hops.
+        val resolvedCarouselSender = carouselSender ?: message.from
         // When the host opts into automatic push tracking, taps route through
         // KlaviyoTrampolineActivity so it can call handlePush itself.
         // Read the flag from the build-time context, not Registry.config, since FCM can build a
@@ -287,6 +295,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                     tag = notificationTag,
                     notificationUid = resolvedNotificationUid,
                     requestCodeBase = resolvedRequestCodeBase,
+                    sender = resolvedCarouselSender,
                     contentIntent = contentIntent
                 )
             }

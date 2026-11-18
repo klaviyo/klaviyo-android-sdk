@@ -42,8 +42,8 @@ internal object CarouselNotificationBuilder {
      *
      * @param builder The notification builder, already carrying the payload's common settings.
      * @param context The caller's context, used for resources and the arrow broadcasts.
-     * @param message The source message, whose `data` and `from` travel on the arrow intents so the
-     *  receiver can rebuild the notification without the original process.
+     * @param message The source message, whose `data` travels on the arrow intents so the receiver
+     *  can rebuild the notification without the original process.
      * @param cards The parsed, validated cards (2–5).
      * @param index The 0-based index of the card to display; out-of-range values are clamped.
      * @param tag The notification tag, reused by every arrow broadcast and the re-post.
@@ -51,6 +51,9 @@ internal object CarouselNotificationBuilder {
      *  opened-push dedupe key is stable across arrow taps.
      * @param requestCodeBase The notification's request-code base; arrow and delete codes are this
      *  base plus [CAROUSEL_PREV_OFFSET], [CAROUSEL_NEXT_OFFSET] and [CAROUSEL_DELETE_OFFSET].
+     * @param sender The FCM sender stamped on every arrow intent so the receiver can rebuild the
+     *  message. Supplied by the caller (not read from [message]) because a re-post's rebuilt
+     *  message has no `from`; see [KlaviyoNotification.buildNotification].
      * @param contentIntent The body-tap intent for this card, built by the caller through the
      *  standard open-intent path so a card opens its own destination.
      */
@@ -63,6 +66,7 @@ internal object CarouselNotificationBuilder {
         tag: String,
         notificationUid: String,
         requestCodeBase: Int,
+        sender: String?,
         contentIntent: PendingIntent?
     ) {
         val safeIndex = index.coerceIn(0, cards.lastIndex)
@@ -97,7 +101,8 @@ internal object CarouselNotificationBuilder {
                     message,
                     tag,
                     notificationUid,
-                    requestCodeBase
+                    requestCodeBase,
+                    sender
                 )
             )
             setOnClickPendingIntent(
@@ -109,7 +114,8 @@ internal object CarouselNotificationBuilder {
                     message,
                     tag,
                     notificationUid,
-                    requestCodeBase
+                    requestCodeBase,
+                    sender
                 )
             )
         }
@@ -127,7 +133,8 @@ internal object CarouselNotificationBuilder {
                     message,
                     tag,
                     notificationUid,
-                    requestCodeBase
+                    requestCodeBase,
+                    sender
                 )
             )
 
@@ -149,7 +156,8 @@ internal object CarouselNotificationBuilder {
         message: RemoteMessage,
         tag: String,
         notificationUid: String,
-        requestCodeBase: Int
+        requestCodeBase: Int,
+        sender: String?
     ) = PendingIntent.getBroadcast(
         context,
         requestCodeBase + offset,
@@ -160,7 +168,7 @@ internal object CarouselNotificationBuilder {
             setClassName(context.packageName, KlaviyoCarouselReceiver::class.java.name)
             this.action = action
             putExtra(CAROUSEL_PAYLOAD_EXTRA, message.data.toBundle())
-            putExtra(CAROUSEL_SENDER_EXTRA, message.from)
+            putExtra(CAROUSEL_SENDER_EXTRA, sender)
             putExtra(NOTIFICATION_TAG_EXTRA, tag)
             putExtra(NOTIFICATION_UID_EXTRA, notificationUid)
             putExtra(CAROUSEL_REQUEST_CODE_BASE_EXTRA, requestCodeBase)

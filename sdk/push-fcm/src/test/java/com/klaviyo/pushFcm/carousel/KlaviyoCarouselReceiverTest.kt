@@ -93,6 +93,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
                 any(),
                 any(),
                 any(),
+                any(),
                 any()
             )
         } returns compatBuilder
@@ -203,7 +204,9 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
                 TAG,
                 REQUEST_CODE_BASE,
                 UID,
-                index
+                index,
+                // The received sender is re-stamped so the next tap can rebuild the message.
+                SENDER
             )
         }
         verify { notificationManager.notify(TAG, Constants.NOTIFICATION_ID, builtNotification) }
@@ -284,6 +287,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
                 any(),
                 any(),
                 any(),
+                any(),
                 any()
             )
         }
@@ -351,6 +355,23 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
 
         verify { RemoteMessage.Builder(SENDER) }
+    }
+
+    @Test
+    fun `an arrow intent with no sender still advances and re-posts`() {
+        // A re-post's rebuilt message cannot carry `from`, so its own arrow intents may lack the
+        // sender extra. That must not be fatal: the rebuild only needs a non-empty `to`, and the
+        // tap should still advance the card.
+        cachedBitmap = mockk(relaxed = true)
+        storedIndex = 0
+        val intent = arrowIntent(Constants.CAROUSEL_ACTION_NEXT).apply {
+            every { getStringExtra(Constants.CAROUSEL_SENDER_EXTRA) } returns null
+        }
+
+        receiverReturning().onReceive(mockContext, intent)
+
+        verify { CarouselStateStore.setIndex(mockContext, TAG, 1) }
+        verify { notificationManager.notify(TAG, Constants.NOTIFICATION_ID, builtNotification) }
     }
 
     @Test
@@ -446,6 +467,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
                 capture(tag),
                 REQUEST_CODE_BASE,
                 capture(uid),
+                any(),
                 any()
             )
         }
