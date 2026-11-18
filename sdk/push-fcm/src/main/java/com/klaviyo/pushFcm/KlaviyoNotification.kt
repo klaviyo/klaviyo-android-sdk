@@ -23,6 +23,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getManifestBoolean
 import com.klaviyo.core.utils.activityResolved
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.CarouselCardAction
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.actionButtons
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendActionButtonExtras
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendKlaviyoExtras
@@ -253,18 +254,23 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * It contains the action intent that will be invoked when the notification is clicked
      * This builder logic mimics the behavior from the FCM SDK notification handler
      *
+     * @param destination Optional explicit tap destination. Null (the default) keeps the
+     *  payload's own `url`/`web_url` precedence; a carousel card supplies its own action here.
+     * @param extras Optional block applied to the tap intent, e.g. to stamp a card position.
      * @return [PendingIntent]
      */
     private fun makePendingIntent(
         context: Context,
         requestCode: Int,
         autoTracking: Boolean,
-        notificationUid: String
+        notificationUid: String,
+        destination: CarouselCardAction? = null,
+        extras: Intent.() -> Unit = {}
     ) =
         PendingIntent.getActivity(
             context,
             requestCode,
-            makeOpenedIntent(context, autoTracking, notificationUid),
+            makeOpenedIntent(context, autoTracking, notificationUid, destination, extras),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT
         )
 
@@ -277,15 +283,37 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * user stays in the host app. The composer UI enforces a single action type at
      * creation, so this is only reachable via direct API calls or test tooling — we
      * warn so the misconfiguration is debuggable.
+     *
+     * @param destination Optional explicit tap destination that overrides the payload's own
+     *  `url`/`web_url`. Null (the default) preserves the standard-push behaviour above; a carousel
+     *  card passes its own action so a tap opens that card's link. [CarouselCardAction.OpenApp]
+     *  forces the plain-launch branch.
+     * @param extras Optional block applied to the returned intent, after the standard Klaviyo
+     *  extras, so a carousel card can stamp its position.
      */
-    private fun makeOpenedIntent(context: Context, autoTracking: Boolean, notificationUid: String): Intent? {
-        val deepLink = message.deepLink
-        val webUrl = message.webUrl
+    private fun makeOpenedIntent(
+        context: Context,
+        autoTracking: Boolean,
+        notificationUid: String,
+        destination: CarouselCardAction? = null,
+        extras: Intent.() -> Unit = {}
+    ): Intent? {
+        var deepLink: Uri? = null
+        var webUrl: String? = null
+        when (destination) {
+            null -> {
+                deepLink = message.deepLink
+                webUrl = message.webUrl
 
-        if (deepLink != null && webUrl != null) {
-            Registry.log.warning(
-                "Both url and web_url are present; url (deep link) takes precedence and web_url is ignored."
-            )
+                if (deepLink != null && webUrl != null) {
+                    Registry.log.warning(
+                        "Both url and web_url are present; url (deep link) takes precedence and web_url is ignored."
+                    )
+                }
+            }
+            is CarouselCardAction.DeepLink -> deepLink = destination.uri
+            is CarouselCardAction.OpenUrl -> webUrl = destination.uri.toString()
+            CarouselCardAction.OpenApp -> Unit // Plain launch: both destinations stay null.
         }
 
         if (deepLink != null) {
@@ -306,6 +334,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 putExtra(Constants.NOTIFICATION_UID_EXTRA, notificationUid)
                 appendKlaviyoExtras(message)
+                extras()
             }
         }
 
@@ -315,6 +344,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             return KlaviyoTrampolineActivity.forBrowserUrl(context, webUrl).apply {
                 putExtra(Constants.NOTIFICATION_UID_EXTRA, notificationUid)
                 appendKlaviyoExtras(message)
+                extras()
             }
         }
 
@@ -328,6 +358,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra(Constants.NOTIFICATION_UID_EXTRA, notificationUid)
             appendKlaviyoExtras(message)
+            extras()
         }
     }
 
