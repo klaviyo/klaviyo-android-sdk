@@ -259,7 +259,13 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 if (card != null) {
                     putExtra(Constants.CAROUSEL_POSITION_EXTRA, card.position)
                 }
-            }
+            },
+            // A carousel re-post reuses the same request code and a filterEquals intent (extras
+            // are not compared), so without UPDATE_CURRENT getActivity would hand back the stale
+            // token still carrying the previously shown card's destination and position.
+            flags = PendingIntent.FLAG_IMMUTABLE or
+                PendingIntent.FLAG_ONE_SHOT or
+                PendingIntent.FLAG_UPDATE_CURRENT
         )
         return builder
             .setOnlyAlertOnce(true)
@@ -335,6 +341,9 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * @param destination Optional explicit tap destination. Null (the default) keeps the
      *  payload's own `url`/`web_url` precedence; a carousel card supplies its own action here.
      * @param extras Optional block applied to the tap intent, e.g. to stamp a card position.
+     * @param flags The `PendingIntent` flags. Defaults to today's one-shot token; a carousel
+     *  re-post adds `FLAG_UPDATE_CURRENT` so the existing token's extras are replaced with the
+     *  newly displayed card's.
      * @return [PendingIntent]
      */
     private fun makePendingIntent(
@@ -343,13 +352,14 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         autoTracking: Boolean,
         notificationUid: String,
         destination: CarouselCardAction? = null,
-        extras: Intent.() -> Unit = {}
+        extras: Intent.() -> Unit = {},
+        flags: Int = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT
     ) =
         PendingIntent.getActivity(
             context,
             requestCode,
             makeOpenedIntent(context, autoTracking, notificationUid, destination, extras),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT
+            flags
         )
 
     /**
