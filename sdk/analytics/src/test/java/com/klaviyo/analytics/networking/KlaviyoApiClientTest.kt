@@ -448,6 +448,37 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertEquals(0, KlaviyoApiClient.getQueueSize())
     }
 
+    private fun persistRestorableRequest(uuid: String = "restored_uuid") {
+        mockkObject(KlaviyoApiRequestDecoder)
+        every { KlaviyoApiRequestDecoder.fromJson(any()) } answers { a ->
+            mockRequest((a.invocation.args[0] as JSONObject).getString("uuid"))
+        }
+        spyDataStore.store(KlaviyoApiClient.QUEUE_KEY, "[\"$uuid\"]")
+        spyDataStore.store(uuid, mockRequest(uuid).toString())
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Cold start while online flushes restored requests without waiting for the interval`() {
+        persistRestorableRequest()
+        every { mockNetworkMonitor.isNetworkConnected() } returns true
+
+        KlaviyoApiClient.startService()
+
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Cold start while offline leaves restored requests queued`() {
+        persistRestorableRequest()
+        every { mockNetworkMonitor.isNetworkConnected() } returns false
+
+        KlaviyoApiClient.startService()
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+    }
+
     @Test
     fun `Switching between reachable networks keeps the countdown and does not flush`() {
         KlaviyoApiClient.enqueueRequest(mockRequest())

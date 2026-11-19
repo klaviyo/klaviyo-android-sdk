@@ -88,7 +88,10 @@ internal object KlaviyoApiClient : ApiClient {
         restoreQueue(forceRestore = false)
 
         if (apiQueue.isNotEmpty()) {
-            initBatch()
+            // The network observer registered above can report "connected" before the flush
+            // handler exists, in which case its forced flush has nowhere to go. Rather than rely
+            // on winning that race, flush restored requests now if we are already online.
+            initBatch(force = Registry.networkMonitor.isNetworkConnected())
         }
     }
 
@@ -530,7 +533,7 @@ internal object KlaviyoApiClient : ApiClient {
      *
      * Furthermore, it should be noted that we check the thread state to ensure that the thread is not yet started (in new state) before trying to start it. This is more accurate than checking isAlive on the thread (https://stackoverflow.com/questions/58668916/thread-start-throwing-exception-after-thread-isalive-check)
      */
-    private fun initBatch() {
+    private fun initBatch(force: Boolean = false) {
         synchronized(this) {
             if (handlerThread.state == Thread.State.TERMINATED) {
                 handlerThread = Registry.threadHelper.getHandlerThread(
@@ -544,7 +547,7 @@ internal object KlaviyoApiClient : ApiClient {
             }
         }
 
-        startBatch()
+        startBatch(force)
     }
 
     /**
