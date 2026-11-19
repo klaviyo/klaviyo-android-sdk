@@ -77,6 +77,7 @@ internal object KlaviyoApiClient : ApiClient {
     /**
      * Initialize logic including lifecycle observers and reviving the queue from persistent store
      */
+    @Synchronized
     override fun startService() {
         Registry.lifecycleMonitor.offActivityEvent(::onLifecycleActivity)
         Registry.lifecycleMonitor.onActivityEvent(::onLifecycleActivity)
@@ -220,8 +221,11 @@ internal object KlaviyoApiClient : ApiClient {
      * This method will initialize the API queue and the batching thread
      * if this is the first request made since launch.
      */
+    @Synchronized
     fun enqueueRequest(vararg requests: KlaviyoApiRequest, headOfLine: Boolean = false) {
-        if (apiQueue.isEmpty()) {
+        restoreQueue()
+
+        if (apiQueue.isEmpty() || handler == null || handlerThread.state == Thread.State.TERMINATED) {
             initBatch()
         }
 
@@ -341,6 +345,7 @@ internal object KlaviyoApiClient : ApiClient {
      * @param forceRestore If true, always restore from persistent store.
      *                     If false, only restore if not already initialized.
      */
+    @Synchronized
     override fun restoreQueue(forceRestore: Boolean) {
         if (!forceRestore && queueInitialized) {
             return
@@ -502,6 +507,7 @@ internal object KlaviyoApiClient : ApiClient {
     /**
      * Flush current queue to persistent store
      */
+    @Synchronized
     override fun persistQueue() {
         Registry.log.verbose("Persisting queue")
         Registry.dataStore.store(

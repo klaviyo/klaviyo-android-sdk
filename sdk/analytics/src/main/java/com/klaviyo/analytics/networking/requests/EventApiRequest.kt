@@ -17,7 +17,8 @@ import org.json.JSONObject
  */
 internal class EventApiRequest(
     queuedTime: Long? = null,
-    uuid: String? = null
+    uuid: String? = null,
+    savedQuery: Map<String, String>? = null
 ) : KlaviyoApiRequest(PATH, RequestMethod.POST, queuedTime, uuid) {
 
     private companion object {
@@ -38,7 +39,7 @@ internal class EventApiRequest(
 
     override var type: String = "Create Event"
 
-    override var query: Map<String, String> = mapOf(
+    override var query: Map<String, String> = savedQuery ?: mapOf(
         COMPANY_ID to Registry.config.apiKey
     )
 
