@@ -21,19 +21,37 @@ internal object KlaviyoApiRequestDecoder {
         }
         val time = json.getLong(KlaviyoApiRequest.TIME_JSON_KEY)
         val uuid = json.getString(KlaviyoApiRequest.UUID_JSON_KEY)
+        val savedQuery = json.getJSONObject(KlaviyoApiRequest.QUERY_JSON_KEY).let {
+            it.keys().asSequence().associateWith { key -> it.getString(key) }
+        }
 
         return when (json.optString(KlaviyoApiRequest.TYPE_JSON_KEY)) {
-            ProfileApiRequest::class.simpleName -> ProfileApiRequest(time, uuid)
-            EventApiRequest::class.simpleName -> EventApiRequest(time, uuid)
-            PushTokenApiRequest::class.simpleName -> PushTokenApiRequest(time, uuid)
+            ProfileApiRequest::class.simpleName -> ProfileApiRequest(time, uuid, savedQuery)
+            EventApiRequest::class.simpleName -> EventApiRequest(time, uuid, savedQuery)
+            PushTokenApiRequest::class.simpleName -> PushTokenApiRequest(time, uuid, savedQuery)
             UnregisterPushTokenApiRequest::class.simpleName -> UnregisterPushTokenApiRequest(
                 time,
-                uuid
+                uuid,
+                savedQuery
             )
-            SubscriptionApiRequest::class.simpleName -> SubscriptionApiRequest(time, uuid)
-            AggregateEventApiRequest::class.simpleName -> AggregateEventApiRequest(time, uuid)
+            SubscriptionApiRequest::class.simpleName -> SubscriptionApiRequest(
+                time,
+                uuid,
+                savedQuery
+            )
+            AggregateEventApiRequest::class.simpleName -> AggregateEventApiRequest(
+                time,
+                uuid,
+                savedQuery
+            )
             UniversalClickTrackRequest::class.simpleName -> UniversalClickTrackRequest(time, uuid)
-            FetchGeofencesRequest::class.simpleName -> FetchGeofencesRequest(null, null, time, uuid)
+            FetchGeofencesRequest::class.simpleName -> FetchGeofencesRequest(
+                null,
+                null,
+                time,
+                uuid,
+                savedQuery
+            )
             else -> KlaviyoApiRequest(urlPath, method, time, uuid)
         }.apply {
             baseUrl = json.optString(URL_JSON_KEY, Registry.config.baseUrl)
@@ -42,9 +60,7 @@ internal object KlaviyoApiRequestDecoder {
                     it.keys().asSequence().associateWith { k -> it.getString(k) }.toMap()
                 }
             )
-            query = json.getJSONObject(KlaviyoApiRequest.QUERY_JSON_KEY).let {
-                it.keys().asSequence().associateWith { k -> it.getString(k) }
-            }
+            query = savedQuery
             body = json.optJSONObject(KlaviyoApiRequest.BODY_JSON_KEY)
         }
     }

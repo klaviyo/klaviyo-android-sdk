@@ -14,7 +14,8 @@ import com.klaviyo.core.Registry
  */
 internal class SubscriptionApiRequest(
     queuedTime: Long? = null,
-    uuid: String? = null
+    uuid: String? = null,
+    savedQuery: Map<String, String>? = null
 ) : KlaviyoApiRequest(PATH, RequestMethod.POST, queuedTime, uuid) {
 
     companion object {
@@ -161,7 +162,7 @@ internal class SubscriptionApiRequest(
 
     override var type: String = "Create Subscription"
 
-    override var query: Map<String, String> = mapOf(
+    override var query: Map<String, String> = savedQuery ?: mapOf(
         COMPANY_ID to Registry.config.apiKey
     )
 

@@ -858,6 +858,55 @@ internal class KlaviyoApiClientTest : BaseTest() {
     }
 
     @Test
+    fun `Enqueue before restoration persists saved and new requests in order`() {
+        val saved = KlaviyoApiRequest("saved", RequestMethod.GET, uuid = "saved-uuid")
+        val new = KlaviyoApiRequest("new", RequestMethod.GET, uuid = "new-uuid")
+        spyDataStore.store(saved.uuid, saved.toString())
+        spyDataStore.store(KlaviyoApiClient.QUEUE_KEY, "[\"saved-uuid\"]")
+        KlaviyoApiClient::class.java.getDeclaredField("queueInitialized").apply {
+            isAccessible = true
+            setBoolean(KlaviyoApiClient, false)
+        }
+
+        KlaviyoApiClient.enqueueRequest(new)
+
+        assertEquals(
+            "[\"saved-uuid\",\"new-uuid\"]",
+            spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
+        )
+        assertNotNull(spyDataStore.fetch(saved.uuid))
+        assertNotNull(spyDataStore.fetch(new.uuid))
+    }
+
+    @Test
+    fun `Enqueue starts batching when a nonempty queue was already restored`() {
+        val clientClass = KlaviyoApiClient::class.java
+        val handler = clientClass.getDeclaredField("handler").apply { isAccessible = true }
+        val handlerThread = clientClass.getDeclaredField("handlerThread").apply { isAccessible = true }
+        val previousHandler = handler.get(KlaviyoApiClient)
+        val previousHandlerThread = handlerThread.get(KlaviyoApiClient)
+        val saved = KlaviyoApiRequest("saved", RequestMethod.GET, uuid = "saved-uuid")
+        spyDataStore.store(saved.uuid, saved.toString())
+        spyDataStore.store(KlaviyoApiClient.QUEUE_KEY, "[\"saved-uuid\"]")
+        clientClass.getDeclaredField("queueInitialized").apply {
+            isAccessible = true
+            setBoolean(KlaviyoApiClient, false)
+        }
+        handler.set(KlaviyoApiClient, null)
+        handlerThread.set(KlaviyoApiClient, Registry.threadHelper.getHandlerThread("test"))
+
+        try {
+            KlaviyoApiClient.restoreQueue()
+            KlaviyoApiClient.enqueueRequest(KlaviyoApiRequest("new", RequestMethod.GET))
+
+            assertNotNull(postedJob)
+        } finally {
+            handler.set(KlaviyoApiClient, previousHandler)
+            handlerThread.set(KlaviyoApiClient, previousHandlerThread)
+        }
+    }
+
+    @Test
     fun `Flushing queue empties persistent store`() {
         spyDataStore.store("something_else", "test")
         spyDataStore.clear(KlaviyoApiClient.QUEUE_KEY)

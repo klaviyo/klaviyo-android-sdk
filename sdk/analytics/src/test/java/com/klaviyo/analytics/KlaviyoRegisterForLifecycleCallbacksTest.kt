@@ -108,7 +108,11 @@ internal class KlaviyoRegisterForLifecycleCallbacksTest : BaseTest() {
             ) { result = it }
             testScheduler.runCurrent()
             assertTrue(result is ResolveDestinationResult.Unavailable)
-            val indexBeforeInitialization = spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
+            assertEquals(
+                JSONArray(listOf(saved.uuid, click.uuid)).toString(),
+                spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
+            )
+            assertTrue(spyDataStore.fetch(click.uuid) != null)
 
             Klaviyo.initialize(API_KEY, mockApplicationContext)
             testScheduler.runCurrent()
@@ -119,7 +123,6 @@ internal class KlaviyoRegisterForLifecycleCallbacksTest : BaseTest() {
                 listOf(saved.uuid, click.uuid),
                 (0 until persisted.length()).map { persisted.getString(it) }
             )
-            assertEquals(JSONArray(listOf(saved.uuid)).toString(), indexBeforeInitialization)
         } finally {
             Registry.getOrNull<StateSideEffects>()?.detach()
             spyDataStore.clear(KlaviyoApiClient.QUEUE_KEY)
