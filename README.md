@@ -42,6 +42,7 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
   - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
   - [Personalized Forms Authentication](#personalized-forms-authentication)
+  - [Previewing Draft Forms on a Device](#previewing-draft-forms-on-a-device)
   - [Monitoring Form Lifecycle Events](#monitoring-form-lifecycle-events)
 - [Geofencing](#geofencing)
   - [Setup](#setup-2)
@@ -109,10 +110,10 @@ The sample app serves as both a reference implementation and a testing tool for 
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.6.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.6.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.6.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:location:4.6.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.7.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.7.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.7.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:location:4.7.0")
       }
       ```
    </details>
@@ -123,10 +124,10 @@ The sample app serves as both a reference implementation and a testing tool for 
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.6.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.6.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.6.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:location:4.6.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.7.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.7.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.7.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:location:4.7.0"
        }
       ```
    </details>
@@ -1096,6 +1097,46 @@ The SDK does not time out your provider, so your code must:
 - **Bound your own work.** Apply a timeout to every network call. A provider that never calls back blocks later token fetches until you register, unregister or reset the profile.
 - **Fail fast.** If you cannot produce a token, for example when no user is signed in, call `onFailure` instead of waiting or retrying.
 - **Pass on the original network error.** The SDK retries after reconnect when it finds an `UnknownHostException` or a `SocketException` in the cause chain, so pass the original exception to `onFailure` or wrap it as the `cause`.
+
+### Previewing Draft Forms on a Device
+
+>  ℹ️ Previewing draft forms, by push or by preview link, is available in SDK version `4.7.0` and higher.
+
+You can preview a draft form on a device in two ways: send a push from the form editor, which is the
+preferred way, or scan the QR code and open the preview link.
+
+To send a push, open the form editor and choose **Preview on device** > **Send push**, then pick a
+saved test device. The device gets a notification, and tapping it opens the draft form in your app.
+This needs no code beyond the standard push setup (see [Push Notifications](#push-notifications)):
+`KlaviyoPushService` displays the notification, and `Klaviyo.handlePush(intent)` or automatic push
+open tracking (`automatic_push_open_tracking`) starts the preview when the notification is tapped.
+
+To use the QR code, open **Preview on device** in the form editor; it shows a QR code and a preview
+link for the draft form. The link is a deep link into your app with a
+`klaviyo-forms-preview` query parameter holding a short-lived preview token. Pass deep links to
+`handleFormsPreviewLink` before your own routing: it starts a preview session and returns `true` for
+a preview link, and returns `false`, changing nothing, for every other link. It works with custom
+schemes and App Links. If forms are registered, they restart in preview mode; if not, the preview
+starts when you call `registerForInAppForms`.
+
+Call `handleFormsPreviewLink` wherever you already route deep links (see
+[Deep Linking](#deep-linking)), before your own routing:
+
+```kotlin
+override fun onNewIntent(intent: Intent?) {
+    super.onNewIntent(intent)
+    if (Klaviyo.handleFormsPreviewLink(intent?.data)) return
+    // Your own deep link handling
+}
+```
+
+On a cold launch the link arrives via the intent in `onCreate`, so call it there too.
+
+You can also start a preview with a token directly using `Klaviyo.startFormsPreview(token)`, and end
+it with `Klaviyo.endFormsPreview()`. From Java, use `KlaviyoForms.handleFormsPreviewLink(uri)`,
+`KlaviyoForms.startFormsPreview(token)` and `KlaviyoForms.endFormsPreview()`.
+Preview tokens only read a saved draft and expire after 30 minutes. The SDK keeps them in memory
+only and never logs them.
 
 ### Monitoring Form Lifecycle Events
 

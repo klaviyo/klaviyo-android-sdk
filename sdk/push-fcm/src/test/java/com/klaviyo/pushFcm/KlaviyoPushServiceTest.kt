@@ -149,6 +149,20 @@ class KlaviyoPushServiceTest : BaseTest() {
     }
 
     @Test
+    fun `Custom data handler never receives a forms preview token`() {
+        val msg = mockk<RemoteMessage>()
+        val token = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123-_6"
+        stubMessage["key_value_pairs"] = JSONObject(
+            stubKeyValuePairs + ("klaviyo-forms-preview" to token)
+        ).toString()
+        every { msg.data } returns stubMessage
+
+        pushService.onMessageReceived(msg)
+
+        verify { pushService.onKlaviyoCustomDataMessageReceived(stubKeyValuePairs, msg) }
+    }
+
+    @Test
     fun `Non-klaviyo RemoteMessage is ignored`() {
         val msg = mockk<RemoteMessage>()
         stubMessage.remove("_k")

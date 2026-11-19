@@ -75,8 +75,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val NOTIFICATION_PRIORITY = "notification_priority"
         internal const val NOTIFICATION_TAG = "notification_tag"
         internal const val KEY_VALUE_PAIRS_KEY = Constants.KEY_VALUE_PAIRS
-        internal const val ACTION_BUTTONS_KEY = "action_buttons"
-        internal const val WEB_URL_KEY = "web_url"
+        internal const val ACTION_BUTTONS_KEY = Constants.ACTION_BUTTONS_PARAMETER
+        internal const val WEB_URL_KEY = Constants.WEB_URL_PARAMETER
         private const val DOWNLOAD_TIMEOUT_MS = 5_000
         private const val ACTION_REQUEST_CODE_OFFSET = 1
 
@@ -294,7 +294,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 makeResolvedDeepLinkIntent(
                     context,
                     deepLink,
-                    "Push message contained unsupported deep link: $deepLink"
+                    "Push message contained unsupported deep link (scheme: ${deepLink.scheme})"
                 )
             }
             return intent?.apply {
@@ -400,7 +400,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                     makeResolvedDeepLinkIntent(
                         context,
                         uri,
-                        "Action button $index contained unsupported deep link: $uri"
+                        "Action button $index contained unsupported deep link (scheme: ${uri.scheme})"
                     )
                 }
             }

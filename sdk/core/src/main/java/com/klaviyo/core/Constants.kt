@@ -22,6 +22,12 @@ object Constants {
     const val KEY_VALUE_PAIRS = "key_value_pairs"
 
     /**
+     * Key carrying an in-app forms draft-preview token: a push key/value pair and a deep link query
+     * parameter. Never tracked or logged; see [com.klaviyo.core.forms.FormsPreview].
+     */
+    const val FORMS_PREVIEW_KEY = "klaviyo-forms-preview"
+
+    /**
      * Klaviyo push messages contain metadata to associate an event with its original transmission
      */
     const val TRACKING_PARAMETER = "_k"
@@ -32,6 +38,18 @@ object Constants {
      * intent-filter and the intent's `data` is therefore unset.
      */
     const val URL_PARAMETER = "url"
+
+    /**
+     * Payload key holding a notification's browser destination URL. Copied onto the tap intent as
+     * [PACKAGE_PREFIX] + this key.
+     */
+    const val WEB_URL_PARAMETER = "web_url"
+
+    /**
+     * Payload key holding a notification's action buttons as a JSON array string. Copied onto the
+     * tap intent as [PACKAGE_PREFIX] + this key.
+     */
+    const val ACTION_BUTTONS_PARAMETER = "action_buttons"
 
     /**
      * Intent extra key holding the destination URL of the action button that was tapped, stamped
@@ -50,6 +68,13 @@ object Constants {
      */
     private const val INTERNAL_PREFIX = "_klaviyo."
     const val NOTIFICATION_TAG_EXTRA = INTERNAL_PREFIX + "notification_tag"
+
+    /**
+     * Intent extra carrying a `web_url` or `open_url` destination for the push trampoline to open in
+     * an external handler after `Klaviyo.handlePush` runs.
+     * Uses [INTERNAL_PREFIX] to stay out of analytics event properties, like [NOTIFICATION_TAG_EXTRA].
+     */
+    const val BROWSER_URL_EXTRA = INTERNAL_PREFIX + "browser_url"
 
     /**
      * Intent extra carrying an SDK-generated, per-notification unique ID stamped on every Klaviyo
