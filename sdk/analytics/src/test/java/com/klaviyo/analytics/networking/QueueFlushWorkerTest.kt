@@ -149,6 +149,12 @@ internal class QueueFlushWorkerRestartTest : BaseTest() {
         mockkStatic(DeviceProperties::buildEventMetaData)
         mockkObject(HttpUtil)
         try {
+            Registry.getOrNull<StateSideEffects>()?.detach()
+            Registry.unregister<StateSideEffects>()
+            Registry.unregister<State>()
+            Registry.unregister<ApiClient>()
+            Registry.unregister<Config>()
+            Registry.unregister<QueueScheduler>()
             queue.clear()
             queueInitialized.setBoolean(KlaviyoApiClient, false)
             setFinalStatic(Build.VERSION::class.java.getField("SDK_INT"), 32)
