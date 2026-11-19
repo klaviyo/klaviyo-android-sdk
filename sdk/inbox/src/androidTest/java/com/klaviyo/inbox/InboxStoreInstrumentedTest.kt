@@ -346,9 +346,11 @@ class InboxStoreInstrumentedTest {
 
         source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_UNREAD, 3L)
         assertTrue(source.stored("tm-1").let { !it.isRead && it.isArchived })
+        assertEquals(3L, source.stored("tm-1").updatedAt)
 
         source.updateState(COMPANY, "tm-1", InboxStateChange.UNARCHIVE, 4L)
         assertTrue(source.stored("tm-1").let { !it.isRead && !it.isArchived })
+        assertEquals(4L, source.stored("tm-1").updatedAt)
     }
 
     @Test
