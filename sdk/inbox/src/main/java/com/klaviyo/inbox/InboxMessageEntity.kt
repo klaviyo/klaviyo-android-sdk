@@ -20,12 +20,12 @@ import androidx.room.PrimaryKey
  * @property sortTime [sentAt], or [receivedAt] when the send time is unknown
  * @property expiresAt When the server expires the message, in epoch milliseconds. Null when the
  *  message has no known expiry, such as one captured from a push.
- * @property readUpdatedAt When [isRead] last changed, in epoch milliseconds. Null until it
- *  changes. Lets a later sync with the server keep the newer of two conflicting read changes.
- * @property archivedUpdatedAt When [isArchived] last changed, in epoch milliseconds. Null until
- *  it changes. Tracked apart from [readUpdatedAt] because the two states change independently.
+ * @property updatedAt When [isRead] or [isArchived] last changed, in epoch milliseconds. Null
+ *  until the host changes one, so a captured message leaves it null. One value covers both
+ *  states, so a later sync cannot tell which of the two changed last.
  * @property isReadPending True while a local read change has not been sent to the server. A sync
- *  sends the pending changes and clears the flag once the server accepts them.
+ *  sends the pending changes and clears the flag once the server accepts them. Kept apart from
+ *  [isArchivedPending] because [updatedAt] no longer says which state changed.
  * @property isArchivedPending True while a local archived change has not been sent to the server
  */
 @Entity(
@@ -51,8 +51,7 @@ internal data class InboxMessageEntity(
     val isArchived: Boolean = false,
     val sortTime: Long = sentAt ?: receivedAt,
     val expiresAt: Long? = null,
-    val readUpdatedAt: Long? = null,
-    val archivedUpdatedAt: Long? = null,
+    val updatedAt: Long? = null,
     val isReadPending: Boolean = false,
     val isArchivedPending: Boolean = false
 ) {

@@ -293,9 +293,8 @@ class InboxStoreInstrumentedTest {
         val stored = source.stored("tm-1")
         assertTrue(stored.isRead)
         assertFalse(stored.isArchived)
-        assertEquals(7_000L, stored.readUpdatedAt)
+        assertEquals(7_000L, stored.updatedAt)
         assertTrue(stored.isReadPending)
-        assertNull(stored.archivedUpdatedAt)
         assertFalse(stored.isArchivedPending)
     }
 
@@ -308,14 +307,13 @@ class InboxStoreInstrumentedTest {
 
         val stored = source.stored("tm-1")
         assertTrue(stored.isArchived)
-        assertEquals(8_000L, stored.archivedUpdatedAt)
+        assertEquals(8_000L, stored.updatedAt)
         assertTrue(stored.isArchivedPending)
-        assertNull(stored.readUpdatedAt)
         assertFalse(stored.isReadPending)
     }
 
     @Test
-    fun readAndArchivedKeepSeparateTimestamps() = runBlocking {
+    fun readAndArchivedShareOneTimestampThatTracksTheLatestChange() = runBlocking {
         val source = openSource()
         source.seed(message("tm-1"))
 
@@ -323,8 +321,7 @@ class InboxStoreInstrumentedTest {
         source.updateState(COMPANY, "tm-1", InboxStateChange.ARCHIVE, 2_000L)
 
         val stored = source.stored("tm-1")
-        assertEquals(1_000L, stored.readUpdatedAt)
-        assertEquals(2_000L, stored.archivedUpdatedAt)
+        assertEquals(2_000L, stored.updatedAt)
     }
 
     @Test
@@ -333,8 +330,7 @@ class InboxStoreInstrumentedTest {
         source.seed(message("tm-1"))
 
         val stored = source.stored("tm-1")
-        assertNull(stored.readUpdatedAt)
-        assertNull(stored.archivedUpdatedAt)
+        assertNull(stored.updatedAt)
         assertFalse(stored.isReadPending)
         assertFalse(stored.isArchivedPending)
     }
@@ -363,7 +359,7 @@ class InboxStoreInstrumentedTest {
 
         assertTrue(source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_READ, 2_000L))
 
-        assertEquals(1_000L, source.stored("tm-1").readUpdatedAt)
+        assertEquals(1_000L, source.stored("tm-1").updatedAt)
     }
 
     @Test
@@ -374,7 +370,7 @@ class InboxStoreInstrumentedTest {
         assertTrue(source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_UNREAD, 1_000L))
 
         val stored = source.stored("tm-1")
-        assertNull(stored.readUpdatedAt)
+        assertNull(stored.updatedAt)
         assertFalse(stored.isReadPending)
     }
 
