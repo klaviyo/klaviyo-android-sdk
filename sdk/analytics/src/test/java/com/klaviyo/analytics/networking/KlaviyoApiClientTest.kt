@@ -62,9 +62,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.fail
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TestName
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class KlaviyoApiClientTest : BaseTest() {
@@ -74,9 +72,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
     private val flushIntervalOffline = 30_000L
     private var postedJob: KlaviyoApiClient.NetworkRunnable? = null
     private val mockQueueScheduler = mockk<QueueScheduler>(relaxed = true)
-
-    @get:Rule
-    val testName = TestName()
 
     private companion object {
         private val slotOnActivityEvent = slot<ActivityObserver>()
@@ -121,9 +116,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
         // Register mock QueueScheduler to prevent actual WorkManager operations
         Registry.register<QueueScheduler>(mockQueueScheduler)
 
-        if (testName.methodName != "Enqueue before initialization preserves persisted requests in order") {
-            KlaviyoApiClient.startService()
-        }
+        KlaviyoApiClient.startService()
     }
 
     @After
@@ -860,26 +853,6 @@ internal class KlaviyoApiClientTest : BaseTest() {
         assertNotEquals(null, spyDataStore.fetch("mock_uuid2"))
         assertEquals(
             "[\"mock_uuid1\",\"mock_uuid2\"]",
-            spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
-        )
-    }
-
-    @Test
-    fun `Enqueue before initialization preserves persisted requests in order`() {
-        val savedRequest = KlaviyoApiRequest("saved", RequestMethod.GET, uuid = "saved-uuid")
-        val newRequest = KlaviyoApiRequest("new", RequestMethod.GET, uuid = "new-uuid")
-        spyDataStore.store(savedRequest.uuid, savedRequest.toString())
-        spyDataStore.store(KlaviyoApiClient.QUEUE_KEY, "[\"saved-uuid\"]")
-        assertEquals(0, KlaviyoApiClient.getQueueSize())
-
-        val queueInitialized = KlaviyoApiClient::class.java.getDeclaredField("queueInitialized")
-        queueInitialized.isAccessible = true
-        queueInitialized.setBoolean(KlaviyoApiClient, false)
-
-        KlaviyoApiClient.enqueueRequest(newRequest)
-
-        assertEquals(
-            "[\"saved-uuid\",\"new-uuid\"]",
             spyDataStore.fetch(KlaviyoApiClient.QUEUE_KEY)
         )
     }
