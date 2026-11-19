@@ -1,6 +1,7 @@
 package com.klaviyo.analytics.networking
 
 import android.net.Uri
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.EventMetric
 import com.klaviyo.analytics.model.Profile
@@ -72,6 +73,7 @@ internal class KlaviyoApiClientTest : BaseTest() {
     private val flushIntervalOffline = 30_000L
     private var postedJob: KlaviyoApiClient.NetworkRunnable? = null
     private val mockQueueScheduler = mockk<QueueScheduler>(relaxed = true)
+    private var previousInitialization: Boolean? = null
 
     private companion object {
         private val slotOnActivityEvent = slot<ActivityObserver>()
@@ -123,6 +125,12 @@ internal class KlaviyoApiClientTest : BaseTest() {
     override fun cleanup() {
         // Reset the Main dispatcher
         Dispatchers.resetMain()
+        previousInitialization?.let { previous ->
+            Klaviyo::class.java.getDeclaredField("initialized").apply {
+                isAccessible = true
+                setBoolean(Klaviyo, previous)
+            }
+        }
 
         spyDataStore.clear(KlaviyoApiClient.QUEUE_KEY)
         KlaviyoApiClient.restoreQueue(forceRestore = true)
@@ -975,6 +983,11 @@ internal class KlaviyoApiClientTest : BaseTest() {
         destinationUrl: Uri? = null,
         requeue: Boolean = requestStatus != KlaviyoApiRequest.Status.Complete
     ) {
+        Klaviyo::class.java.getDeclaredField("initialized").apply {
+            isAccessible = true
+            previousInitialization = getBoolean(Klaviyo)
+            setBoolean(Klaviyo, true)
+        }
         val expectedResponse = if (destinationUrl is Uri) {
             ResolveDestinationResult.Success(destinationUrl, trackingUrl)
         } else if (requestStatus == KlaviyoApiRequest.Status.Unsent) {

@@ -2,6 +2,7 @@ package com.klaviyo.analytics.networking
 
 import android.os.Handler
 import androidx.annotation.WorkerThread
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.Subscription
@@ -174,7 +175,8 @@ internal object KlaviyoApiClient : ApiClient {
         sendAndBroadcast()
         return getResult().also { result ->
             if (shouldRequeue()) {
-                enqueueRequest(prepareToEnqueue())
+                val request = prepareToEnqueue()
+                Klaviyo.runWhenInitialized { enqueueRequest(request) }
             }
         }
     }

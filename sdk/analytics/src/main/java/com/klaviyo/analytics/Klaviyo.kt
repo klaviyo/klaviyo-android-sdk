@@ -31,8 +31,9 @@ import com.klaviyo.core.safeApply
 import com.klaviyo.core.safeCall
 import com.klaviyo.core.utils.takeIf
 import java.io.Serializable
-import java.util.LinkedList
+import java.util.AbstractQueue
 import java.util.Queue
+import java.util.concurrent.ConcurrentLinkedQueue
 
 /**
  * Public API for the core Klaviyo SDK.
@@ -44,7 +45,81 @@ object Klaviyo {
     /**
      * Queue of failed operations attempted prior to [initialize]
      */
-    private val preInitQueue: Queue<Operation<Unit>> = LinkedList()
+    private val preInitQueue: Queue<Operation<Unit>> = ConcurrentLinkedQueue()
+    private val initializationLock = Any()
+    private var initialized = false
+    private var drainingPreInitQueue = false
+    private var completedInitializations = 0L
+
+    private fun pushRetryQueue(): Queue<Operation<Unit>> {
+        val (startedReady, initialVersion) = synchronized(initializationLock) {
+            (initialized && !drainingPreInitQueue) to completedInitializations
+        }
+        return object : AbstractQueue<Operation<Unit>>() {
+            override val size: Int get() = preInitQueue.size
+            override fun iterator(): MutableIterator<Operation<Unit>> = preInitQueue.iterator()
+            override fun peek(): Operation<Unit>? = preInitQueue.peek()
+            override fun poll(): Operation<Unit>? = preInitQueue.poll()
+            override fun offer(operation: Operation<Unit>): Boolean {
+                val runNow = synchronized(initializationLock) {
+                    if (!initialized || drainingPreInitQueue ||
+                        (startedReady && initialVersion == completedInitializations)
+                    ) {
+                        preInitQueue.add(operation)
+                        false
+                    } else {
+                        true
+                    }
+                }
+                if (runNow) safeCall(null, operation)
+                return true
+            }
+        }
+    }
+
+    private fun deferUntilInitialized(operation: Operation<Unit>): Boolean = synchronized(
+        initializationLock
+    ) {
+        if (!initialized || drainingPreInitQueue) {
+            preInitQueue.add(operation)
+            true
+        } else {
+            false
+        }
+    }
+
+    internal fun runWhenInitialized(operation: Operation<Unit>) {
+        if (!deferUntilInitialized(operation)) operation()
+    }
+
+    private fun completeInitialization() {
+        val shouldDrain = synchronized(initializationLock) {
+            initialized = true
+            completedInitializations++
+            if (drainingPreInitQueue) {
+                false
+            } else {
+                drainingPreInitQueue = true
+                true
+            }
+        }
+        if (!shouldDrain) return
+
+        var failure: Exception? = null
+        while (true) {
+            val operation = synchronized(initializationLock) {
+                preInitQueue.poll().also {
+                    if (it == null) drainingPreInitQueue = false
+                }
+            } ?: break
+            try {
+                safeCall(null, operation)
+            } catch (exception: Exception) {
+                if (failure == null) failure = exception
+            }
+        }
+        failure?.let { throw it }
+    }
 
     /**
      * This method is provided for apps that are unable to register their API key immediately
@@ -106,15 +181,7 @@ object Klaviyo {
 
         Registry.get<State>().apiKey = apiKey
 
-        if (preInitQueue.isNotEmpty()) {
-            Registry.log.info(
-                "Replaying ${preInitQueue.count()} operation(s) invoked prior to Klaviyo initialization."
-            )
-
-            while (preInitQueue.isNotEmpty()) {
-                preInitQueue.poll()?.let { safeCall(null, it) }
-            }
-        }
+        completeInitialization()
 
         // Optional side effect, kept last so it can never interfere with core initialization
         PushTokenFetcher.maybeAutoRegisterPushToken()
@@ -380,7 +447,7 @@ object Klaviyo {
      */
     @JvmStatic
     fun handlePush(intent: Intent?): Klaviyo = apply {
-        KlaviyoPushOpenHandler.handle(intent, preInitQueue)
+        KlaviyoPushOpenHandler.handle(intent, pushRetryQueue())
     }
 
     /**
