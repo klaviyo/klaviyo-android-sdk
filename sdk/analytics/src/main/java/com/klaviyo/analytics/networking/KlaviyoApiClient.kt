@@ -81,13 +81,19 @@ internal object KlaviyoApiClient : ApiClient {
         Registry.lifecycleMonitor.offActivityEvent(::onLifecycleActivity)
         Registry.lifecycleMonitor.onActivityEvent(::onLifecycleActivity)
 
+        wasConnected = false
         Registry.networkMonitor.offNetworkChange(::onNetworkChange)
         Registry.networkMonitor.onNetworkChange(::onNetworkChange)
 
         restoreQueue(forceRestore = false)
 
         if (apiQueue.isNotEmpty()) {
-            initBatch()
+            // The network observer registered above can report "connected" right away, and its
+            // forced flush is then lost: either it is posted before the flush handler exists, or
+            // initBatch() cancels it when it starts a non-forced batch. The logs can't tell these
+            // apart, and the fix is the same: flush restored requests from here, after the
+            // handler exists, if we are already online.
+            initBatch(force = Registry.networkMonitor.isNetworkConnected())
         }
     }
 
@@ -300,12 +306,26 @@ internal object KlaviyoApiClient : ApiClient {
     }
 
     /**
-     * Stop the background batching job while offline
+     * Whether the last network change we saw was a connected one. Distinguishes coming back
+     * online from a switch between reachable networks (e.g. Wi-Fi to cellular).
      */
-    private fun onNetworkChange(isConnected: Boolean) = if (isConnected) {
-        startBatch(true)
-    } else {
-        stopBatch()
+    @Volatile
+    private var wasConnected = false
+
+    /**
+     * Stop the background batching job while offline, and flush when connectivity returns.
+     * Switching between reachable networks leaves the running countdown alone: the next
+     * interval is re-read from the new network type whenever the job is re-queued.
+     */
+    private fun onNetworkChange(isConnected: Boolean) {
+        val wasConnected = this.wasConnected
+        this.wasConnected = isConnected
+
+        when {
+            !isConnected -> stopBatch()
+            !wasConnected -> startBatch(true)
+            else -> Registry.log.verbose("Network changed while connected, keeping flush countdown")
+        }
     }
 
     /**
@@ -515,7 +535,7 @@ internal object KlaviyoApiClient : ApiClient {
      *
      * Furthermore, it should be noted that we check the thread state to ensure that the thread is not yet started (in new state) before trying to start it. This is more accurate than checking isAlive on the thread (https://stackoverflow.com/questions/58668916/thread-start-throwing-exception-after-thread-isalive-check)
      */
-    private fun initBatch() {
+    private fun initBatch(force: Boolean = false) {
         synchronized(this) {
             if (handlerThread.state == Thread.State.TERMINATED) {
                 handlerThread = Registry.threadHelper.getHandlerThread(
@@ -529,7 +549,7 @@ internal object KlaviyoApiClient : ApiClient {
             }
         }
 
-        startBatch()
+        startBatch(force)
     }
 
     /**
@@ -622,7 +642,13 @@ internal object KlaviyoApiClient : ApiClient {
 
         private var enqueuedTime = Registry.clock.currentTimeMillis()
 
-        private var flushInterval: Long = defaultFlushInterval
+        /**
+         * Interval requested by the last incomplete flush (e.g. retry backoff), if any.
+         * Otherwise the interval is re-read from the current network type on every use.
+         */
+        private var retryInterval: Long? = null
+
+        private val flushInterval: Long get() = retryInterval ?: defaultFlushInterval
 
         /**
          * Send queued requests serially
@@ -632,14 +658,17 @@ internal object KlaviyoApiClient : ApiClient {
         override fun run() {
             val queueTimePassed = Registry.clock.currentTimeMillis() - enqueuedTime
 
-            if (queueTimePassed < flushInterval && !force) {
-                return requeue()
+            val interval = flushInterval
+
+            if (queueTimePassed < interval && !force) {
+                // Not due yet, e.g. the interval grew after a network switch: wait out the rest
+                return requeue(interval - queueTimePassed, resetTimer = false)
             }
 
             val outcome = sendQueueSerially()
 
             outcome.takeIf<FlushOutcome.Incomplete>()?.retryAfter?.let { retryAfter ->
-                flushInterval = retryAfter
+                retryInterval = retryAfter
             }
 
             if (!apiQueue.isEmpty()) {
@@ -648,13 +677,14 @@ internal object KlaviyoApiClient : ApiClient {
         }
 
         /**
-         * Re-queue the job to run again after [flushInterval] milliseconds
+         * Re-queue the job to run again after [delay] milliseconds, defaulting to a full
+         * [flushInterval] re-read now. [resetTimer] restarts the countdown from now.
          */
-        private fun requeue() {
-            Registry.log.verbose("Network batch will run in $flushInterval ms")
+        private fun requeue(delay: Long = flushInterval, resetTimer: Boolean = true) {
+            Registry.log.verbose("Network batch will run in $delay ms")
             force = false
-            enqueuedTime = Registry.clock.currentTimeMillis()
-            handler?.postDelayed(this, flushInterval)
+            if (resetTimer) enqueuedTime = Registry.clock.currentTimeMillis()
+            handler?.postDelayed(this, delay)
         }
     }
 

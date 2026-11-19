@@ -29,6 +29,7 @@ import com.klaviyo.core.utils.takeIf
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.mockDeviceProperties
 import com.klaviyo.fixtures.unmockDeviceProperties
+import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -434,6 +435,108 @@ internal class KlaviyoApiClientTest : BaseTest() {
         slotOnNetworkChange.captured(false)
         assertEquals(1, KlaviyoApiClient.getQueueSize())
         slotOnNetworkChange.captured(true)
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Flushes queue on first connected callback after cold start`() {
+        KlaviyoApiClient.enqueueRequest(mockRequest())
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        slotOnNetworkChange.captured(true)
+
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    private fun persistRestorableRequest(uuid: String = "restored_uuid") {
+        mockkObject(KlaviyoApiRequestDecoder)
+        every { KlaviyoApiRequestDecoder.fromJson(any()) } answers { a ->
+            mockRequest((a.invocation.args[0] as JSONObject).getString("uuid"))
+        }
+        spyDataStore.store(KlaviyoApiClient.QUEUE_KEY, "[\"$uuid\"]")
+        spyDataStore.store(uuid, mockRequest(uuid).toString())
+        KlaviyoApiClient.restoreQueue(forceRestore = true)
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Cold start while online flushes restored requests without waiting for the interval`() {
+        persistRestorableRequest()
+        every { mockNetworkMonitor.isNetworkConnected() } returns true
+
+        KlaviyoApiClient.startService()
+
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Cold start while offline leaves restored requests queued`() {
+        persistRestorableRequest()
+        every { mockNetworkMonitor.isNetworkConnected() } returns false
+
+        KlaviyoApiClient.startService()
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Switching between reachable networks keeps the countdown and does not flush`() {
+        KlaviyoApiClient.enqueueRequest(mockRequest())
+        slotOnNetworkChange.captured(true)
+        KlaviyoApiClient.enqueueRequest(mockRequest("uuid-1"))
+        clearMocks(mockHandler, answers = false, recordedCalls = true)
+
+        every { mockNetworkMonitor.getNetworkType() } returns NetworkMonitor.NetworkType.Cell
+        slotOnNetworkChange.captured(true)
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        verify(exactly = 0) { mockHandler.removeCallbacksAndMessages(any()) }
+        verify(exactly = 0) { mockHandler.post(any()) }
+    }
+
+    @Test
+    fun `Rapid reachable network flapping does not force a flush`() {
+        slotOnNetworkChange.captured(true)
+        KlaviyoApiClient.enqueueRequest(mockRequest())
+        clearMocks(mockHandler, answers = false, recordedCalls = true)
+
+        repeat(5) {
+            slotOnNetworkChange.captured(true)
+        }
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        verify(exactly = 0) { mockHandler.post(any()) }
+    }
+
+    @Test
+    fun `Offline to online after a network switch flushes again`() {
+        slotOnNetworkChange.captured(true)
+        KlaviyoApiClient.enqueueRequest(mockRequest())
+        slotOnNetworkChange.captured(false)
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+
+        slotOnNetworkChange.captured(true)
+
+        assertEquals(0, KlaviyoApiClient.getQueueSize())
+    }
+
+    @Test
+    fun `Flush interval is re-read on requeue after a network type change`() {
+        KlaviyoApiClient.enqueueRequest(mockRequest())
+        val job = postedJob!!
+
+        // Wifi elapsed, but we switched to the slower cell cadence: wait out the remainder
+        staticClock.time += flushIntervalWifi
+        every { mockNetworkMonitor.getNetworkType() } returns NetworkMonitor.NetworkType.Cell
+        job.run()
+
+        assertEquals(1, KlaviyoApiClient.getQueueSize())
+        verify { mockHandler.postDelayed(job, flushIntervalCell - flushIntervalWifi) }
+
+        // Cell interval now fully elapsed since the original enqueue
+        staticClock.time += flushIntervalCell - flushIntervalWifi
+        job.run()
+
         assertEquals(0, KlaviyoApiClient.getQueueSize())
     }
 
