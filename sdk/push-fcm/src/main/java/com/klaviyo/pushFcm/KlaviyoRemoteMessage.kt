@@ -407,16 +407,16 @@ object KlaviyoRemoteMessage {
         }
 
     /**
+     * The only schemes a carousel card's `image_url` may use.
+     */
+    private val CAROUSEL_IMAGE_SCHEMES = setOf("http", "https")
+
+    /**
      * Parse a single carousel card, returning null (and logging the reason) if it is invalid.
      *
      * @param position The card's 1-based original position, used for logging and attribution.
      * @param jsonObject The card's JSON object.
      */
-    /**
-     * The only schemes a carousel card's `image_url` may use.
-     */
-    private val CAROUSEL_IMAGE_SCHEMES = setOf("http", "https")
-
     private fun parseCarouselCard(position: Int, jsonObject: JSONObject): CarouselCard? {
         // Unlike [toURL], this never logs the parse failure: a MalformedURLException message
         // embeds the full URL, which must not reach logs. Only the position and scheme are logged.
