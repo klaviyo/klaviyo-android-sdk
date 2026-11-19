@@ -15,6 +15,24 @@ class InboxQueryTest {
     }
 
     @Test
+    fun `a query defaults to every message that is not archived`() {
+        val query = InboxQuery()
+
+        assertEquals(InboxReadFilter.ALL, query.readFilter)
+        assertEquals(InboxArchiveFilter.ACTIVE, query.archiveFilter)
+    }
+
+    @Test
+    fun `queries with different filters are not equal`() {
+        assertNotEquals(InboxQuery(), InboxQuery(readFilter = InboxReadFilter.UNREAD))
+        assertNotEquals(InboxQuery(), InboxQuery(archiveFilter = InboxArchiveFilter.ALL))
+        assertEquals(
+            InboxQuery(readFilter = InboxReadFilter.READ).hashCode(),
+            InboxQuery(readFilter = InboxReadFilter.READ).hashCode()
+        )
+    }
+
+    @Test
     fun `page size is clamped to the supported range`() {
         assertEquals(InboxQuery.MIN_PAGE_SIZE, InboxQuery(pageSize = 0).pageSize)
         assertEquals(InboxQuery.MIN_PAGE_SIZE, InboxQuery(pageSize = -5).pageSize)

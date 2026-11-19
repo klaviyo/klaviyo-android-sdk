@@ -16,6 +16,11 @@ public class MobileInboxJavaApiTest {
         assertEquals(5, new InboxQuery(5).getPageSize());
         InboxCursor cursor = new InboxCursor("token");
         assertEquals(cursor, new InboxQuery(10, cursor).getCursor());
+
+        InboxQuery filtered = new InboxQuery(10, null, InboxReadFilter.UNREAD, InboxArchiveFilter.ARCHIVED);
+        assertEquals(InboxReadFilter.UNREAD, filtered.getReadFilter());
+        assertEquals(InboxArchiveFilter.ARCHIVED, filtered.getArchiveFilter());
+        assertEquals(InboxArchiveFilter.ACTIVE, new InboxQuery().getArchiveFilter());
     }
 
     @Test
