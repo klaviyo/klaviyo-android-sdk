@@ -9,10 +9,13 @@ import com.klaviyo.core.Registry
 import com.klaviyo.pushFcm.KlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.CarouselCard
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import java.net.HttpURLConnection
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import kotlin.math.sqrt
 
 /**
  * Downloads and caches carousel card images.
@@ -59,11 +62,18 @@ internal object CarouselImageLoader {
     private const val MAX_CACHED_CAROUSELS = 2
 
     /**
-     * Cache budget in bytes: [MAX_CACHED_CAROUSELS] carousels of [MAX_CAROUSEL_CARDS] cards, each
-     * at the [MAX_BITMAP_BYTES] ceiling (about 5.9 MiB).
+     * Edge of the collapsed view's square thumbnail in pixels: 48dp at xxxhdpi is 192px, so this
+     * stays sharp on every density while costing at most 144 KiB.
      */
-    private const val CACHE_SIZE_BYTES =
-        MAX_CACHED_CAROUSELS * MAX_CAROUSEL_CARDS * MAX_BITMAP_BYTES
+    private const val THUMBNAIL_PX = 192
+
+    /**
+     * Cache budget in bytes: [MAX_CACHED_CAROUSELS] carousels of [MAX_CAROUSEL_CARDS] cards, each
+     * at the [MAX_BITMAP_BYTES] ceiling, plus each carousel's [THUMBNAIL_PX] thumbnail (about
+     * 6.1 MiB). Counting the thumbnails keeps a thumbnail put from evicting a card image.
+     */
+    private const val CACHE_SIZE_BYTES = MAX_CACHED_CAROUSELS *
+        (MAX_CAROUSEL_CARDS * MAX_BITMAP_BYTES + THUMBNAIL_PX * THUMBNAIL_PX * BYTES_PER_PIXEL)
 
     /**
      * Socket connect and read timeouts, split from the shared download budget so one card's
@@ -79,10 +89,9 @@ internal object CarouselImageLoader {
     private const val MAX_DOWNLOAD_BYTES = 5 * 1024 * 1024
 
     /**
-     * Edge of the collapsed view's square thumbnail in pixels: 48dp at xxxhdpi is 192px, so this
-     * stays sharp on every density while costing at most 144 KiB.
+     * HTTP status codes accepted as an image response.
      */
-    private const val THUMBNAIL_PX = 192
+    private val HTTP_SUCCESS = 200..299
 
     /**
      * Cache key: the notification tag plus the card's original position, and whether the entry is
@@ -285,7 +294,8 @@ internal object CarouselImageLoader {
      * once [KlaviyoNotification.DOWNLOAD_TIMEOUT_MS] has elapsed since it started. Together with the
      * connect timeout this keeps the receiver's cache-miss path inside the broadcast budget.
      *
-     * @return The bytes, or null when the body exceeds the cap or the deadline (already logged).
+     * @return The bytes, or null when the response is not a 2xx or the body exceeds the cap or the
+     *  deadline (already logged).
      */
     private fun readBytes(card: CarouselCard): ByteArray? {
         val connection = card.imageUrl.openConnection().apply {
@@ -294,7 +304,27 @@ internal object CarouselImageLoader {
         }
         val deadline = System.currentTimeMillis() + KlaviyoNotification.DOWNLOAD_TIMEOUT_MS
 
-        connection.getInputStream().use { input ->
+        try {
+            // An error page (4xx/5xx) or an unfollowed redirect (http -> https) is not an image.
+            if (connection is HttpURLConnection && connection.responseCode !in HTTP_SUCCESS) {
+                Registry.log.warning(
+                    "Carousel card ${card.position} image request returned HTTP " +
+                        "${connection.responseCode} (scheme: ${card.imageUrl.protocol}); " +
+                        "skipping image"
+                )
+                return null
+            }
+            return readBody(card, connection.getInputStream(), deadline)
+        } finally {
+            (connection as? HttpURLConnection)?.disconnect()
+        }
+    }
+
+    /**
+     * Read [stream] to the end under [deadline] and the [MAX_DOWNLOAD_BYTES] cap, closing it.
+     */
+    private fun readBody(card: CarouselCard, stream: InputStream, deadline: Long): ByteArray? {
+        stream.use { input ->
             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
             val output = ByteArrayOutputStream()
             while (true) {
@@ -365,7 +395,7 @@ internal object CarouselImageLoader {
             return bitmap
         }
         val maxPixels = MAX_BITMAP_BYTES / BYTES_PER_PIXEL
-        val scale = kotlin.math.sqrt(
+        val scale = sqrt(
             maxPixels.toDouble() / (bitmap.width.toDouble() * bitmap.height)
         )
         val width = (bitmap.width * scale).toInt().coerceAtLeast(1)

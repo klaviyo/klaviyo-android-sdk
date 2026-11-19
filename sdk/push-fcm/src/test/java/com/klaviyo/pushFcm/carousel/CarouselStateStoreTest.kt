@@ -1,10 +1,14 @@
 package com.klaviyo.pushFcm.carousel
 
+import android.app.NotificationManager
 import android.content.Context
 import android.content.SharedPreferences
+import android.service.notification.StatusBarNotification
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import io.mockk.verify
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -154,5 +158,60 @@ internal class CarouselStateStoreTest : BaseTest() {
             "updatedAt should be a current wall-clock timestamp",
             entry.getLong("updatedAt") >= before
         )
+    }
+
+    /** Report [tags] as the notifications currently showing. */
+    private fun activeNotifications(vararg tags: String) {
+        val manager = mockk<NotificationManager>()
+        every { manager.activeNotifications } returns tags.map { tag ->
+            mockk<StatusBarNotification>().apply { every { this@apply.tag } returns tag }
+        }.toTypedArray()
+        every { mockContext.getSystemService(NotificationManager::class.java) } returns manager
+    }
+
+    @Test
+    fun `pruneInactive drops carousels that are no longer showing and evicts their images`() {
+        CarouselStateStore.setIndex(mockContext, "tag-a", 1)
+        CarouselStateStore.setIndex(mockContext, "tag-b", 2)
+        activeNotifications("tag-b", "unrelated")
+        mockkObject(CarouselImageLoader)
+        every { CarouselImageLoader.evict(any()) } returns Unit
+        try {
+            CarouselStateStore.pruneInactive(mockContext)
+
+            val stored = JSONObject(storedState.orEmpty())
+            assertFalse(stored.has("tag-a"))
+            assertEquals(2, CarouselStateStore.getIndex(mockContext, "tag-b"))
+            verify { CarouselImageLoader.evict("tag-a") }
+            verify(exactly = 0) { CarouselImageLoader.evict("tag-b") }
+        } finally {
+            unmockkObject(CarouselImageLoader)
+        }
+    }
+
+    @Test
+    fun `pruneInactive keeps everything when active notifications cannot be read`() {
+        CarouselStateStore.setIndex(mockContext, TAG, 3)
+        every {
+            mockContext.getSystemService(NotificationManager::class.java)
+        } throws SecurityException("nope")
+
+        CarouselStateStore.pruneInactive(mockContext)
+
+        assertEquals(3, CarouselStateStore.getIndex(mockContext, TAG))
+    }
+
+    @Test
+    fun `concurrent setIndex calls for different tags never drop an entry`() {
+        val tags = (1..8).map { "tag-$it" }
+        val threads = tags.mapIndexed { i, tag ->
+            Thread { repeat(25) { CarouselStateStore.setIndex(mockContext, tag, i) } }
+        }
+        threads.forEach { it.start() }
+        threads.forEach { it.join() }
+
+        tags.forEachIndexed { i, tag ->
+            assertEquals("$tag lost its index", i, CarouselStateStore.getIndex(mockContext, tag))
+        }
     }
 }

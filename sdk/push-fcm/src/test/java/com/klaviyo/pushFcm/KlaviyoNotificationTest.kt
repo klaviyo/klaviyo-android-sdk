@@ -1111,6 +1111,7 @@ class KlaviyoNotificationTest : BaseTest() {
         every { CarouselImageLoader.evict(any()) } returns Unit
         mockkObject(CarouselStateStore)
         every { CarouselStateStore.setIndex(any(), any(), any()) } returns Unit
+        every { CarouselStateStore.pruneInactive(any()) } returns Unit
 
         // RemoteViews is an Android stub on the JVM; capture the text/bitmap sets through a mock.
         mockkConstructor(RemoteViews::class)
@@ -1767,6 +1768,8 @@ class KlaviyoNotificationTest : BaseTest() {
 
             verify { CarouselStateStore.setIndex(mockContext, TEST_TAG, 0) }
             verifyOrder {
+                // Leftovers from tapped (auto-cancelled) carousels go before the new one is added.
+                CarouselStateStore.pruneInactive(mockContext)
                 CarouselImageLoader.evict(TEST_TAG)
                 CarouselImageLoader.loadAll(TEST_TAG, carouselCards)
             }

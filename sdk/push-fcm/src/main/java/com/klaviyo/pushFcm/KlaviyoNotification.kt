@@ -142,6 +142,9 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         val cards = message.carouselCards
 
         if (cards != null) {
+            // A body tap auto-cancels the notification without firing its delete intent, so drop
+            // state left by carousels that are no longer showing before adding this one.
+            CarouselStateStore.pruneInactive(context)
             // A re-sent push under the same tag starts fresh: reset the index to card 1 and drop
             // any bitmaps cached for the previous carousel before downloading the new cards, so a
             // reused tag never serves a stale image. Both happen before building.

@@ -16,6 +16,7 @@ import io.mockk.unmockkStatic
 import java.io.ByteArrayInputStream
 import java.io.IOException
 import java.io.InputStream
+import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLConnection
 import java.util.TreeMap
@@ -578,6 +579,46 @@ internal class CarouselImageLoaderTest : BaseTest() {
     // ---------------------------------------------------------------------------------------
     // Download limits (reviewer hardening, c4cae3436c)
     // ---------------------------------------------------------------------------------------
+
+    /** A URL whose HTTP connection answers [status] with [bytes]. */
+    private fun httpUrl(status: Int, bytes: ByteArray = byteArrayOf(1)): Pair<URL, HttpURLConnection> {
+        val connection = mockk<HttpURLConnection>(relaxed = true).apply {
+            every { responseCode } returns status
+            every { getInputStream() } returns ByteArrayInputStream(bytes)
+        }
+        val url = mockk<URL>(relaxed = true).apply {
+            every { protocol } returns "https"
+            every { openConnection() } returns connection
+        }
+        return url to connection
+    }
+
+    @Test
+    fun `a non-2xx response is skipped without reading the body`() {
+        stubDecode()
+        val (url, connection) = httpUrl(status = 404)
+
+        assertNull(CarouselImageLoader.loadOne(TAG, card(1, url)))
+        io.mockk.verify(exactly = 0) { connection.inputStream }
+        io.mockk.verify { connection.disconnect() }
+    }
+
+    @Test
+    fun `a redirect the connection did not follow is skipped`() {
+        stubDecode()
+        val (url, _) = httpUrl(status = 301)
+
+        assertNull(CarouselImageLoader.loadOne(TAG, card(1, url)))
+    }
+
+    @Test
+    fun `a 200 response is decoded and the connection is closed`() {
+        val bitmap = stubDecode()
+        val (url, connection) = httpUrl(status = 200)
+
+        assertEquals(bitmap, CarouselImageLoader.loadOne(TAG, card(1, url)))
+        io.mockk.verify { connection.disconnect() }
+    }
 
     @Test
     fun `download sets connect and read timeouts on the connection`() {

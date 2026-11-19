@@ -412,6 +412,11 @@ object KlaviyoRemoteMessage {
      * @param position The card's 1-based original position, used for logging and attribution.
      * @param jsonObject The card's JSON object.
      */
+    /**
+     * The only schemes a carousel card's `image_url` may use.
+     */
+    private val CAROUSEL_IMAGE_SCHEMES = setOf("http", "https")
+
     private fun parseCarouselCard(position: Int, jsonObject: JSONObject): CarouselCard? {
         // Unlike [toURL], this never logs the parse failure: a MalformedURLException message
         // embeds the full URL, which must not reach logs. Only the position and scheme are logged.
@@ -419,6 +424,14 @@ object KlaviyoRemoteMessage {
         val imageUrl = imageUrlString?.let { runCatching { URL(it) }.getOrNull() }
         if (imageUrl == null) {
             Registry.log.warning("Skipping carousel card $position: missing or invalid image_url")
+            return null
+        }
+        // Images are fetched over the network only: java.net.URL also opens file:, jar: and ftp:.
+        if (imageUrl.protocol.lowercase() !in CAROUSEL_IMAGE_SCHEMES) {
+            Registry.log.warning(
+                "Skipping carousel card $position: image_url scheme " +
+                    "'${imageUrl.protocol}' is not allowed"
+            )
             return null
         }
 

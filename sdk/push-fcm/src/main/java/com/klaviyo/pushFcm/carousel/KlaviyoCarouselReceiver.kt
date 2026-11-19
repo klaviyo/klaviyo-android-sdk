@@ -115,8 +115,7 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
 
         val card = cards[nextIndex]
         val notification = KlaviyoNotification(message)
-
-        if (CarouselImageLoader.get(tag, card.position) != null) {
+        val repostCard = {
             repost(
                 context,
                 notification,
@@ -127,6 +126,10 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
                 nextIndex,
                 sender
             )
+        }
+
+        if (CarouselImageLoader.get(tag, card.position) != null) {
+            repostCard()
             return
         }
 
@@ -146,16 +149,7 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
                     } else {
                         CarouselImageLoader.loadOne(tag, card)
                     }
-                    repost(
-                        context,
-                        notification,
-                        card,
-                        tag,
-                        notificationUid,
-                        requestCodeBase,
-                        nextIndex,
-                        sender
-                    )
+                    repostCard()
                 } catch (e: Exception) {
                     Registry.log.error("Carousel cache-miss re-post failed", e)
                 } finally {
@@ -167,16 +161,7 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
             // unchanged behind a fired tap.
             Registry.log.error("Carousel cache-miss download could not be scheduled", e)
             try {
-                repost(
-                    context,
-                    notification,
-                    card,
-                    tag,
-                    notificationUid,
-                    requestCodeBase,
-                    nextIndex,
-                    sender
-                )
+                repostCard()
             } finally {
                 pendingResult.finish()
             }

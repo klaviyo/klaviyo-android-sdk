@@ -969,6 +969,18 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     }
 
     @Test
+    fun `carouselCards drops a card whose image_url is not http or https`() {
+        val fileImage = cardJson(2).apply { put("image_url", "file:///data/local/card.png") }
+        val ftpImage = cardJson(3).apply { put("image_url", "ftp://cdn.example.com/card.png") }
+        val httpImage = cardJson(4).apply { put("image_url", "http://cdn.example.com/card.png") }
+        val msg = messageWith(cardJson(1), fileImage, ftpImage, httpImage)
+
+        val cards = msg.carouselCards
+
+        assert(cards?.map { it.position } == listOf(1, 4))
+    }
+
+    @Test
     fun `carouselCards drops a card with no image_url`() {
         val noImage = cardJson(2).apply { remove("image_url") }
         val msg = messageWith(cardJson(1), noImage, cardJson(3))

@@ -1,5 +1,6 @@
 package com.klaviyo.pushFcm.carousel
 
+import android.app.NotificationManager
 import android.content.Context
 import androidx.core.content.edit
 import com.klaviyo.core.Registry
@@ -12,6 +13,9 @@ import org.json.JSONObject
  * is the single source of truth: a stale intent cannot rewind a card. Stored as one JSON map,
  * `tag -> {index, updatedAt}`, in a dedicated prefs file. Entries older than [MAX_AGE_MS] are
  * pruned on every write so an abandoned carousel cannot pin storage forever.
+ *
+ * Each read-modify-write of the map runs under one lock. FCM receipt (a worker thread) and arrow
+ * taps (the main thread) both write, and without the lock one could overwrite the other's tag.
  *
  * Every method takes the caller's [Context] and never touches [Registry.config] or
  * [Registry.dataStore]: both throw before `Klaviyo.initialize`, and both FCM receipt and arrow taps
@@ -44,9 +48,9 @@ internal object CarouselStateStore {
      * @param context The caller's context; used only to open [PREFS_NAME].
      * @param tag The notification tag identifying the carousel.
      */
-    fun getIndex(context: Context, tag: String): Int = load(context)[tag]
-        ?.optInt(INDEX_KEY, 0)
-        ?: 0
+    fun getIndex(context: Context, tag: String): Int = synchronized(this) {
+        load(context)[tag]?.optInt(INDEX_KEY, 0) ?: 0
+    }
 
     /**
      * Record the current card index for [tag], pruning stale entries in the same write.
@@ -55,7 +59,7 @@ internal object CarouselStateStore {
      * @param tag The notification tag identifying the carousel.
      * @param index The 0-based index of the displayed card within the parsed card list.
      */
-    fun setIndex(context: Context, tag: String, index: Int) {
+    fun setIndex(context: Context, tag: String, index: Int) = synchronized(this) {
         val now = System.currentTimeMillis()
         val map = load(context)
             .filterValues { it.optLong(UPDATED_AT_KEY, 0) > now - MAX_AGE_MS }
@@ -72,11 +76,42 @@ internal object CarouselStateStore {
      * @param context The caller's context; used only to open [PREFS_NAME].
      * @param tag The notification tag identifying the carousel.
      */
-    fun clear(context: Context, tag: String) {
+    fun clear(context: Context, tag: String) = synchronized(this) {
         val map = load(context).toMutableMap()
         if (map.remove(tag) != null) {
             save(context, map)
         }
+    }
+
+    /**
+     * Forget every carousel whose notification is no longer showing, and drop its cached images.
+     *
+     * A body tap auto-cancels the notification without firing its delete intent, so [clear] never
+     * runs for it. Calling this before posting a new carousel keeps that leftover state bounded to
+     * the carousels actually on screen.
+     *
+     * @param context The caller's context; used to read the active notifications and open
+     *  [PREFS_NAME].
+     */
+    fun pruneInactive(context: Context) {
+        val activeTags = try {
+            context.getSystemService(NotificationManager::class.java)
+                ?.activeNotifications
+                ?.mapNotNullTo(mutableSetOf()) { it.tag }
+        } catch (e: Exception) {
+            Registry.log.warning("Could not read active notifications to prune carousels", e)
+            null
+        } ?: return
+
+        val removed = synchronized(this) {
+            val map = load(context)
+            val stale = map.keys - activeTags
+            if (stale.isNotEmpty()) {
+                save(context, map - stale)
+            }
+            stale
+        }
+        removed.forEach { CarouselImageLoader.evict(it) }
     }
 
     /**
