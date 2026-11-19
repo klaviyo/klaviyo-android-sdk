@@ -88,6 +88,12 @@ object KlaviyoInbox {
                     throw e
                 } catch (e: Exception) {
                     Registry.log.error("Mobile Inbox change listener stopped", e)
+                    // Free the slot so the host can add the listener again. Only this
+                    // registration, in case the listener was already removed and re-added.
+                    synchronized(listeners) {
+                        subscription.isActive = false
+                        if (listeners[listener] === subscription) listeners.remove(listener)
+                    }
                 }
             }
         }

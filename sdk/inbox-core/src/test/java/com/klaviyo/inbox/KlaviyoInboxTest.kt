@@ -248,6 +248,21 @@ class KlaviyoInboxTest : BaseTest() {
     }
 
     @Test
+    fun `a listener whose collection failed can be added again`() {
+        var heard = 0
+        val listener = InboxChangeListener { heard++ }
+        inbox.changesFailure = IllegalStateException("no repository")
+        KlaviyoInbox.addChangeListener(listener)
+
+        inbox.changesFailure = null
+        KlaviyoInbox.addChangeListener(listener)
+        inbox.emitChange()
+
+        assertEquals(1, heard)
+        KlaviyoInbox.removeChangeListener(listener)
+    }
+
+    @Test
     fun `removing a listener that was never added does nothing`() {
         KlaviyoInbox.removeChangeListener { }
     }
