@@ -30,7 +30,7 @@ internal object InboxCursorCodec {
      * @param last The last message on the page
      * @param query The query the page answered, whose filters the cursor is bound to
      */
-    fun encode(last: InboxMessageEntity, query: InboxQuery = InboxQuery()): InboxCursor {
+    fun encode(last: InboxMessageEntity, query: InboxQuery): InboxCursor {
         val json = JSONObject()
             .put(VERSION_KEY, VERSION)
             .put(KIND_KEY, LOCAL_KIND)
