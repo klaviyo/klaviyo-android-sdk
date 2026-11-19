@@ -56,14 +56,22 @@ internal class KlaviyoInboxRepository(
         val after = InboxCursorCodec.decode(query, companyId)
 
         val page = storeCall("fetch a page") {
-            dataSource.fetchPage(companyId, InboxRecordQuery(query.pageSize, after))
+            dataSource.fetchPage(
+                companyId,
+                InboxRecordQuery(
+                    query.pageSize,
+                    after,
+                    isRead = query.readFilter.toState(),
+                    isArchived = query.archiveFilter.toState()
+                )
+            )
         }
 
         return InboxPage(
             messages = page.messages.map { it.toInboxMessage() },
             nextCursor = page.messages.lastOrNull()
                 ?.takeIf { page.hasMore }
-                ?.let(InboxCursorCodec::encode)
+                ?.let { InboxCursorCodec.encode(it, query) }
         )
     }
 
@@ -103,6 +111,18 @@ internal class KlaviyoInboxRepository(
     } catch (e: KlaviyoException) {
         Registry.log.debug("Mobile Inbox read before the SDK was initialized: ${e.message}")
         null
+    }
+
+    private fun InboxReadFilter.toState(): Boolean? = when (this) {
+        InboxReadFilter.ALL -> null
+        InboxReadFilter.UNREAD -> false
+        InboxReadFilter.READ -> true
+    }
+
+    private fun InboxArchiveFilter.toState(): Boolean? = when (this) {
+        InboxArchiveFilter.ACTIVE -> false
+        InboxArchiveFilter.ARCHIVED -> true
+        InboxArchiveFilter.ALL -> null
     }
 
     companion object {

@@ -76,6 +76,8 @@ internal class RoomInboxDataSource(
             companyId,
             query.after?.sortTime,
             query.after?.transmissionId,
+            query.isRead,
+            query.isArchived,
             limit = query.pageSize + 1
         )
         return InboxRecordPage(rows.take(query.pageSize), hasMore = rows.size > query.pageSize)
