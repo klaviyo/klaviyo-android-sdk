@@ -88,9 +88,11 @@ internal object KlaviyoApiClient : ApiClient {
         restoreQueue(forceRestore = false)
 
         if (apiQueue.isNotEmpty()) {
-            // The network observer registered above can report "connected" before the flush
-            // handler exists, in which case its forced flush has nowhere to go. Rather than rely
-            // on winning that race, flush restored requests now if we are already online.
+            // The network observer registered above can report "connected" right away, and its
+            // forced flush is then lost: either it is posted before the flush handler exists, or
+            // initBatch() cancels it when it starts a non-forced batch. The logs can't tell these
+            // apart, and the fix is the same: flush restored requests from here, after the
+            // handler exists, if we are already online.
             initBatch(force = Registry.networkMonitor.isNetworkConnected())
         }
     }
