@@ -3,6 +3,8 @@
     Expanded carousel notification: the current card only. The image carries the prev/next arrows
     (hidden on the first and last card) and a pill of page dots; the card title and description sit
     below it, 8dp apart. The notification title and body appear only in the collapsed view.
+    Before API 31 the image is shorter and the description is one line, so the card fits the
+    smaller pre-12 notification; see klaviyo_carousel_dimens.xml.
     Only RemoteViews-safe views are used here.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -123,7 +125,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/klaviyo_carousel_spacing"
-        android:maxLines="2"
+        android:maxLines="@integer/klaviyo_carousel_description_max_lines"
         android:ellipsize="end"
         android:textAppearance="@style/TextAppearance.Compat.Notification" />
 </LinearLayout>

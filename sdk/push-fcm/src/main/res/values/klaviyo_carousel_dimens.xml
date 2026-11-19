@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--
-        Carousel card image height. The card ratio is 2:1 (PUSH-1934 may change it): 156dp is half
-        the 312dp content width of the reference device, and the image is center-cropped to fill
-        whatever width the device gives it.
+        Carousel card image height before API 31. Android 11 and older give a custom expanded
+        notification much less room: measured at about 183dp for our content on API 30, and on
+        API 23 the whole expanded notification is capped at 256dp including the action buttons.
+        The 156dp image from the design leaves no room there, so the description (API 30) or the
+        buttons (API 23) get clipped. 120dp (about 2.6:1) plus the 1-line description below fits
+        both. API 31+ uses the design's 156dp from values-v31.
     -->
-    <dimen name="klaviyo_carousel_image_height">156dp</dimen>
+    <dimen name="klaviyo_carousel_image_height">120dp</dimen>
 
     <!-- Image corner radius. Clipped on API 31+ only; RemoteViews cannot clip views before that. -->
     <dimen name="klaviyo_carousel_image_corner_radius">12dp</dimen>
