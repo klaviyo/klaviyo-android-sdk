@@ -254,6 +254,8 @@ class KlaviyoInboxTest : BaseTest() {
         inbox.changesFailure = IllegalStateException("no repository")
         KlaviyoInbox.addChangeListener(listener)
 
+        verify { spyLog.error("Mobile Inbox change listener stopped", any()) }
+
         inbox.changesFailure = null
         KlaviyoInbox.addChangeListener(listener)
         inbox.emitChange()

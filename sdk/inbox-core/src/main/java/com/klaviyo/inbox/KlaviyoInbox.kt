@@ -61,7 +61,8 @@ object KlaviyoInbox {
 
     /**
      * Calls [listener] on the main thread whenever the inbox's messages change, until it is
-     * removed. Adding a listener that is already added does nothing. Hold the listener and remove
+     * removed, or until listening fails, which is logged and frees the listener to be added again.
+     * Adding a listener that is already added does nothing. Hold the listener and remove
      * it when the host no longer shows the inbox, since the SDK keeps a reference until then.
      *
      * The listener hears changes made after this returns, so call this before fetching.
