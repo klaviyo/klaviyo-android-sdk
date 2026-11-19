@@ -199,6 +199,9 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      *  passes the sender it received, because the `RemoteMessage` it rebuilds cannot carry `from`
      *  (the `Builder(String)` argument is the `to` field). Defaults to [RemoteMessage.getFrom] for
      *  the first post.
+     * @param isCarouselRepost True only when the carousel receiver re-posts after an arrow tap.
+     *  A re-post updates the notification silently; a first post, including a re-send that reuses
+     *  `notification_tag`, alerts like any other push.
      * @return [Notification.Builder] to display
      */
     internal fun buildNotification(
@@ -207,7 +210,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         requestCodeBase: Int? = null,
         notificationUid: String? = null,
         carouselIndex: Int = 0,
-        carouselSender: String? = null
+        carouselSender: String? = null,
+        isCarouselRepost: Boolean = false
     ): NotificationCompat.Builder {
         // null means "generate"; resolved here rather than in a default expression so a mocked
         // Registry.clock is never touched while a caller (or test) records the call.
@@ -257,9 +261,9 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             return builder
         }
 
-        // Carousel push: the body tap opens the current card's own destination, carrying the card
-        // position for attribution. Arrows are RemoteViews click targets, not actions, and the
-        // carousel re-posts without re-alerting.
+        // Carousel push: the body tap opens the current card's own destination. The card position
+        // rides on the intent for card attribution, which isn't reported on `$opened_push` yet
+        // (PUSH-1944). Arrows are RemoteViews click targets, not actions.
         val card = cards.getOrNull(carouselIndex.coerceIn(0, cards.lastIndex))
         val contentIntent = makePendingIntent(
             context,
@@ -279,8 +283,10 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 PendingIntent.FLAG_ONE_SHOT or
                 PendingIntent.FLAG_UPDATE_CURRENT
         )
+        // An arrow tap re-posts silently. A first post doesn't set this, so a re-send that reuses
+        // `notification_tag` still alerts like a standard push.
+        builder.setOnlyAlertOnce(isCarouselRepost)
         return builder
-            .setOnlyAlertOnce(true)
             .addActionButtons(
                 context,
                 resolvedRequestCodeBase,

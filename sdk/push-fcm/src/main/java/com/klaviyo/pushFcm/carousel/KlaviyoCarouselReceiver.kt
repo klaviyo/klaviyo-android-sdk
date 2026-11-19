@@ -189,7 +189,8 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
             requestCodeBase = requestCodeBase,
             notificationUid = notificationUid,
             carouselIndex = index,
-            carouselSender = sender
+            carouselSender = sender,
+            isCarouselRepost = true
         )
         NotificationManagerCompat
             .from(context)

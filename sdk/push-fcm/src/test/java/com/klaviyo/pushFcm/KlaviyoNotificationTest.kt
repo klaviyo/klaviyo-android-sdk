@@ -1684,7 +1684,28 @@ class KlaviyoNotificationTest : BaseTest() {
     }
 
     @Test
-    fun `carousel sets onlyAlertOnce`() {
+    fun `carousel arrow re-post sets onlyAlertOnce`() {
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                carouselIndex = 1,
+                isCarouselRepost = true
+            )
+
+            verify { anyConstructed<NotificationCompat.Builder>().setOnlyAlertOnce(true) }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel first post alerts even when re-sent under the same tag`() {
+        // A campaign re-sent with a reused notification_tag replaces the tray entry; it must still
+        // sound, vibrate and show heads-up like a standard push.
         withCarouselPush()
         try {
             notification.buildNotification(
@@ -1694,7 +1715,10 @@ class KlaviyoNotificationTest : BaseTest() {
                 notificationUid = TEST_UID
             )
 
-            verify { anyConstructed<NotificationCompat.Builder>().setOnlyAlertOnce(true) }
+            verify { anyConstructed<NotificationCompat.Builder>().setOnlyAlertOnce(false) }
+            verify(exactly = 0) {
+                anyConstructed<NotificationCompat.Builder>().setOnlyAlertOnce(true)
+            }
         } finally {
             withoutCarouselPush()
         }

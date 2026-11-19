@@ -94,6 +94,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
                 any(),
                 any(),
                 any(),
+                any(),
                 any()
             )
         } returns compatBuilder
@@ -207,7 +208,9 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
                 UID,
                 index,
                 // The received sender is re-stamped so the next tap can rebuild the message.
-                SENDER
+                SENDER,
+                // An arrow re-post updates the notification without alerting again.
+                true
             )
         }
         verify { notificationManager.notify(TAG, Constants.NOTIFICATION_ID, builtNotification) }
@@ -288,6 +291,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         verify { CarouselImageLoader.evict(TAG) }
         verify(exactly = 0) {
             anyConstructed<KlaviyoNotification>().buildNotification(
+                any(),
                 any(),
                 any(),
                 any(),
@@ -487,6 +491,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
                 capture(tag),
                 REQUEST_CODE_BASE,
                 capture(uid),
+                any(),
                 any(),
                 any()
             )

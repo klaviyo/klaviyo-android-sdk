@@ -129,6 +129,25 @@ internal class CarouselStateStoreTest : BaseTest() {
     }
 
     @Test
+    fun `one unreadable entry is dropped without resetting the other carousels`() {
+        storedState = JSONObject()
+            .put(
+                "tag-good",
+                JSONObject().put("index", 3).put("updatedAt", System.currentTimeMillis())
+            )
+            .put("tag-bad", "not-an-object")
+            .toString()
+
+        assertEquals(3, CarouselStateStore.getIndex(mockContext, "tag-good"))
+        assertEquals(0, CarouselStateStore.getIndex(mockContext, "tag-bad"))
+
+        // The next write keeps the good entry instead of persisting an empty map.
+        CarouselStateStore.setIndex(mockContext, TAG, 1)
+        assertEquals(3, CarouselStateStore.getIndex(mockContext, "tag-good"))
+        assertFalse(JSONObject(storedState.orEmpty()).has("tag-bad"))
+    }
+
+    @Test
     fun `malformed stored state is treated as empty`() {
         storedState = "{not-json"
 

@@ -115,12 +115,17 @@ internal object CarouselStateStore {
     }
 
     /**
-     * Read and parse the whole tag map, returning an empty map when absent or corrupt.
+     * Read and parse the whole tag map, returning an empty map when absent or unparseable and
+     * skipping any single entry that is not a JSON object.
      */
     private fun load(context: Context): Map<String, JSONObject> = try {
         preferences(context).getString(STATE_KEY, null)?.let { storedJson ->
             JSONObject(storedJson).let { json ->
-                json.keys().asSequence().associateWith { key -> json.getJSONObject(key) }
+                // One unreadable entry is dropped on its own. Failing the whole map would make
+                // the next write persist it empty and reset every other carousel to card 1.
+                json.keys().asSequence()
+                    .mapNotNull { key -> json.optJSONObject(key)?.let { key to it } }
+                    .toMap()
             }
         } ?: emptyMap()
     } catch (e: Exception) {
