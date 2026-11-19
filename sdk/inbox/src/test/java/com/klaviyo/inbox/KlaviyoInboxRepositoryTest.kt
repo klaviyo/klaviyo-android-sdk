@@ -181,7 +181,7 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
     @Test
     fun `a page is read for the current company from the query's position`() = runBlocking {
         coEvery { dataSource.fetchPage(any(), any()) } returns InboxRecordPage(emptyList(), false)
-        val cursor = InboxCursorCodec.encode(message)
+        val cursor = InboxCursorCodec.encode(message, InboxQuery())
 
         repository.fetchPage(InboxQuery(pageSize = 5, cursor = cursor))
 

@@ -37,7 +37,7 @@ internal class InboxCursorCodecTest : BaseTest() {
 
     @Test
     fun `a cursor decodes to the last message's position`() {
-        val cursor = InboxCursorCodec.encode(last)
+        val cursor = InboxCursorCodec.encode(last, InboxQuery())
 
         assertEquals(
             InboxRecordPosition(5_000L, "tm-9"),
@@ -51,13 +51,16 @@ internal class InboxCursorCodecTest : BaseTest() {
 
         assertEquals(
             InboxRecordPosition(6_000L, "tm-9"),
-            InboxCursorCodec.decode(InboxQuery(cursor = InboxCursorCodec.encode(unsent)), API_KEY)
+            InboxCursorCodec.decode(
+                InboxQuery(cursor = InboxCursorCodec.encode(unsent, InboxQuery())),
+                API_KEY
+            )
         )
     }
 
     @Test
     fun `the page size can change between pages`() {
-        val cursor = InboxCursorCodec.encode(last)
+        val cursor = InboxCursorCodec.encode(last, InboxQuery())
 
         assertEquals(
             InboxRecordPosition(5_000L, "tm-9"),
@@ -113,7 +116,7 @@ internal class InboxCursorCodecTest : BaseTest() {
 
     @Test
     fun `a cursor is rejected under a different archive filter`() {
-        val cursor = InboxCursorCodec.encode(last)
+        val cursor = InboxCursorCodec.encode(last, InboxQuery())
 
         assertThrows(InboxException.InvalidCursor::class.java) {
             InboxCursorCodec.decode(
@@ -125,7 +128,7 @@ internal class InboxCursorCodecTest : BaseTest() {
 
     @Test
     fun `a cursor from another company is rejected`() {
-        val cursor = InboxCursorCodec.encode(last.copy(companyId = "OtherCo"))
+        val cursor = InboxCursorCodec.encode(last.copy(companyId = "OtherCo"), InboxQuery())
 
         assertInvalid(cursor)
     }
