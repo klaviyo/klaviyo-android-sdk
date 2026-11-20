@@ -4,6 +4,8 @@ import com.klaviyo.core.Registry
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 
 /**
  * A [MobileInbox] that answers from fields, registered the way the `inbox` module registers the
@@ -21,7 +23,13 @@ class FakeMobileInbox : MobileInbox {
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
 
-    override val changes: Flow<Unit> = changeSignal
+    /** When set, collecting [changes] throws it, as a missing repository would */
+    var changesFailure: Exception? = null
+
+    override val changes: Flow<Unit> = flow {
+        changesFailure?.let { throw it }
+        emitAll(changeSignal)
+    }
 
     /** Emits on [changes], as the real inbox does when its messages change */
     fun emitChange() = changeSignal.tryEmit(Unit)
