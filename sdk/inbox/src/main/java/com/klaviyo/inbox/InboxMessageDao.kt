@@ -98,7 +98,7 @@ internal abstract class InboxMessageDao {
     @Query(
         """
         UPDATE ${InboxMessageEntity.TABLE_NAME}
-        SET isRead = :isRead, localUpdatedAt = :localUpdatedAt
+        SET isRead = :isRead, updatedAt = :updatedAt
         WHERE companyId = :companyId AND transmissionId = :transmissionId AND isRead != :isRead
         """
     )
@@ -106,13 +106,13 @@ internal abstract class InboxMessageDao {
         companyId: String,
         transmissionId: String,
         isRead: Boolean,
-        localUpdatedAt: Long
+        updatedAt: Long
     ): Int
 
     @Query(
         """
         UPDATE ${InboxMessageEntity.TABLE_NAME}
-        SET isArchived = :isArchived, localUpdatedAt = :localUpdatedAt
+        SET isArchived = :isArchived, updatedAt = :updatedAt
         WHERE companyId = :companyId AND transmissionId = :transmissionId
             AND isArchived != :isArchived
         """
@@ -121,7 +121,7 @@ internal abstract class InboxMessageDao {
         companyId: String,
         transmissionId: String,
         isArchived: Boolean,
-        localUpdatedAt: Long
+        updatedAt: Long
     ): Int
 
     @Query(
@@ -134,7 +134,7 @@ internal abstract class InboxMessageDao {
 
     /**
      * Applies [change] to the company's message, stamping
-     * [InboxMessageEntity.localUpdatedAt] only when the change alters it, so a repeat of the same
+     * [InboxMessageEntity.updatedAt] only when the change alters it, so a repeat of the same
      * change leaves the row and its timestamp alone.
      *
      * @return True when the company has the message, whether or not the change altered it
@@ -144,23 +144,13 @@ internal abstract class InboxMessageDao {
         companyId: String,
         transmissionId: String,
         change: InboxStateChange,
-        localUpdatedAt: Long
+        updatedAt: Long
     ): Boolean {
         val altered = when (change) {
-            InboxStateChange.MARK_READ -> setRead(companyId, transmissionId, true, localUpdatedAt)
-            InboxStateChange.MARK_UNREAD -> setRead(
-                companyId,
-                transmissionId,
-                false,
-                localUpdatedAt
-            )
-            InboxStateChange.ARCHIVE -> setArchived(companyId, transmissionId, true, localUpdatedAt)
-            InboxStateChange.UNARCHIVE -> setArchived(
-                companyId,
-                transmissionId,
-                false,
-                localUpdatedAt
-            )
+            InboxStateChange.MARK_READ -> setRead(companyId, transmissionId, true, updatedAt)
+            InboxStateChange.MARK_UNREAD -> setRead(companyId, transmissionId, false, updatedAt)
+            InboxStateChange.ARCHIVE -> setArchived(companyId, transmissionId, true, updatedAt)
+            InboxStateChange.UNARCHIVE -> setArchived(companyId, transmissionId, false, updatedAt)
         }
         return altered > 0 || count(companyId, transmissionId) > 0
     }

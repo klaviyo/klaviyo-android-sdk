@@ -20,11 +20,10 @@ import androidx.room.PrimaryKey
  * @property sortTime [sentAt], or [receivedAt] when the send time is unknown
  * @property expiresAt When the server expires the message, in epoch milliseconds. Null when the
  *  message has no known expiry, such as one captured from a push.
- * @property localUpdatedAt When the host last changed [isRead] or [isArchived] on this device, in
- *  epoch milliseconds. Null until the host changes one, so a captured message leaves it null. One
- *  value covers both states, so a later sync cannot tell which of the two changed last.
- * @property serverUpdatedAt When the server last changed the message, in epoch milliseconds. Null
- *  until a server message is stored, which nothing does yet.
+ * @property updatedAt When the host last changed [isRead] or [isArchived], in epoch milliseconds.
+ *  Null until the host changes one, so a captured message leaves it null and null means never
+ *  changed. One value covers both states, so a later sync cannot tell which of the two changed
+ *  last.
  */
 @Entity(
     tableName = InboxMessageEntity.TABLE_NAME,
@@ -49,8 +48,7 @@ internal data class InboxMessageEntity(
     val isArchived: Boolean = false,
     val sortTime: Long = sentAt ?: receivedAt,
     val expiresAt: Long? = null,
-    val localUpdatedAt: Long? = null,
-    val serverUpdatedAt: Long? = null
+    val updatedAt: Long? = null
 ) {
     companion object {
         const val TABLE_NAME = "inbox_message"

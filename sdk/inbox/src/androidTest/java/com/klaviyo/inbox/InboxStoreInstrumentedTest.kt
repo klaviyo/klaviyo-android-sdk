@@ -80,8 +80,7 @@ class InboxStoreInstrumentedTest {
 
     private fun InboxMessageEntity.withEveryTimestamp() = copy(
         expiresAt = EXPIRES_AT,
-        localUpdatedAt = LOCAL_UPDATED_AT,
-        serverUpdatedAt = SERVER_UPDATED_AT
+        updatedAt = UPDATED_AT
     )
 
     @Test
@@ -95,16 +94,16 @@ class InboxStoreInstrumentedTest {
     }
 
     @Test
-    fun aStateChangeLeavesTheServerTimestampAndExpiryAlone() = runBlocking {
+    fun aStateChangeLeavesTheExpiryAndSendTimeAlone() = runBlocking {
         val source = openSource()
-        source.seed(message("tm-1").withEveryTimestamp())
+        source.seed(message("tm-1", sentAt = SENT_AT).withEveryTimestamp())
 
         source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_READ, 9_000L)
 
         val stored = source.stored("tm-1")
         assertTrue(stored.isRead)
-        assertEquals(9_000L, stored.localUpdatedAt)
-        assertEquals(SERVER_UPDATED_AT, stored.serverUpdatedAt)
+        assertEquals(9_000L, stored.updatedAt)
+        assertEquals(SENT_AT, stored.sentAt)
         assertEquals(EXPIRES_AT, stored.expiresAt)
     }
 
@@ -304,7 +303,7 @@ class InboxStoreInstrumentedTest {
         fetchPage(companyId, InboxRecordQuery(LIMIT, null)).messages.first { it.transmissionId == id }
 
     @Test
-    fun markingAMessageReadStampsLocalUpdatedAt() = runBlocking {
+    fun markingAMessageReadStampsUpdatedAt() = runBlocking {
         val source = openSource()
         source.seed(message("tm-1"))
 
@@ -313,12 +312,11 @@ class InboxStoreInstrumentedTest {
         val stored = source.stored("tm-1")
         assertTrue(stored.isRead)
         assertFalse(stored.isArchived)
-        assertEquals(7_000L, stored.localUpdatedAt)
-        assertNull(stored.serverUpdatedAt)
+        assertEquals(7_000L, stored.updatedAt)
     }
 
     @Test
-    fun archivingAMessageStampsLocalUpdatedAt() = runBlocking {
+    fun archivingAMessageStampsUpdatedAt() = runBlocking {
         val source = openSource()
         source.seed(message("tm-1"))
 
@@ -326,12 +324,11 @@ class InboxStoreInstrumentedTest {
 
         val stored = source.stored("tm-1")
         assertTrue(stored.isArchived)
-        assertEquals(8_000L, stored.localUpdatedAt)
-        assertNull(stored.serverUpdatedAt)
+        assertEquals(8_000L, stored.updatedAt)
     }
 
     @Test
-    fun readThenArchiveKeepsTheLatestLocalUpdatedAt() = runBlocking {
+    fun readThenArchiveKeepsTheLatestUpdatedAt() = runBlocking {
         val source = openSource()
         source.seed(message("tm-1"))
 
@@ -339,7 +336,7 @@ class InboxStoreInstrumentedTest {
         source.updateState(COMPANY, "tm-1", InboxStateChange.ARCHIVE, 2_000L)
 
         val stored = source.stored("tm-1")
-        assertEquals(2_000L, stored.localUpdatedAt)
+        assertEquals(2_000L, stored.updatedAt)
     }
 
     @Test
@@ -348,8 +345,7 @@ class InboxStoreInstrumentedTest {
         source.seed(message("tm-1"))
 
         val stored = source.stored("tm-1")
-        assertNull(stored.localUpdatedAt)
-        assertNull(stored.serverUpdatedAt)
+        assertNull(stored.updatedAt)
         assertNull(stored.expiresAt)
     }
 
@@ -364,11 +360,11 @@ class InboxStoreInstrumentedTest {
 
         source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_UNREAD, 3L)
         assertTrue(source.stored("tm-1").let { !it.isRead && it.isArchived })
-        assertEquals(3L, source.stored("tm-1").localUpdatedAt)
+        assertEquals(3L, source.stored("tm-1").updatedAt)
 
         source.updateState(COMPANY, "tm-1", InboxStateChange.UNARCHIVE, 4L)
         assertTrue(source.stored("tm-1").let { !it.isRead && !it.isArchived })
-        assertEquals(4L, source.stored("tm-1").localUpdatedAt)
+        assertEquals(4L, source.stored("tm-1").updatedAt)
     }
 
     @Test
@@ -379,7 +375,7 @@ class InboxStoreInstrumentedTest {
 
         assertTrue(source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_READ, 2_000L))
 
-        assertEquals(1_000L, source.stored("tm-1").localUpdatedAt)
+        assertEquals(1_000L, source.stored("tm-1").updatedAt)
     }
 
     @Test
@@ -390,7 +386,7 @@ class InboxStoreInstrumentedTest {
         assertTrue(source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_UNREAD, 1_000L))
 
         val stored = source.stored("tm-1")
-        assertNull(stored.localUpdatedAt)
+        assertNull(stored.updatedAt)
     }
 
     @Test
@@ -432,7 +428,7 @@ class InboxStoreInstrumentedTest {
         assertEquals(1, second.countUnread(COMPANY))
         assertTrue(second.stored("a").isRead)
         assertTrue(second.stored("b").isArchived)
-        assertEquals(2L, second.stored("b").localUpdatedAt)
+        assertEquals(2L, second.stored("b").updatedAt)
     }
 
     @Test
@@ -623,7 +619,7 @@ class InboxStoreInstrumentedTest {
         const val LIMIT = 100
         const val CONCURRENT_INSERTS = 20
         const val EXPIRES_AT = 90_000L
-        const val LOCAL_UPDATED_AT = 5_000L
-        const val SERVER_UPDATED_AT = 6_000L
+        const val UPDATED_AT = 5_000L
+        const val SENT_AT = 4_000L
     }
 }

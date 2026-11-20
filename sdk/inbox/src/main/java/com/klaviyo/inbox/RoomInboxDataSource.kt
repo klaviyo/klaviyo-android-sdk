@@ -76,8 +76,8 @@ internal class RoomInboxDataSource(
         companyId: String,
         messageId: String,
         change: InboxStateChange,
-        localUpdatedAt: Long
-    ): Boolean = storeExists() && dao().updateState(companyId, messageId, change, localUpdatedAt)
+        updatedAt: Long
+    ): Boolean = storeExists() && dao().updateState(companyId, messageId, change, updatedAt)
 
     override suspend fun clearByCompanyId(companyId: String) {
         dao().deleteByCompanyId(companyId)
