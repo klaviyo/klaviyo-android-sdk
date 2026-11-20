@@ -23,9 +23,8 @@ internal fun inboxMessageEntity(
     isArchived: Boolean = false,
     sortTime: Long = sentAt ?: receivedAt,
     expiresAt: Long? = null,
-    updatedAt: Long? = null,
-    isReadPending: Boolean = false,
-    isArchivedPending: Boolean = false
+    localUpdatedAt: Long? = null,
+    serverUpdatedAt: Long? = null
 ) = InboxMessageEntity(
     transmissionId = transmissionId,
     companyId = companyId,
@@ -45,7 +44,6 @@ internal fun inboxMessageEntity(
     isArchived = isArchived,
     sortTime = sortTime,
     expiresAt = expiresAt,
-    updatedAt = updatedAt,
-    isReadPending = isReadPending,
-    isArchivedPending = isArchivedPending
+    localUpdatedAt = localUpdatedAt,
+    serverUpdatedAt = serverUpdatedAt
 )

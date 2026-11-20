@@ -23,8 +23,8 @@ internal interface LocalInboxDataSource {
     suspend fun countUnread(companyId: String): Int
 
     /**
-     * Apply [change] to [companyId]'s message, stamping [updatedAt] and marking the message as
-     * pending sync when the change alters it.
+     * Apply [change] to [companyId]'s message, stamping [localUpdatedAt] when the change alters
+     * it.
      *
      * @return True when the company has the message, whether or not the change altered it. False
      *  when nothing has ever been stored.
@@ -33,7 +33,7 @@ internal interface LocalInboxDataSource {
         companyId: String,
         messageId: String,
         change: InboxStateChange,
-        updatedAt: Long
+        localUpdatedAt: Long
     ): Boolean
 
     suspend fun clearByCompanyId(companyId: String)

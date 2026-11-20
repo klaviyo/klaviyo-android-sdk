@@ -98,7 +98,7 @@ internal abstract class InboxMessageDao {
     @Query(
         """
         UPDATE ${InboxMessageEntity.TABLE_NAME}
-        SET isRead = :isRead, updatedAt = :updatedAt, isReadPending = 1
+        SET isRead = :isRead, localUpdatedAt = :localUpdatedAt
         WHERE companyId = :companyId AND transmissionId = :transmissionId AND isRead != :isRead
         """
     )
@@ -106,13 +106,13 @@ internal abstract class InboxMessageDao {
         companyId: String,
         transmissionId: String,
         isRead: Boolean,
-        updatedAt: Long
+        localUpdatedAt: Long
     ): Int
 
     @Query(
         """
         UPDATE ${InboxMessageEntity.TABLE_NAME}
-        SET isArchived = :isArchived, updatedAt = :updatedAt, isArchivedPending = 1
+        SET isArchived = :isArchived, localUpdatedAt = :localUpdatedAt
         WHERE companyId = :companyId AND transmissionId = :transmissionId
             AND isArchived != :isArchived
         """
@@ -121,7 +121,7 @@ internal abstract class InboxMessageDao {
         companyId: String,
         transmissionId: String,
         isArchived: Boolean,
-        updatedAt: Long
+        localUpdatedAt: Long
     ): Int
 
     @Query(
@@ -133,8 +133,8 @@ internal abstract class InboxMessageDao {
     protected abstract suspend fun count(companyId: String, transmissionId: String): Int
 
     /**
-     * Applies [change] to the company's message, stamping [InboxMessageEntity.updatedAt] and marking
-     * pending only the changed state, and only when the change alters it, so a repeat of the same
+     * Applies [change] to the company's message, stamping
+     * [InboxMessageEntity.localUpdatedAt] only when the change alters it, so a repeat of the same
      * change leaves the row and its timestamp alone.
      *
      * @return True when the company has the message, whether or not the change altered it
@@ -144,13 +144,23 @@ internal abstract class InboxMessageDao {
         companyId: String,
         transmissionId: String,
         change: InboxStateChange,
-        updatedAt: Long
+        localUpdatedAt: Long
     ): Boolean {
         val altered = when (change) {
-            InboxStateChange.MARK_READ -> setRead(companyId, transmissionId, true, updatedAt)
-            InboxStateChange.MARK_UNREAD -> setRead(companyId, transmissionId, false, updatedAt)
-            InboxStateChange.ARCHIVE -> setArchived(companyId, transmissionId, true, updatedAt)
-            InboxStateChange.UNARCHIVE -> setArchived(companyId, transmissionId, false, updatedAt)
+            InboxStateChange.MARK_READ -> setRead(companyId, transmissionId, true, localUpdatedAt)
+            InboxStateChange.MARK_UNREAD -> setRead(
+                companyId,
+                transmissionId,
+                false,
+                localUpdatedAt
+            )
+            InboxStateChange.ARCHIVE -> setArchived(companyId, transmissionId, true, localUpdatedAt)
+            InboxStateChange.UNARCHIVE -> setArchived(
+                companyId,
+                transmissionId,
+                false,
+                localUpdatedAt
+            )
         }
         return altered > 0 || count(companyId, transmissionId) > 0
     }

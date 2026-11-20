@@ -284,7 +284,7 @@ class InboxStoreInstrumentedTest {
         fetchPage(companyId, InboxRecordQuery(LIMIT, null)).messages.first { it.transmissionId == id }
 
     @Test
-    fun markingAMessageReadStampsAndFlagsItPending() = runBlocking {
+    fun markingAMessageReadStampsLocalUpdatedAt() = runBlocking {
         val source = openSource()
         source.seed(message("tm-1"))
 
@@ -293,13 +293,12 @@ class InboxStoreInstrumentedTest {
         val stored = source.stored("tm-1")
         assertTrue(stored.isRead)
         assertFalse(stored.isArchived)
-        assertEquals(7_000L, stored.updatedAt)
-        assertTrue(stored.isReadPending)
-        assertFalse(stored.isArchivedPending)
+        assertEquals(7_000L, stored.localUpdatedAt)
+        assertNull(stored.serverUpdatedAt)
     }
 
     @Test
-    fun archivingAMessageStampsAndFlagsOnlyTheArchivedState() = runBlocking {
+    fun archivingAMessageStampsLocalUpdatedAt() = runBlocking {
         val source = openSource()
         source.seed(message("tm-1"))
 
@@ -307,13 +306,12 @@ class InboxStoreInstrumentedTest {
 
         val stored = source.stored("tm-1")
         assertTrue(stored.isArchived)
-        assertEquals(8_000L, stored.updatedAt)
-        assertTrue(stored.isArchivedPending)
-        assertFalse(stored.isReadPending)
+        assertEquals(8_000L, stored.localUpdatedAt)
+        assertNull(stored.serverUpdatedAt)
     }
 
     @Test
-    fun readAndArchivedShareOneTimestampThatTracksTheLatestChange() = runBlocking {
+    fun readThenArchiveKeepsTheLatestLocalUpdatedAt() = runBlocking {
         val source = openSource()
         source.seed(message("tm-1"))
 
@@ -321,18 +319,18 @@ class InboxStoreInstrumentedTest {
         source.updateState(COMPANY, "tm-1", InboxStateChange.ARCHIVE, 2_000L)
 
         val stored = source.stored("tm-1")
-        assertEquals(2_000L, stored.updatedAt)
+        assertEquals(2_000L, stored.localUpdatedAt)
     }
 
     @Test
-    fun aNewMessageHasNoStateChangeAndIsNotPending() = runBlocking {
+    fun aNewMessageHasNoTimestamps() = runBlocking {
         val source = openSource()
         source.seed(message("tm-1"))
 
         val stored = source.stored("tm-1")
-        assertNull(stored.updatedAt)
-        assertFalse(stored.isReadPending)
-        assertFalse(stored.isArchivedPending)
+        assertNull(stored.localUpdatedAt)
+        assertNull(stored.serverUpdatedAt)
+        assertNull(stored.expiresAt)
     }
 
     @Test
@@ -346,11 +344,11 @@ class InboxStoreInstrumentedTest {
 
         source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_UNREAD, 3L)
         assertTrue(source.stored("tm-1").let { !it.isRead && it.isArchived })
-        assertEquals(3L, source.stored("tm-1").updatedAt)
+        assertEquals(3L, source.stored("tm-1").localUpdatedAt)
 
         source.updateState(COMPANY, "tm-1", InboxStateChange.UNARCHIVE, 4L)
         assertTrue(source.stored("tm-1").let { !it.isRead && !it.isArchived })
-        assertEquals(4L, source.stored("tm-1").updatedAt)
+        assertEquals(4L, source.stored("tm-1").localUpdatedAt)
     }
 
     @Test
@@ -361,19 +359,18 @@ class InboxStoreInstrumentedTest {
 
         assertTrue(source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_READ, 2_000L))
 
-        assertEquals(1_000L, source.stored("tm-1").updatedAt)
+        assertEquals(1_000L, source.stored("tm-1").localUpdatedAt)
     }
 
     @Test
-    fun aChangeThatMatchesTheStoredStateDoesNotFlagItPending() = runBlocking {
+    fun aChangeThatMatchesTheStoredStateDoesNotStampIt() = runBlocking {
         val source = openSource()
         source.seed(message("tm-1"))
 
         assertTrue(source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_UNREAD, 1_000L))
 
         val stored = source.stored("tm-1")
-        assertNull(stored.updatedAt)
-        assertFalse(stored.isReadPending)
+        assertNull(stored.localUpdatedAt)
     }
 
     @Test
@@ -415,7 +412,7 @@ class InboxStoreInstrumentedTest {
         assertEquals(1, second.countUnread(COMPANY))
         assertTrue(second.stored("a").isRead)
         assertTrue(second.stored("b").isArchived)
-        assertTrue(second.stored("b").isArchivedPending)
+        assertEquals(2L, second.stored("b").localUpdatedAt)
     }
 
     @Test
