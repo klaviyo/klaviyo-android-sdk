@@ -434,6 +434,11 @@ object KlaviyoRemoteMessage {
             )
             return null
         }
+        // java.net.URL accepts `https:///card.png`, which has no host to fetch from.
+        if (imageUrl.host.isNullOrBlank()) {
+            Registry.log.warning("Skipping carousel card $position: image_url has no host")
+            return null
+        }
 
         val actionType = jsonObject.optNonBlankString("action")
         if (actionType == null) {
@@ -482,7 +487,7 @@ object KlaviyoRemoteMessage {
             }
             else -> {
                 Registry.log.warning(
-                    "Skipping carousel card $position: unsupported action type '$actionType'"
+                    "Skipping carousel card $position: unsupported action type"
                 )
                 return null
             }

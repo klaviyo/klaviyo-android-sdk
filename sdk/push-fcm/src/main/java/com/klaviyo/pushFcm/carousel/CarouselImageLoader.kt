@@ -22,8 +22,10 @@ import kotlin.math.sqrt
  *
  * All cards of one carousel are downloaded in parallel at receipt and decoded to a bounded size,
  * so the notification can re-render a card on an arrow tap without another network round trip. The
- * cache is keyed by notification tag and the card's original [CarouselCard.position], and holds at
- * most [MAX_CACHED_CAROUSELS] carousels' worth of bitmaps.
+ * cache is keyed by notification UID and the card's original [CarouselCard.position], and holds at
+ * most [MAX_CACHED_CAROUSELS] carousels' worth of bitmaps. Keying by UID rather than tag means a
+ * re-send that reuses `notification_tag` never shares, or is overwritten by, the images of the
+ * carousel it replaces.
  *
  * Every decoded bitmap is hard-capped at [MAX_BITMAP_BYTES] (about 600 KiB, the worst case being
  * roughly 391×391 ARGB_8888), so one posted notification — which carries only the expanded view's
@@ -94,12 +96,12 @@ internal object CarouselImageLoader {
     private val HTTP_SUCCESS = 200..299
 
     /**
-     * Cache key: the notification tag plus the card's original position, and whether the entry is
+     * Cache key: the notification UID plus the card's original position, and whether the entry is
      * the card's collapsed-view thumbnail rather than its full image. A data class gives exact
-     * [equals]/[hashCode] so [evict] can match one tag without the prefix hazards of a joined string.
+     * [equals]/[hashCode] so [evict] can match one UID without the prefix hazards of a joined string.
      */
     private data class CardKey(
-        val tag: String,
+        val uid: String,
         val position: Int,
         val thumbnail: Boolean = false
     )
@@ -112,14 +114,14 @@ internal object CarouselImageLoader {
      * Download every card in [cards] that is not already cached, in parallel, waiting at most
      * [KlaviyoNotification.DOWNLOAD_TIMEOUT_MS] in total. One card failing never discards another.
      *
-     * @param tag The notification tag identifying the carousel, used as the cache key.
+     * @param uid The notification UID identifying the carousel, used as the cache key.
      * @param cards The parsed cards of the carousel.
      * @return Bitmaps that were available (cached or downloaded in time), keyed by card position.
      *  Cards that failed or timed out are simply absent.
      */
-    fun loadAll(tag: String, cards: List<CarouselCard>): Map<Int, Bitmap> {
+    fun loadAll(uid: String, cards: List<CarouselCard>): Map<Int, Bitmap> {
         val results = mutableMapOf<Int, Bitmap>()
-        cards.forEach { card -> get(tag, card.position)?.let { results[card.position] = it } }
+        cards.forEach { card -> get(uid, card.position)?.let { results[card.position] = it } }
 
         val missing = cards.filterNot { results.containsKey(it.position) }
         if (missing.isEmpty()) {
@@ -136,12 +138,11 @@ internal object CarouselImageLoader {
             futures.forEach { (position, future) ->
                 // Guard each card independently so one failure or timeout keeps the others.
                 try {
-                    val remainingMs = deadline - System.currentTimeMillis()
-                    if (remainingMs <= 0) {
-                        throw TimeoutException()
-                    }
+                    // Never negative: once the deadline passes, get(0) still returns a card that
+                    // finished while an earlier one used up the wait, and times out the rest.
+                    val remainingMs = (deadline - System.currentTimeMillis()).coerceAtLeast(0)
                     future.get(remainingMs, TimeUnit.MILLISECONDS)?.let { bitmap ->
-                        put(tag, position, bitmap)
+                        put(uid, position, bitmap)
                         results[position] = bitmap
                     }
                 } catch (_: TimeoutException) {
@@ -174,25 +175,25 @@ internal object CarouselImageLoader {
     /**
      * Read a cached card image.
      *
-     * @param tag The notification tag identifying the carousel.
+     * @param uid The notification UID identifying the carousel.
      * @param position The card's original [CarouselCard.position].
      * @return The cached bitmap, or null when it was never downloaded or has been evicted.
      */
-    fun get(tag: String, position: Int): Bitmap? = cache.get(CardKey(tag, position))
+    fun get(uid: String, position: Int): Bitmap? = cache.get(CardKey(uid, position))
 
     /**
      * The collapsed view's square thumbnail of a card: its cached image, center-cropped to a
      * square and scaled to [THUMBNAIL_PX]. Built once from the full image, then cached under the
-     * same tag so [evict] drops it too.
+     * same UID so [evict] drops it too.
      *
-     * @param tag The notification tag identifying the carousel.
+     * @param uid The notification UID identifying the carousel.
      * @param position The card's original [CarouselCard.position].
      * @return The thumbnail, or null when the card's full image is not cached.
      */
-    fun thumbnail(tag: String, position: Int): Bitmap? {
-        val key = CardKey(tag, position, thumbnail = true)
+    fun thumbnail(uid: String, position: Int): Bitmap? {
+        val key = CardKey(uid, position, thumbnail = true)
         cache.get(key)?.let { return it }
-        val source = get(tag, position) ?: return null
+        val source = get(uid, position) ?: return null
         return centerCropSquare(source, THUMBNAIL_PX).also { cache.put(key, it) }
     }
 
@@ -213,26 +214,22 @@ internal object CarouselImageLoader {
     }
 
     /**
-     * Download a single card and cache it. For the receiver's cache-miss path after process death.
+     * Download a single card and cache it, under the same deadline as [loadAll].
      *
-     * Bounded by the socket timeouts ([CONNECT_TIMEOUT_MS] + [READ_TIMEOUT_MS]) and
-     * [MAX_DOWNLOAD_BYTES], so the caller's broadcast budget is never exceeded.
-     *
-     * @param tag The notification tag identifying the carousel.
+     * @param uid The notification UID identifying the carousel.
      * @param card The card to download.
-     * @return The bitmap, or null if the download or decode failed.
+     * @return The bitmap, or null if the download or decode failed or timed out.
      */
-    fun loadOne(tag: String, card: CarouselCard): Bitmap? =
-        get(tag, card.position) ?: download(card)?.also { put(tag, card.position, it) }
+    fun loadOne(uid: String, card: CarouselCard): Bitmap? = loadAll(uid, listOf(card))[card.position]
 
     /**
-     * Drop every cached bitmap for [tag].
+     * Drop every cached bitmap for [uid].
      *
-     * @param tag The notification tag identifying the carousel.
+     * @param uid The notification UID identifying the carousel.
      */
-    fun evict(tag: String) {
+    fun evict(uid: String) {
         cache.snapshot().keys
-            .filter { it.tag == tag }
+            .filter { it.uid == uid }
             .forEach { cache.remove(it) }
     }
 
@@ -394,7 +391,11 @@ internal object CarouselImageLoader {
         if (bitmap.byteCount <= MAX_BITMAP_BYTES) {
             return bitmap
         }
-        val maxPixels = MAX_BITMAP_BYTES / BYTES_PER_PIXEL
+        // Read the bytes per pixel off the bitmap: RGBA_F16 is 8, so assuming ARGB_8888's 4 would
+        // leave it at twice the budget.
+        val pixels = (bitmap.width * bitmap.height).coerceAtLeast(1)
+        val bytesPerPixel = (bitmap.byteCount / pixels).coerceAtLeast(1)
+        val maxPixels = MAX_BITMAP_BYTES / bytesPerPixel
         val scale = sqrt(
             maxPixels.toDouble() / (bitmap.width.toDouble() * bitmap.height)
         )
@@ -414,7 +415,7 @@ internal object CarouselImageLoader {
     /**
      * Insert into the cache; the LruCache evicts least-recently-used entries past the budget.
      */
-    private fun put(tag: String, position: Int, bitmap: Bitmap) {
-        cache.put(CardKey(tag, position), bitmap)
+    private fun put(uid: String, position: Int, bitmap: Bitmap) {
+        cache.put(CardKey(uid, position), bitmap)
     }
 }

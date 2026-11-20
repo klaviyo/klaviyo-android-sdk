@@ -26,11 +26,13 @@ import java.util.concurrent.Executors
  * card, where the matching arrow is hidden), then re-post the
  * notification under the same tag, with the original `NOTIFICATION_UID_EXTRA` and request-code base
  * so the opened-push dedupe key is stable and `FLAG_UPDATE_CURRENT` replaces the old tokens rather
- * than piling up new ones. The image cache is keyed by the card's original position, not the store
- * index. On a cache miss (typically after process death) it downloads only the target card on a
- * background thread via [goAsync] before re-posting.
+ * than piling up new ones. The UID also identifies the carousel's generation: a tap from a carousel
+ * that a re-send has since replaced under the same tag is dropped, and so is a re-post for a
+ * notification dismissed while its image downloaded. The image cache is keyed by the UID and the
+ * card's original position, not the store index. On a cache miss (typically after process death) it
+ * downloads the target card on a background thread via [goAsync] before re-posting.
  *
- * DELETE: clear the persisted index and evict the cached images.
+ * DELETE: clear the persisted index and evict the cached images of the dismissed generation only.
  *
  * Pre-init safety: this receiver never touches `Registry.config` or `Registry.dataStore` — both
  * throw before `Klaviyo.initialize`, and an arrow tap can arrive before the host has initialized.
@@ -103,7 +105,11 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
             return
         }
 
-        val currentIndex = CarouselStateStore.getIndex(context, tag).coerceIn(0, cards.lastIndex)
+        val storedIndex = CarouselStateStore.getIndex(context, tag, notificationUid) ?: run {
+            Registry.log.verbose("Carousel arrow tapped on a replaced notification; ignoring")
+            return
+        }
+        val currentIndex = storedIndex.coerceIn(0, cards.lastIndex)
         // No wrap-around: the arrow is hidden at each end, so a tap past the end can only come
         // from a stale view (e.g. a double tap before the re-post lands) and changes nothing.
         val nextIndex = (currentIndex + direction).coerceIn(0, cards.lastIndex)
@@ -111,8 +117,6 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
             Registry.log.verbose("Carousel arrow tapped at the end of the cards; ignoring")
             return
         }
-        CarouselStateStore.setIndex(context, tag, nextIndex)
-
         val card = cards[nextIndex]
         val notification = KlaviyoNotification(message)
         val repostCard = {
@@ -128,27 +132,23 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
             )
         }
 
-        if (CarouselImageLoader.get(tag, card.position) != null) {
+        if (CarouselImageLoader.get(notificationUid, card.position) != null) {
             repostCard()
             return
         }
 
-        // Cache miss (usually process death): download just this card off the main thread, then
+        // Cache miss (usually process death): download this card off the main thread, then
         // re-post whether or not it arrives. finish() must run on every path.
         val pendingResult = goAsync()
         try {
             executor.execute {
                 try {
-                    // Card 1 also feeds the collapsed thumbnail, so fetch both in one parallel,
-                    // deadline-bounded pass when card 1's image is gone too.
-                    val first = cards.first()
-                    if (first.position != card.position &&
-                        CarouselImageLoader.get(tag, first.position) == null
-                    ) {
-                        CarouselImageLoader.loadAll(tag, listOf(card, first))
-                    } else {
-                        CarouselImageLoader.loadOne(tag, card)
-                    }
+                    // Card 1 also feeds the collapsed thumbnail, so it rides the same parallel,
+                    // deadline-bounded pass; loadAll skips it when it is still cached.
+                    CarouselImageLoader.loadAll(
+                        notificationUid,
+                        listOf(card, cards.first()).distinct()
+                    )
                     repostCard()
                 } catch (e: Exception) {
                     Registry.log.error("Carousel cache-miss re-post failed", e)
@@ -169,7 +169,9 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
     }
 
     /**
-     * Re-post the carousel notification in place under the original tag, UID and request codes.
+     * Re-post the carousel notification in place under the original tag, UID and request codes,
+     * unless [CarouselStateStore.advance] finds it replaced or dismissed. The store records [index]
+     * only once the notification is posted.
      */
     @WorkerThread
     @Suppress("MissingPermission") // Gated by areNotificationsEnabled() in handleMove().
@@ -192,20 +194,27 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
             carouselSender = sender,
             isCarouselRepost = true
         )
-        NotificationManagerCompat
-            .from(context)
-            .notify(tag, Constants.NOTIFICATION_ID, built.build())
-        Registry.log.verbose("Re-posted carousel card ${card.position} under tag '$tag'")
+        val posted = CarouselStateStore.advance(context, tag, notificationUid, index) {
+            NotificationManagerCompat
+                .from(context)
+                .notify(tag, Constants.NOTIFICATION_ID, built.build())
+        }
+        if (posted) {
+            Registry.log.verbose("Re-posted carousel card ${card.position} under tag '$tag'")
+        }
     }
 
     /**
-     * Dismissal: forget the index and drop the cached images.
+     * Dismissal: forget the index and drop the cached images of the dismissed carousel. A newer
+     * carousel posted under the same tag keeps both.
      */
     private fun handleDelete(context: Context, intent: Intent) {
         val tag = intent.getStringExtra(Constants.NOTIFICATION_TAG_EXTRA)
             ?: return logMissing("notification tag")
-        CarouselStateStore.clear(context, tag)
-        CarouselImageLoader.evict(tag)
+        val notificationUid = intent.getStringExtra(Constants.NOTIFICATION_UID_EXTRA)
+            ?: return logMissing("notification uid")
+        CarouselStateStore.clear(context, tag, notificationUid)
+        CarouselImageLoader.evict(notificationUid)
     }
 
     private fun logMissing(field: String): Unit =

@@ -156,6 +156,15 @@ object Constants {
     const val CAROUSEL_POSITION_EXTRA = INTERNAL_PREFIX + "carousel_position"
 
     /**
+     * Intent extra carrying the deep link of the carousel card whose body was tapped. The tap's
+     * intent data holds the same link only when an activity resolves it; otherwise the host is
+     * launched without data, and `Klaviyo.getKlaviyoDeepLink` reads the link from here instead.
+     * Uses [INTERNAL_PREFIX] so the link stays out of analytics event properties. Absent on standard
+     * push taps and on carousel cards that do not deep link.
+     */
+    const val CAROUSEL_CARD_LINK_EXTRA = INTERNAL_PREFIX + "carousel_card_link"
+
+    /**
      * Minimum number of valid carousel cards required to render a carousel. Below this the push
      * falls back to the standard notification path.
      */

@@ -128,15 +128,17 @@ internal class CarouselSenderChainTest : BaseTest() {
         mockkObject(CarouselImageLoader)
         every { CarouselImageLoader.get(any(), any()) } returns mockk<Bitmap>(relaxed = true)
         every { CarouselImageLoader.thumbnail(any(), any()) } returns mockk<Bitmap>(relaxed = true)
-        every { CarouselImageLoader.loadOne(any(), any()) } returns null
+        every { CarouselImageLoader.loadAll(any(), any()) } returns emptyMap()
         every { CarouselImageLoader.evict(any()) } returns Unit
 
         mockkObject(CarouselStateStore)
-        every { CarouselStateStore.getIndex(any(), any()) } answers { storedIndex }
-        every { CarouselStateStore.setIndex(any(), any(), any()) } answers {
-            storedIndex = thirdArg()
+        every { CarouselStateStore.getIndex(any(), any(), any()) } answers { storedIndex }
+        every { CarouselStateStore.advance(any(), any(), any(), any(), any()) } answers {
+            arg<() -> Unit>(4).invoke()
+            storedIndex = arg(3)
+            true
         }
-        every { CarouselStateStore.clear(any(), any()) } returns Unit
+        every { CarouselStateStore.clear(any(), any(), any()) } returns Unit
     }
 
     @After
@@ -173,6 +175,7 @@ internal class CarouselSenderChainTest : BaseTest() {
 
         // The first post stamps the real sender; that intent is the first hop's input.
         active = latestNext() ?: error("the first post built no next-arrow intent")
+        val recordedAfterFirstPost = recorded.size
         assertEquals(
             "the first post must stamp the message sender",
             SENDER,
@@ -185,8 +188,11 @@ internal class CarouselSenderChainTest : BaseTest() {
         assertEquals("the first arrow tap must advance and re-post", 1, notifies.size)
         assertEquals(1, storedIndex)
 
-        // Capture what the re-post stamped before hop 2 rebuilds the records.
-        active = latestNext() ?: error("the re-post built no next-arrow intent")
+        // Capture what the re-post stamped before hop 2 rebuilds the records. Only intents the
+        // re-post appended count, so a missing one fails rather than reusing the first post's.
+        active = recorded.drop(recordedAfterFirstPost)
+            .lastOrNull { it.action == Constants.CAROUSEL_ACTION_NEXT }
+            ?: error("the re-post built no next-arrow intent")
         val repostSender = active?.extras?.get(Constants.CAROUSEL_SENDER_EXTRA)
 
         // Hop 2: replay the re-post's own next-arrow intent. On the pre-fix code its sender extra

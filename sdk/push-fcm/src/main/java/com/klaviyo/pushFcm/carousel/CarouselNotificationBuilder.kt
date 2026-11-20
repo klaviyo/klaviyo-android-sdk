@@ -50,7 +50,8 @@ internal object CarouselNotificationBuilder {
      * @param index The 0-based index of the card to display; out-of-range values are clamped.
      * @param tag The notification tag, reused by every arrow broadcast and the re-post.
      * @param notificationUid The notification's per-notification dedup uid, reused on re-post so the
-     *  opened-push dedupe key is stable across arrow taps.
+     *  opened-push dedupe key is stable across arrow taps. Also the key its card images are cached
+     *  under in [CarouselImageLoader].
      * @param requestCodeBase The notification's request-code base; arrow and delete codes are this
      *  base plus [CAROUSEL_PREV_OFFSET], [CAROUSEL_NEXT_OFFSET] and [CAROUSEL_DELETE_OFFSET].
      * @param sender The FCM sender stamped on every arrow intent so the receiver can rebuild the
@@ -78,7 +79,7 @@ internal object CarouselNotificationBuilder {
             setTextViewText(R.id.klaviyo_carousel_collapsed_title, message.title)
             setTextViewText(R.id.klaviyo_carousel_collapsed_body, message.body)
             // Always card 1, whichever card is on screen, so the collapsed view never changes.
-            val thumbnail = CarouselImageLoader.thumbnail(tag, cards.first().position)
+            val thumbnail = CarouselImageLoader.thumbnail(notificationUid, cards.first().position)
             if (thumbnail != null) {
                 setImageViewBitmap(R.id.klaviyo_carousel_thumbnail, thumbnail)
             } else {
@@ -87,7 +88,7 @@ internal object CarouselNotificationBuilder {
         }
 
         val expanded = RemoteViews(context.packageName, R.layout.klaviyo_carousel_expanded).apply {
-            val bitmap = CarouselImageLoader.get(tag, card.position)
+            val bitmap = CarouselImageLoader.get(notificationUid, card.position)
             if (bitmap != null) {
                 setImageViewBitmap(R.id.klaviyo_carousel_image, bitmap)
             } else {

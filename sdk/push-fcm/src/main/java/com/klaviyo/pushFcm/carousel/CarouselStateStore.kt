@@ -7,15 +7,17 @@ import com.klaviyo.core.Registry
 import org.json.JSONObject
 
 /**
- * Persists the current card index of each carousel notification, keyed by notification tag.
+ * Persists which carousel is showing under each notification tag, and its current card index.
  *
- * The carousel receiver reads the index from here rather than from the arrow intent, so the store
- * is the single source of truth: a stale intent cannot rewind a card. Stored as one JSON map,
- * `tag -> {index, updatedAt}`, in a dedicated prefs file. Entries older than [MAX_AGE_MS] are
- * pruned on every write so an abandoned carousel cannot pin storage forever.
+ * Stored as one JSON map, `tag -> {uid, index, updatedAt}`, in a dedicated prefs file. The `uid`
+ * is the notification UID of the carousel last posted under the tag, so each entry belongs to one
+ * generation: a re-send that reuses `notification_tag` posts a new UID, and an arrow tap or
+ * dismissal from the replaced carousel no longer matches it. The receiver reads the index from
+ * here rather than from the arrow intent, so a stale intent cannot rewind a card.
  *
- * Each read-modify-write of the map runs under one lock. FCM receipt (a worker thread) and arrow
- * taps (the main thread) both write, and without the lock one could overwrite the other's tag.
+ * Posting goes through [replace] (first post) and [advance] (arrow re-post), which run the
+ * `notify` call and the state write under one lock. That keeps the tray and the store in step: a
+ * re-post can never land after a newer carousel replaced it under the same tag.
  *
  * Every method takes the caller's [Context] and never touches [Registry.config] or
  * [Registry.dataStore]: both throw before `Klaviyo.initialize`, and both FCM receipt and arrow taps
@@ -29,56 +31,106 @@ internal object CarouselStateStore {
     private const val PREFS_NAME = "klaviyo_carousel_state"
 
     /**
-     * Key holding the whole `tag -> {index, updatedAt}` map inside [PREFS_NAME].
+     * Key holding the whole `tag -> {uid, index, updatedAt}` map inside [PREFS_NAME].
      */
     private const val STATE_KEY = "carousel_state"
 
     /**
-     * Age after which a carousel's entry is dropped. A carousel that was never dismissed and never
-     * advanced past this point is stale; the next write prunes it.
+     * Age after which an entry is dropped, used only when the active notifications cannot be
+     * read. Otherwise [pruneInactive] keeps exactly the carousels still on screen, however old.
      */
     private const val MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
 
+    private const val UID_KEY = "uid"
     private const val INDEX_KEY = "index"
     private const val UPDATED_AT_KEY = "updatedAt"
 
     /**
-     * Read the current card index for [tag], defaulting to 0 (the first card) when no entry exists.
+     * Read the current card index of the carousel [uid] posted under [tag].
      *
      * @param context The caller's context; used only to open [PREFS_NAME].
      * @param tag The notification tag identifying the carousel.
+     * @param uid The notification UID carried by the arrow intent.
+     * @return The index; 0 when no entry exists; null when a newer carousel has replaced [uid]
+     *  under [tag], so the tap is stale.
      */
-    fun getIndex(context: Context, tag: String): Int = synchronized(this) {
-        load(context)[tag]?.optInt(INDEX_KEY, 0) ?: 0
+    fun getIndex(context: Context, tag: String, uid: String): Int? = synchronized(this) {
+        val entry = load(context)[tag] ?: return@synchronized 0
+        entry.takeIf { it.optString(UID_KEY) == uid }?.optInt(INDEX_KEY, 0)
     }
 
     /**
-     * Record the current card index for [tag], pruning stale entries in the same write.
+     * Post a new carousel under [tag] at card 1, replacing whatever carousel the tag held.
+     *
+     * The previous carousel's index stays valid until [post] runs, so its arrows keep working while
+     * this one's images download.
      *
      * @param context The caller's context; used only to open [PREFS_NAME].
-     * @param tag The notification tag identifying the carousel.
-     * @param index The 0-based index of the displayed card within the parsed card list.
+     * @param tag The notification tag the carousel is posted under.
+     * @param uid The new carousel's notification UID.
+     * @param post Posts the notification. The entry is written only if it returns.
+     * @return The UID of the carousel this one replaced, if any, so the caller can drop its images.
      */
-    fun setIndex(context: Context, tag: String, index: Int) = synchronized(this) {
-        val now = System.currentTimeMillis()
-        val map = load(context)
-            .filterValues { it.optLong(UPDATED_AT_KEY, 0) > now - MAX_AGE_MS }
-            .toMutableMap()
-        map[tag] = JSONObject()
-            .put(INDEX_KEY, index)
-            .put(UPDATED_AT_KEY, now)
-        save(context, map)
-    }
+    fun replace(context: Context, tag: String, uid: String, post: () -> Unit): String? =
+        synchronized(this) {
+            val map = load(context).toMutableMap()
+            val replaced = map[tag]?.optString(UID_KEY)?.takeIf { it.isNotEmpty() && it != uid }
+            post()
+            map[tag] = entry(uid, 0)
+            save(context, map)
+            replaced
+        }
 
     /**
-     * Forget the carousel for [tag], called when the notification is dismissed.
+     * Re-post the carousel [uid] under [tag] at [index], if it is still the one showing.
      *
-     * @param context The caller's context; used only to open [PREFS_NAME].
+     * Does nothing when a newer carousel has replaced [uid] under the tag, or when the
+     * notification is no longer showing (dismissed while its image downloaded). The index is
+     * written only after [post] returns, so a failed re-post leaves the stored card unchanged.
+     *
+     * @param context The caller's context; used to read the active notifications and open
+     *  [PREFS_NAME].
      * @param tag The notification tag identifying the carousel.
+     * @param uid The notification UID carried by the arrow intent.
+     * @param index The 0-based index of the card being posted.
+     * @param post Posts the notification.
+     * @return Whether the notification was re-posted.
      */
-    fun clear(context: Context, tag: String) = synchronized(this) {
+    fun advance(
+        context: Context,
+        tag: String,
+        uid: String,
+        index: Int,
+        post: () -> Unit
+    ): Boolean = synchronized(this) {
         val map = load(context).toMutableMap()
-        if (map.remove(tag) != null) {
+        val ownerUid = map[tag]?.optString(UID_KEY)
+        if (ownerUid != null && ownerUid != uid) {
+            Registry.log.verbose("Carousel under tag '$tag' was replaced; dropping re-post")
+            return@synchronized false
+        }
+        if (activeTags(context)?.contains(tag) == false) {
+            Registry.log.verbose("Carousel under tag '$tag' is no longer showing; dropping re-post")
+            return@synchronized false
+        }
+        post()
+        map[tag] = entry(uid, index)
+        save(context, map)
+        true
+    }
+
+    /**
+     * Forget the carousel [uid] under [tag], called when the notification is dismissed. A newer
+     * carousel posted under the same tag keeps its entry.
+     *
+     * @param context The caller's context; used only to open [PREFS_NAME].
+     * @param tag The notification tag identifying the carousel.
+     * @param uid The dismissed carousel's notification UID.
+     */
+    fun clear(context: Context, tag: String, uid: String) = synchronized(this) {
+        val map = load(context).toMutableMap()
+        if (map[tag]?.optString(UID_KEY) == uid) {
+            map.remove(tag)
             save(context, map)
         }
     }
@@ -88,31 +140,46 @@ internal object CarouselStateStore {
      *
      * A body tap auto-cancels the notification without firing its delete intent, so [clear] never
      * runs for it. Calling this before posting a new carousel keeps that leftover state bounded to
-     * the carousels actually on screen.
+     * the carousels actually on screen. When the active notifications cannot be read, entries older
+     * than [MAX_AGE_MS] are dropped instead.
      *
      * @param context The caller's context; used to read the active notifications and open
      *  [PREFS_NAME].
      */
     fun pruneInactive(context: Context) {
-        val activeTags = try {
-            context.getSystemService(NotificationManager::class.java)
-                ?.activeNotifications
-                ?.mapNotNullTo(mutableSetOf()) { it.tag }
-        } catch (e: Exception) {
-            Registry.log.warning("Could not read active notifications to prune carousels", e)
-            null
-        } ?: return
-
+        val activeTags = activeTags(context)
         val removed = synchronized(this) {
             val map = load(context)
-            val stale = map.keys - activeTags
-            if (stale.isNotEmpty()) {
-                save(context, map - stale)
+            val cutoff = System.currentTimeMillis() - MAX_AGE_MS
+            val stale = map.filter { (tag, entry) ->
+                activeTags?.let { tag !in it } ?: (entry.optLong(UPDATED_AT_KEY, 0) <= cutoff)
             }
-            stale
+            if (stale.isNotEmpty()) {
+                save(context, map - stale.keys)
+            }
+            stale.values
         }
-        removed.forEach { CarouselImageLoader.evict(it) }
+        removed.forEach { entry ->
+            entry.optString(UID_KEY).takeIf { it.isNotEmpty() }?.let(CarouselImageLoader::evict)
+        }
     }
+
+    /**
+     * Tags of this app's notifications currently showing, or null when they cannot be read.
+     */
+    private fun activeTags(context: Context): Set<String>? = try {
+        context.getSystemService(NotificationManager::class.java)
+            ?.activeNotifications
+            ?.mapNotNullTo(mutableSetOf()) { it.tag }
+    } catch (e: Exception) {
+        Registry.log.warning("Could not read active notifications for carousels", e)
+        null
+    }
+
+    private fun entry(uid: String, index: Int) = JSONObject()
+        .put(UID_KEY, uid)
+        .put(INDEX_KEY, index)
+        .put(UPDATED_AT_KEY, System.currentTimeMillis())
 
     /**
      * Read and parse the whole tag map, returning an empty map when absent or unparseable and

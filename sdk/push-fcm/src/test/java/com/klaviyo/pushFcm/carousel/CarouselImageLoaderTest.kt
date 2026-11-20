@@ -20,6 +20,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLConnection
 import java.util.TreeMap
+import java.util.concurrent.CountDownLatch
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -349,26 +350,54 @@ internal class CarouselImageLoaderTest : BaseTest() {
 
     @Test
     fun `loadAll gives up on a download that exceeds the timeout`() {
-        // The download blocks well past DOWNLOAD_TIMEOUT_MS, so the wait times out and the card
+        // The body read blocks well past DOWNLOAD_TIMEOUT_MS, so the wait times out and the card
         // is omitted rather than the notification being held up indefinitely.
-        val slowUrl = mockk<URL>(relaxed = true).apply {
-            every { protocol } returns "https"
-            every { openStream() } answers {
-                Thread.sleep(DOWNLOAD_TIMEOUT_MS * 2L)
-                byteArrayOf(1).inputStream()
-            }
-        }
+        val readStarted = CountDownLatch(1)
+        val slowUrl = blockingUrl(readStarted)
 
         val startedAt = System.currentTimeMillis()
         val result = CarouselImageLoader.loadAll(TAG, listOf(card(1, slowUrl)))
 
         val elapsed = System.currentTimeMillis() - startedAt
+        assertEquals("the download must reach the body read", 0, readStarted.count)
+        assertTrue(
+            "the wait must run to the deadline, took ${elapsed}ms",
+            elapsed >= DOWNLOAD_TIMEOUT_MS - 100
+        )
         assertTrue("timed-out card should be absent", result.isEmpty())
         assertNull(CarouselImageLoader.get(TAG, 1))
         assertTrue(
             "loadAll should bound the wait near DOWNLOAD_TIMEOUT_MS, took ${elapsed}ms",
             elapsed < DOWNLOAD_TIMEOUT_MS * 2
         )
+    }
+
+    @Test
+    fun `loadAll keeps a card that finished while a slower card used up the wait`() {
+        val bitmap = stubDecode()
+
+        val result = CarouselImageLoader.loadAll(
+            TAG,
+            // The slow card is awaited first, so the fast one is only checked past the deadline.
+            listOf(card(1, blockingUrl(CountDownLatch(1))), card(2, downloadableUrl()))
+        )
+
+        assertEquals(mapOf(2 to bitmap), result)
+    }
+
+    /** A URL whose body read blocks past [DOWNLOAD_TIMEOUT_MS], counting down [readStarted]. */
+    private fun blockingUrl(readStarted: CountDownLatch) = mockk<URL>(relaxed = true).apply {
+        val stream = mockk<InputStream>(relaxed = true).apply {
+            every { read(any()) } answers {
+                readStarted.countDown()
+                Thread.sleep(DOWNLOAD_TIMEOUT_MS * 2L)
+                -1
+            }
+        }
+        every { protocol } returns "https"
+        every { openConnection() } returns mockk<URLConnection>(relaxed = true).apply {
+            every { getInputStream() } returns stream
+        }
     }
 
     @Test
@@ -429,6 +458,32 @@ internal class CarouselImageLoaderTest : BaseTest() {
     // ---------------------------------------------------------------------------------------
     // Bitmap budget (reviewer hardening, c4cae3436c)
     // ---------------------------------------------------------------------------------------
+
+    @Test
+    fun `the cap uses the decoded bitmap's own bytes per pixel`() {
+        // An RGBA_F16 decode is 8 bytes per pixel; sizing it as ARGB_8888 would double the budget.
+        val source = mockk<Bitmap>(relaxed = true)
+        every { source.width } returns 500
+        every { source.height } returns 500
+        every { source.byteCount } returns 500 * 500 * 8
+        var requestedPixels = 0
+        mockkStatic(Bitmap::class)
+        try {
+            every { Bitmap.createScaledBitmap(any(), any(), any(), any()) } answers {
+                requestedPixels = secondArg<Int>() * thirdArg<Int>()
+                mockk(relaxed = true)
+            }
+
+            capToBudget(source, position = 1)
+
+            assertTrue(
+                "8 bytes per pixel must fit 600 KiB, got ${requestedPixels * 8}",
+                requestedPixels * 8 <= MAX_BITMAP_BYTES
+            )
+        } finally {
+            unmockkStatic(Bitmap::class)
+        }
+    }
 
     @Test
     fun `sampling plus the cap keeps every reviewed source within 600 KiB`() {
@@ -642,13 +697,16 @@ internal class CarouselImageLoaderTest : BaseTest() {
 
     @Test
     fun `a body over 5 MiB is rejected`() {
-        // One byte past the cap; readBytes must abandon before decoding it.
+        // One byte past the cap; readBytes must abandon before decoding it. The decoder works, so
+        // only the size check can make this return null.
+        stubDecode()
         val tooBig = ByteArray(MAX_DOWNLOAD_BYTES + 1)
 
         val result = CarouselImageLoader.loadOne(TAG, card(1, downloadableUrl(tooBig)))
 
         assertNull("an oversized body must not produce a bitmap", result)
         assertNull(CarouselImageLoader.get(TAG, 1))
+        assertEquals("an oversized body must never reach the decoder", 0, decodeCount)
     }
 
     @Test

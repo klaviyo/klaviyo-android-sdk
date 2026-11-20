@@ -54,7 +54,10 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
     private val notificationManager = mockk<NotificationManagerCompat>(relaxed = true)
     private val builtNotification = mockk<Notification>(relaxed = true)
     private val compatBuilder = mockk<NotificationCompat.Builder>(relaxed = true)
-    private val cards = (1..CARD_COUNT).map {
+
+    // Original positions have a gap (card 2 was invalid and dropped), so a lookup computed from the
+    // rendered index instead of the card's own position would miss.
+    private val cards = listOf(1, 3, 4).map {
         CarouselCard(
             position = it,
             imageUrl = mockk(relaxed = true),
@@ -64,8 +67,14 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         )
     }
 
-    /** Index the store returns for the current card; each test sets this. */
-    private var storedIndex = 0
+    /**
+     * Index the store returns for the current card, or null when the tapped carousel has been
+     * replaced; each test sets this.
+     */
+    private var storedIndex: Int? = 0
+
+    /** Whether the store finds the notification still showing and owned by the tapped UID. */
+    private var stillShowing = true
 
     /** Bitmap returned by the (mocked) cache, or null for a cache miss. */
     private var cachedBitmap: Bitmap? = mockk(relaxed = true)
@@ -110,15 +119,18 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         }
 
         mockkObject(CarouselStateStore)
-        every { CarouselStateStore.getIndex(any(), any()) } answers { storedIndex }
-        every { CarouselStateStore.setIndex(any(), any(), any()) } answers {
-            storedIndex = thirdArg()
+        every { CarouselStateStore.getIndex(any(), any(), any()) } answers { storedIndex }
+        every { CarouselStateStore.advance(any(), any(), any(), any(), any()) } answers {
+            if (stillShowing) {
+                arg<() -> Unit>(4).invoke()
+                storedIndex = arg(3)
+            }
+            stillShowing
         }
-        every { CarouselStateStore.clear(any(), any()) } returns Unit
+        every { CarouselStateStore.clear(any(), any(), any()) } returns Unit
 
         mockkObject(CarouselImageLoader)
         every { CarouselImageLoader.get(any(), any()) } answers { cachedBitmap }
-        every { CarouselImageLoader.loadOne(any(), any()) } returns null
         every { CarouselImageLoader.loadAll(any(), any()) } returns emptyMap()
         every { CarouselImageLoader.evict(any()) } returns Unit
     }
@@ -131,6 +143,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         unmockkStatic(NotificationManagerCompat::class)
         unmockkConstructor(KlaviyoNotification::class)
         unmockkConstructor(RemoteMessage.Builder::class)
+        unmockkConstructor(Bundle::class)
         unmockkStatic(TextUtils::class)
         super.cleanup()
     }
@@ -213,6 +226,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
                 true
             )
         }
+        verify { CarouselStateStore.advance(mockContext, TAG, UID, index, any()) }
         verify { notificationManager.notify(TAG, Constants.NOTIFICATION_ID, builtNotification) }
     }
 
@@ -222,7 +236,6 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
 
         receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
 
-        verify { CarouselStateStore.setIndex(mockContext, TAG, 1) }
         verifyRepost(index = 1)
     }
 
@@ -246,7 +259,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
     }
 
     private fun verifyNoMove() {
-        verify(exactly = 0) { CarouselStateStore.setIndex(any(), any(), any()) }
+        verify(exactly = 0) { CarouselStateStore.advance(any(), any(), any(), any(), any()) }
         verify(exactly = 0) { notificationManager.notify(any(), any(), any()) }
     }
 
@@ -256,7 +269,6 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
 
         receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_PREV))
 
-        verify { CarouselStateStore.setIndex(mockContext, TAG, 1) }
         verifyRepost(index = 1)
     }
 
@@ -267,7 +279,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_PREV))
 
         // clamped to the last card (index 2), then back one
-        verify { CarouselStateStore.setIndex(mockContext, TAG, 1) }
+        verifyRepost(index = 1)
     }
 
     @Test
@@ -276,19 +288,20 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
 
         receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
 
-        // Cards are 1-based positions 1..3; index 1 is position 2.
-        verify { CarouselImageLoader.get(TAG, 2) }
+        // Index 1 is the card at original position 3, cached under the notification UID.
+        verify { CarouselImageLoader.get(UID, 3) }
+        verify(exactly = 0) { CarouselImageLoader.get(any(), 2) }
     }
 
     @Test
-    fun `delete clears the index and evicts cached images`() {
+    fun `delete clears the dismissed generation's index and images`() {
         receiverReturning().onReceive(
             mockContext,
             arrowIntent(Constants.CAROUSEL_ACTION_DELETE)
         )
 
-        verify { CarouselStateStore.clear(mockContext, TAG) }
-        verify { CarouselImageLoader.evict(TAG) }
+        verify { CarouselStateStore.clear(mockContext, TAG, UID) }
+        verify { CarouselImageLoader.evict(UID) }
         verify(exactly = 0) {
             anyConstructed<KlaviyoNotification>().buildNotification(
                 any(),
@@ -310,8 +323,42 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
 
         receiverReturning().onReceive(mockContext, intent)
 
-        verify(exactly = 0) { CarouselStateStore.clear(any(), any()) }
+        verify(exactly = 0) { CarouselStateStore.clear(any(), any(), any()) }
         verify(exactly = 0) { CarouselImageLoader.evict(any()) }
+    }
+
+    @Test
+    fun `delete ignores an intent with no uid`() {
+        val intent = arrowIntent(Constants.CAROUSEL_ACTION_DELETE).apply {
+            every { getStringExtra(Constants.NOTIFICATION_UID_EXTRA) } returns null
+        }
+
+        receiverReturning().onReceive(mockContext, intent)
+
+        verify(exactly = 0) { CarouselStateStore.clear(any(), any(), any()) }
+        verify(exactly = 0) { CarouselImageLoader.evict(any()) }
+    }
+
+    @Test
+    fun `a tap on a replaced carousel is ignored`() {
+        // A re-send reused the tag; this intent's UID no longer owns it.
+        storedIndex = null
+
+        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+
+        verifyNoMove()
+    }
+
+    @Test
+    fun `a re-post the store refuses does not notify`() {
+        // Replaced or dismissed while the image downloaded: advance declines to run the post.
+        stillShowing = false
+
+        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+
+        verify { CarouselStateStore.advance(mockContext, TAG, UID, 1, any()) }
+        verify(exactly = 0) { notificationManager.notify(any(), any(), any()) }
+        assertEquals(0, storedIndex)
     }
 
     @Test
@@ -324,23 +371,25 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
 
         verify { receiver["goAsync"]() }
         // The executor thread downloads then reposts; wait for it so the assertions are stable.
-        // Card 1's image is gone too, so it is fetched alongside for the collapsed thumbnail.
-        verify(timeout = 5_000) { CarouselImageLoader.loadAll(TAG, listOf(cards[1], cards[0])) }
+        // Card 1 is fetched alongside for the collapsed thumbnail; loadAll skips it if cached.
+        verify(timeout = 5_000) { CarouselImageLoader.loadAll(UID, listOf(cards[1], cards[0])) }
         verify(timeout = 5_000) { pendingResult.finish() }
+        // No bitmap came back, but the card still advances.
+        verifyRepost(index = 1)
     }
 
     @Test
-    fun `a cache miss with card 1 still cached downloads only the target card`() {
-        every { CarouselImageLoader.get(TAG, cards[0].position) } returns mockk(relaxed = true)
-        every { CarouselImageLoader.get(TAG, cards[1].position) } returns null
+    fun `a cache miss on a move back to card 1 loads it once under the deadline`() {
+        storedIndex = 1
+        cachedBitmap = null
         val pendingResult = mockk<BroadcastReceiver.PendingResult>(relaxed = true)
 
         receiverReturning(pendingResult)
-            .onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+            .onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_PREV))
 
-        verify(timeout = 5_000) { CarouselImageLoader.loadOne(TAG, cards[1]) }
+        verify(timeout = 5_000) { CarouselImageLoader.loadAll(UID, listOf(cards[0])) }
         verify(timeout = 5_000) { pendingResult.finish() }
-        verify(exactly = 0) { CarouselImageLoader.loadAll(any(), any()) }
+        verifyRepost(index = 0)
     }
 
     @Test
@@ -394,8 +443,13 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
 
         receiverReturning().onReceive(mockContext, intent)
 
-        verify { CarouselStateStore.setIndex(mockContext, TAG, 1) }
-        verify { notificationManager.notify(TAG, Constants.NOTIFICATION_ID, builtNotification) }
+        verify {
+            notificationManager.notify(
+                TAG,
+                Constants.NOTIFICATION_ID,
+                builtNotification
+            )
+        }
     }
 
     @Test
@@ -417,7 +471,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
 
         receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
 
-        verify(exactly = 0) { CarouselStateStore.setIndex(any(), any(), any()) }
+        verify(exactly = 0) { CarouselStateStore.advance(any(), any(), any(), any(), any()) }
         verify(exactly = 0) { notificationManager.notify(any(), any(), any()) }
     }
 
@@ -428,7 +482,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
             arrowIntent(Constants.CAROUSEL_ACTION_NEXT, payload = null)
         )
 
-        verify(exactly = 0) { CarouselStateStore.setIndex(any(), any(), any()) }
+        verify(exactly = 0) { CarouselStateStore.advance(any(), any(), any(), any(), any()) }
         verify(exactly = 0) { notificationManager.notify(any(), any(), any()) }
     }
 
@@ -438,7 +492,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
 
         receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
 
-        verify(exactly = 0) { CarouselStateStore.setIndex(any(), any(), any()) }
+        verify(exactly = 0) { CarouselStateStore.advance(any(), any(), any(), any(), any()) }
         verify(exactly = 0) { notificationManager.notify(any(), any(), any()) }
     }
 
@@ -446,14 +500,16 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
     fun `an unknown action is ignored`() {
         receiverReturning().onReceive(mockContext, arrowIntent("com.example.unknown"))
 
-        verify(exactly = 0) { CarouselStateStore.setIndex(any(), any(), any()) }
+        verify(exactly = 0) { CarouselStateStore.advance(any(), any(), any(), any(), any()) }
         verify(exactly = 0) { notificationManager.notify(any(), any(), any()) }
     }
 
     @Test
     fun `handleMove failure is contained and does not crash the host app`() {
         // A throw from the store, i.e. something genuinely unexpected mid-handling.
-        every { CarouselStateStore.getIndex(any(), any()) } throws IllegalStateException("boom")
+        every { CarouselStateStore.getIndex(any(), any(), any()) } throws IllegalStateException(
+            "boom"
+        )
 
         receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
 
@@ -473,7 +529,6 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
 
         receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_PREV))
 
-        verify { CarouselStateStore.setIndex(mockContext, TAG, 1) }
         verifyRepost(index = 1)
     }
 

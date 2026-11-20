@@ -981,6 +981,15 @@ class KlaviyoRemoteMessageTest : BaseTest() {
     }
 
     @Test
+    fun `carouselCards falls back when an image_url has no host`() {
+        // java.net.URL parses `https:///card.png`, so the host check is what drops it; with one
+        // valid card left the push renders as a standard notification.
+        val noHost = cardJson(2).apply { put("image_url", "https:///card.png") }
+
+        assert(messageWith(cardJson(1), noHost).carouselCards == null)
+    }
+
+    @Test
     fun `carouselCards drops a card with no image_url`() {
         val noImage = cardJson(2).apply { remove("image_url") }
         val msg = messageWith(cardJson(1), noImage, cardJson(3))

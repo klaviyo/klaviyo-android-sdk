@@ -141,32 +141,38 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         val notificationTag = message.notificationTag ?: generateId().toString()
         val cards = message.carouselCards
 
-        if (cards != null) {
-            // A body tap auto-cancels the notification without firing its delete intent, so drop
-            // state left by carousels that are no longer showing before adding this one.
-            CarouselStateStore.pruneInactive(context)
-            // A re-sent push under the same tag starts fresh: reset the index to card 1 and drop
-            // any bitmaps cached for the previous carousel before downloading the new cards, so a
-            // reused tag never serves a stale image. Both happen before building.
-            CarouselStateStore.setIndex(context, notificationTag, 0)
-            CarouselImageLoader.evict(notificationTag)
-            CarouselImageLoader.loadAll(notificationTag, cards)
-        }
-
-        val notification = buildNotification(context, notificationTag)
-
-        // Standard rich pushes download and apply their own image. Carousel images are applied by
-        // the builder from the cache populated above, so this path is skipped for carousels.
         if (cards == null) {
+            val notification = buildNotification(context, notificationTag)
             message.imageUrl?.applyToNotification(builder = notification)
+            post(context, notificationTag, notification)
+            return true
         }
 
-        NotificationManagerCompat
-            .from(context)
-            .notify(notificationTag, NOTIFICATION_ID, notification.build())
+        // A body tap auto-cancels the notification without firing its delete intent, so drop
+        // state left by carousels that are no longer showing before adding this one.
+        CarouselStateStore.pruneInactive(context)
+        // The UID names this carousel's generation: its images are cached under it, and a re-send
+        // that reuses the tag gets a new one. The carousel being replaced keeps its own index and
+        // images until this one is posted, so its arrows still work during the download.
+        val notificationUid = UUID.randomUUID().toString()
+        CarouselImageLoader.loadAll(notificationUid, cards)
+        val notification = buildNotification(
+            context,
+            notificationTag,
+            notificationUid = notificationUid
+        )
+        CarouselStateStore.replace(context, notificationTag, notificationUid) {
+            post(context, notificationTag, notification)
+        }?.let(CarouselImageLoader::evict)
 
         return true
     }
+
+    @Suppress("MissingPermission") // Checked by hasNotificationPermission() in displayNotification.
+    private fun post(context: Context, tag: String, notification: NotificationCompat.Builder) =
+        NotificationManagerCompat
+            .from(context)
+            .notify(tag, NOTIFICATION_ID, notification.build())
 
     /**
      * Creates notification channel if one doesn't exist yet
@@ -263,7 +269,9 @@ class KlaviyoNotification(private val message: RemoteMessage) {
 
         // Carousel push: the body tap opens the current card's own destination. The card position
         // rides on the intent for card attribution, which isn't reported on `$opened_push` yet
-        // (PUSH-1944). Arrows are RemoteViews click targets, not actions.
+        // (PUSH-1944). A card deep link also rides as [Constants.CAROUSEL_CARD_LINK_EXTRA], so
+        // `Klaviyo.getKlaviyoDeepLink` still finds it when no activity resolves the link and the
+        // host is launched without intent data. Arrows are RemoteViews click targets, not actions.
         val card = cards.getOrNull(carouselIndex.coerceIn(0, cards.lastIndex))
         val contentIntent = makePendingIntent(
             context,
@@ -274,6 +282,9 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             extras = {
                 if (card != null) {
                     putExtra(Constants.CAROUSEL_POSITION_EXTRA, card.position)
+                    (card.action as? CarouselCardAction.DeepLink)?.let { link ->
+                        putExtra(Constants.CAROUSEL_CARD_LINK_EXTRA, link.uri.toString())
+                    }
                 }
             },
             // A carousel re-post reuses the same request code and a filterEquals intent (extras

@@ -3,6 +3,7 @@ package com.klaviyo.pushFcm
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
@@ -39,6 +40,7 @@ import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import io.mockk.verify
 import io.mockk.verifyOrder
+import java.net.URL
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -1106,11 +1108,13 @@ class KlaviyoNotificationTest : BaseTest() {
         every { CarouselImageLoader.get(any(), any()) } returns mockk(relaxed = true)
         every { CarouselImageLoader.thumbnail(any(), any()) } returns mockk(relaxed = true)
         every { CarouselImageLoader.loadAll(any(), any()) } returns emptyMap()
-        // displayNotification evicts a tag's previously cached bitmaps before reloading, so a
-        // re-sent push under a reused tag never serves a stale image.
+        // displayNotification evicts the replaced carousel's bitmaps once the new one is posted.
         every { CarouselImageLoader.evict(any()) } returns Unit
         mockkObject(CarouselStateStore)
-        every { CarouselStateStore.setIndex(any(), any(), any()) } returns Unit
+        every { CarouselStateStore.replace(any(), any(), any(), any()) } answers {
+            arg<() -> Unit>(3).invoke()
+            null
+        }
         every { CarouselStateStore.pruneInactive(any()) } returns Unit
 
         // RemoteViews is an Android stub on the JVM; capture the text/bitmap sets through a mock.
@@ -1206,6 +1210,11 @@ class KlaviyoNotificationTest : BaseTest() {
         // AC-1: the expanded view carries card 2's image, title and description when index = 1.
         withCarouselPush()
         try {
+            val cardOneImage = mockk<Bitmap>(relaxed = true)
+            val cardTwoImage = mockk<Bitmap>(relaxed = true)
+            every { CarouselImageLoader.get(TEST_UID, 1) } returns cardOneImage
+            every { CarouselImageLoader.get(TEST_UID, 2) } returns cardTwoImage
+
             notification.buildNotification(
                 mockContext,
                 TEST_TAG,
@@ -1216,7 +1225,11 @@ class KlaviyoNotificationTest : BaseTest() {
 
             verify {
                 anyConstructed<RemoteViews>()
-                    .setImageViewBitmap(R.id.klaviyo_carousel_image, any())
+                    .setImageViewBitmap(R.id.klaviyo_carousel_image, cardTwoImage)
+            }
+            verify(exactly = 0) {
+                anyConstructed<RemoteViews>()
+                    .setImageViewBitmap(R.id.klaviyo_carousel_image, cardOneImage)
             }
             verify {
                 anyConstructed<RemoteViews>()
@@ -1377,7 +1390,7 @@ class KlaviyoNotificationTest : BaseTest() {
                 anyConstructed<RemoteViews>()
                     .setTextViewText(R.id.klaviyo_carousel_collapsed_body, "Test Body")
             }
-            verify { CarouselImageLoader.thumbnail(TEST_TAG, 1) }
+            verify { CarouselImageLoader.thumbnail(TEST_UID, 1) }
             verify {
                 anyConstructed<RemoteViews>()
                     .setImageViewBitmap(R.id.klaviyo_carousel_thumbnail, any())
@@ -1761,7 +1774,11 @@ class KlaviyoNotificationTest : BaseTest() {
 
         notification.displayNotification(mockContext)
 
-        verify { anyConstructed<NotificationCompat.Builder>().setStyle(any()) }
+        verify {
+            anyConstructed<NotificationCompat.Builder>().setStyle(
+                match { it is NotificationCompat.BigTextStyle }
+            )
+        }
         verify(exactly = 0) {
             anyConstructed<NotificationCompat.Builder>().setStyle(
                 match { it is NotificationCompat.DecoratedCustomViewStyle }
@@ -1780,23 +1797,46 @@ class KlaviyoNotificationTest : BaseTest() {
     }
 
     @Test
-    fun `carousel display resets the stored index and preloads every card image`() {
-        // AC-3: a re-sent push starts at card 1 and refreshes every card image. The evict must
-        // come before the reload, or a reused tag could keep serving the previous carousel's
-        // bitmaps for the new card positions.
+    fun `carousel display preloads its images under a new uid and posts through the store`() {
+        // AC-3: a re-sent push starts at card 1 with fresh images. The images are cached under the
+        // new notification's own UID, so they can never mix with the carousel it replaces.
         withCarouselPush()
         try {
             with(KlaviyoRemoteMessage) { every { mockRemoteMessage.notificationTag } returns TEST_TAG }
+            val uid = slot<String>()
 
             notification.displayNotification(mockContext)
 
-            verify { CarouselStateStore.setIndex(mockContext, TEST_TAG, 0) }
+            verify { CarouselImageLoader.loadAll(capture(uid), carouselCards) }
             verifyOrder {
                 // Leftovers from tapped (auto-cancelled) carousels go before the new one is added.
                 CarouselStateStore.pruneInactive(mockContext)
-                CarouselImageLoader.evict(TEST_TAG)
-                CarouselImageLoader.loadAll(TEST_TAG, carouselCards)
+                CarouselImageLoader.loadAll(uid.captured, carouselCards)
+                CarouselStateStore.replace(mockContext, TEST_TAG, uid.captured, any())
             }
+            verify {
+                anyConstructed<NotificationCompat.Builder>()
+                    .setCustomBigContentView(any())
+            }
+            verify(exactly = 0) { CarouselImageLoader.evict(any()) }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel display evicts the replaced carousel's images after posting`() {
+        withCarouselPush()
+        try {
+            with(KlaviyoRemoteMessage) { every { mockRemoteMessage.notificationTag } returns TEST_TAG }
+            every { CarouselStateStore.replace(any(), any(), any(), any()) } answers {
+                arg<() -> Unit>(3).invoke()
+                "replaced-uid"
+            }
+
+            notification.displayNotification(mockContext)
+
+            verify { CarouselImageLoader.evict("replaced-uid") }
         } finally {
             withoutCarouselPush()
         }
@@ -1806,14 +1846,16 @@ class KlaviyoNotificationTest : BaseTest() {
     fun `carousel display does not apply the standard rich image`() {
         withCarouselPush()
         try {
+            val topLevelImage = mockk<URL>(relaxed = true)
             with(KlaviyoRemoteMessage) {
                 every { mockRemoteMessage.notificationTag } returns TEST_TAG
-                every { mockRemoteMessage.imageUrl } returns mockk(relaxed = true)
+                every { mockRemoteMessage.imageUrl } returns topLevelImage
             }
 
             notification.displayNotification(mockContext)
 
-            // applyToNotification would set a BigPictureStyle; carousels use DecoratedCustomViewStyle.
+            // The top-level image is never even downloaded, let alone applied as BigPictureStyle.
+            verify(exactly = 0) { topLevelImage.openStream() }
             verify(exactly = 0) {
                 anyConstructed<NotificationCompat.Builder>()
                     .setStyle(match { it is NotificationCompat.BigPictureStyle })
@@ -1859,6 +1901,48 @@ class KlaviyoNotificationTest : BaseTest() {
             )
             // Card 3 is 1-based position 3.
             verify { intentSlot.captured.putExtra(Constants.CAROUSEL_POSITION_EXTRA, 3) }
+            // An open_app card carries no link for getKlaviyoDeepLink to fall back on.
+            verify(exactly = 0) {
+                intentSlot.captured.putExtra(Constants.CAROUSEL_CARD_LINK_EXTRA, any<String>())
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `a deep link card's body intent carries the card link for getKlaviyoDeepLink`() {
+        // With no matching intent filter the host is launched without intent data, so the card
+        // link must ride as an extra or the host cannot route the tap.
+        withCarouselPush()
+        try {
+            val cardLink = mockk<Uri>()
+            every { cardLink.toString() } returns "klaviyotest://product/7"
+            every { cardLink.scheme } returns "klaviyotest"
+            with(KlaviyoRemoteMessage) {
+                every { mockRemoteMessage.carouselCards } returns carouselCards.mapIndexed { i, card ->
+                    if (i == 1) card.copy(action = CarouselCardAction.DeepLink(cardLink)) else card
+                }
+            }
+            val intentSlot = slot<Intent>()
+            every {
+                PendingIntent.getActivity(any(), any(), capture(intentSlot), any())
+            } returns mockk(relaxed = true)
+
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                carouselIndex = 1
+            )
+
+            verify {
+                intentSlot.captured.putExtra(
+                    Constants.CAROUSEL_CARD_LINK_EXTRA,
+                    "klaviyotest://product/7"
+                )
+            }
         } finally {
             withoutCarouselPush()
         }
