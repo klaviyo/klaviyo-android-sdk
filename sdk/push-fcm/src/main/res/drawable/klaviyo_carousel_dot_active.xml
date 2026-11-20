@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Filled page dot for the card on screen. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@android:color/white" />
+    <size
+        android:width="@dimen/klaviyo_carousel_dot_size"
+        android:height="@dimen/klaviyo_carousel_dot_size" />
+</shape>

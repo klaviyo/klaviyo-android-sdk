@@ -3,19 +3,31 @@ package com.klaviyo.pushFcm
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Bundle
+import android.view.View
+import android.widget.RemoteViews
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.linking.DeepLinking
+import com.klaviyo.core.Constants
 import com.klaviyo.core.config.getManifestBoolean
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.fixtures.MockIntent
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.BODY_KEY
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.TITLE_KEY
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.CarouselCard
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.CarouselCardAction
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.carouselCards
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.webUrl
+import com.klaviyo.pushFcm.carousel.CarouselImageLoader
+import com.klaviyo.pushFcm.carousel.CarouselStateStore
+import com.klaviyo.pushFcm.carousel.KlaviyoCarouselReceiver
+import com.klaviyo.push_fcm.R
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkConstructor
@@ -23,8 +35,12 @@ import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.spyk
+import io.mockk.unmockkConstructor
+import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import io.mockk.verifyOrder
+import java.net.URL
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -89,6 +105,20 @@ class KlaviyoNotificationTest : BaseTest() {
         every { anyConstructed<NotificationCompat.Builder>().setAutoCancel(any()) } answers { self as NotificationCompat.Builder }
         every {
             anyConstructed<NotificationCompat.Builder>().addAction(any<NotificationCompat.Action>())
+        } answers { self as NotificationCompat.Builder }
+        // Carousel-only builder calls (see CarouselNotificationBuilder); standard pushes never
+        // reach them, so these stubs leave existing behaviour untouched.
+        every {
+            anyConstructed<NotificationCompat.Builder>().setCustomContentView(any())
+        } answers { self as NotificationCompat.Builder }
+        every {
+            anyConstructed<NotificationCompat.Builder>().setCustomBigContentView(any())
+        } answers { self as NotificationCompat.Builder }
+        every {
+            anyConstructed<NotificationCompat.Builder>().setOnlyAlertOnce(any())
+        } answers { self as NotificationCompat.Builder }
+        every {
+            anyConstructed<NotificationCompat.Builder>().setDeleteIntent(any())
         } answers { self as NotificationCompat.Builder }
         every { anyConstructed<NotificationCompat.Builder>().build() } returns mockk(relaxed = true)
 
@@ -1037,5 +1067,909 @@ class KlaviyoNotificationTest : BaseTest() {
             bodyUid.captured,
             buttonUid.captured
         )
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Carousel pushes (PUSH-1938)
+    // ---------------------------------------------------------------------------------------
+
+    private companion object {
+        const val TEST_TAG = "test_tag"
+        const val TEST_UID = "test-notification-uid"
+        const val TEST_REQUEST_CODE_BASE = 1000
+        const val CAROUSEL_SIZE = 4
+    }
+
+    /**
+     * Parsed cards for a 4-card carousel, with distinct titles and descriptions so assertions can
+     * tell which card is being rendered.
+     */
+    private val carouselCards = (1..CAROUSEL_SIZE).map {
+        CarouselCard(
+            position = it,
+            imageUrl = mockk(relaxed = true),
+            title = "Card $it title",
+            description = "Card $it description",
+            action = CarouselCardAction.OpenApp
+        )
+    }
+
+    /**
+     * Install the shared carousel setup: parsed cards on the message, a cached bitmap from the
+     * image loader, the store writes, RemoteViews constructor mocking, the position string and the
+     * Intent/Bundle constructor mocking the carousel's broadcast intents need.
+     */
+    @Suppress("LongMethod")
+    private fun withCarouselPush() {
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.carouselCards } returns carouselCards
+        }
+        mockkObject(CarouselImageLoader)
+        every { CarouselImageLoader.get(any(), any()) } returns mockk(relaxed = true)
+        every { CarouselImageLoader.thumbnail(any(), any()) } returns mockk(relaxed = true)
+        every { CarouselImageLoader.loadAll(any(), any()) } returns emptyMap()
+        // displayNotification evicts the replaced carousel's bitmaps once the new one is posted.
+        every { CarouselImageLoader.evict(any()) } returns Unit
+        mockkObject(CarouselStateStore)
+        every { CarouselStateStore.replace(any(), any(), any(), any()) } answers {
+            arg<() -> Unit>(3).invoke()
+            null
+        }
+        every { CarouselStateStore.pruneInactive(any()) } returns Unit
+
+        // RemoteViews is an Android stub on the JVM; capture the text/bitmap sets through a mock.
+        mockkConstructor(RemoteViews::class)
+        every {
+            anyConstructed<RemoteViews>().setTextViewText(any(), any<String>())
+        } returns Unit
+        every { anyConstructed<RemoteViews>().setImageViewBitmap(any(), any()) } returns Unit
+        every { anyConstructed<RemoteViews>().setViewVisibility(any(), any()) } returns Unit
+        every { anyConstructed<RemoteViews>().setOnClickPendingIntent(any(), any()) } returns Unit
+        every { anyConstructed<RemoteViews>().setImageViewResource(any(), any()) } returns Unit
+        every { anyConstructed<RemoteViews>().setContentDescription(any(), any()) } returns Unit
+
+        // The dots' description is built with getString(id, index + 1, size).
+        every { mockContext.getString(any(), *anyVararg()) } answers {
+            val args = invocation.args[1] as Array<*>
+            "Card ${args[0]} of ${args[1]}"
+        }
+
+        // Arrow/delete intents are built with a no-arg Intent() + setters; the JVM stub throws.
+        mockkConstructor(Intent::class)
+        every {
+            anyConstructed<Intent>().setClassName(any<String>(), any<String>())
+        } answers { self as Intent }
+        every { anyConstructed<Intent>().setAction(any()) } answers { self as Intent }
+        every {
+            anyConstructed<Intent>().putExtra(any<String>(), any<String>())
+        } answers { self as Intent }
+        every {
+            anyConstructed<Intent>().putExtra(any<String>(), any<Int>())
+        } answers { self as Intent }
+        every {
+            anyConstructed<Intent>().putExtra(any<String>(), any<Bundle>())
+        } answers { self as Intent }
+        mockkConstructor(Bundle::class)
+        every { anyConstructed<Bundle>().putString(any(), any()) } returns Unit
+    }
+
+    /** Tear down the constructor mocks installed by [withCarouselPush]. */
+    private fun withoutCarouselPush() {
+        unmockkConstructor(Bundle::class)
+        unmockkConstructor(Intent::class)
+        unmockkConstructor(RemoteViews::class)
+        unmockkObject(CarouselStateStore)
+        unmockkObject(CarouselImageLoader)
+    }
+
+    @Test
+    fun `carousel sets DecoratedCustomViewStyle and not BigTextStyle`() {
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID
+            )
+
+            verify {
+                anyConstructed<NotificationCompat.Builder>()
+                    .setStyle(match { it is NotificationCompat.DecoratedCustomViewStyle })
+            }
+            verify(exactly = 0) {
+                anyConstructed<NotificationCompat.Builder>()
+                    .setStyle(match { it is NotificationCompat.BigTextStyle })
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel sets both custom content views`() {
+        // AC-1: the collapsed and expanded RemoteViews are attached to the builder.
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID
+            )
+
+            verify { anyConstructed<NotificationCompat.Builder>().setCustomContentView(any()) }
+            verify { anyConstructed<NotificationCompat.Builder>().setCustomBigContentView(any()) }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel shows the current card image, title and description`() {
+        // AC-1: the expanded view carries card 2's image, title and description when index = 1.
+        withCarouselPush()
+        try {
+            val cardOneImage = mockk<Bitmap>(relaxed = true)
+            val cardTwoImage = mockk<Bitmap>(relaxed = true)
+            every { CarouselImageLoader.get(TEST_UID, 1) } returns cardOneImage
+            every { CarouselImageLoader.get(TEST_UID, 2) } returns cardTwoImage
+
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                carouselIndex = 1
+            )
+
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setImageViewBitmap(R.id.klaviyo_carousel_image, cardTwoImage)
+            }
+            verify(exactly = 0) {
+                anyConstructed<RemoteViews>()
+                    .setImageViewBitmap(R.id.klaviyo_carousel_image, cardOneImage)
+            }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setTextViewText(R.id.klaviyo_carousel_title, "Card 2 title")
+            }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setTextViewText(R.id.klaviyo_carousel_description, "Card 2 description")
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel dots fill the current card and hide unused dots`() {
+        // AC-1 (design): page dots replace the "1 / 4" counter; card 2 of 4 fills dot 2.
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                carouselIndex = 1
+            )
+
+            verify {
+                anyConstructed<RemoteViews>().setImageViewResource(
+                    R.id.klaviyo_carousel_dot_2,
+                    R.drawable.klaviyo_carousel_dot_active
+                )
+            }
+            listOf(
+                R.id.klaviyo_carousel_dot_1,
+                R.id.klaviyo_carousel_dot_3,
+                R.id.klaviyo_carousel_dot_4
+            ).forEach { id ->
+                verify {
+                    anyConstructed<RemoteViews>().setImageViewResource(
+                        id,
+                        R.drawable.klaviyo_carousel_dot_inactive
+                    )
+                }
+            }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setViewVisibility(R.id.klaviyo_carousel_dot_5, View.GONE)
+            }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setContentDescription(R.id.klaviyo_carousel_dots, "Card 2 of 4")
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel hides the prev arrow on the first card`() {
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                carouselIndex = 0
+            )
+
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setViewVisibility(R.id.klaviyo_carousel_prev, View.GONE)
+            }
+            verify(exactly = 0) {
+                anyConstructed<RemoteViews>()
+                    .setOnClickPendingIntent(eq(R.id.klaviyo_carousel_prev), any())
+            }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setOnClickPendingIntent(eq(R.id.klaviyo_carousel_next), any())
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel hides the next arrow on the last card`() {
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                carouselIndex = CAROUSEL_SIZE - 1
+            )
+
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setViewVisibility(R.id.klaviyo_carousel_next, View.GONE)
+            }
+            verify(exactly = 0) {
+                anyConstructed<RemoteViews>()
+                    .setOnClickPendingIntent(eq(R.id.klaviyo_carousel_next), any())
+            }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setOnClickPendingIntent(eq(R.id.klaviyo_carousel_prev), any())
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel hides the image when the card bitmap is not cached`() {
+        withCarouselPush()
+        try {
+            every { CarouselImageLoader.get(any(), any()) } returns null
+
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID
+            )
+
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setViewVisibility(R.id.klaviyo_carousel_image, View.GONE)
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel collapsed view shows the notification text and card 1's thumbnail`() {
+        // Design A1: the collapsed view is the notification title and body, whichever card is on
+        // screen, with card 1's image as the thumbnail.
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                carouselIndex = 2
+            )
+
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setTextViewText(R.id.klaviyo_carousel_collapsed_title, "Test Title")
+            }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setTextViewText(R.id.klaviyo_carousel_collapsed_body, "Test Body")
+            }
+            verify { CarouselImageLoader.thumbnail(TEST_UID, 1) }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setImageViewBitmap(R.id.klaviyo_carousel_thumbnail, any())
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel hides the thumbnail when card 1's image is not cached`() {
+        withCarouselPush()
+        try {
+            every { CarouselImageLoader.thumbnail(any(), any()) } returns null
+
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID
+            )
+
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setViewVisibility(R.id.klaviyo_carousel_thumbnail, View.GONE)
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel hides a card's missing title and description`() {
+        withCarouselPush()
+        try {
+            with(KlaviyoRemoteMessage) {
+                every { mockRemoteMessage.carouselCards } returns carouselCards.map {
+                    it.copy(title = null, description = null)
+                }
+            }
+
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID
+            )
+
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setViewVisibility(R.id.klaviyo_carousel_title, View.GONE)
+            }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setViewVisibility(R.id.klaviyo_carousel_description, View.GONE)
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel body tap targets the current card's action`() {
+        // AC-2 (body half): the content intent for card 3 uses that card's own action/url — not
+        // the notification-level deep link — and carries the card's 1-based position.
+        withCarouselPush()
+        try {
+            val browserUrlSlot = slot<String>()
+            val deepLinkUri = mockk<Uri>(relaxed = true)
+            val openUrl = mockk<Uri>(relaxed = true)
+            every { openUrl.toString() } returns "https://card-3.example.com"
+            val cards = listOf(
+                CarouselCard(
+                    1,
+                    mockk(relaxed = true),
+                    "Card 1 title",
+                    "d",
+                    CarouselCardAction.OpenApp
+                ),
+                CarouselCard(
+                    2,
+                    mockk(relaxed = true),
+                    "Card 2 title",
+                    "d",
+                    CarouselCardAction.OpenApp
+                ),
+                CarouselCard(
+                    position = 3,
+                    imageUrl = mockk(relaxed = true),
+                    title = "Card 3 title",
+                    description = "d",
+                    action = CarouselCardAction.OpenUrl(openUrl)
+                )
+            )
+            with(KlaviyoRemoteMessage) {
+                every { mockRemoteMessage.carouselCards } returns cards
+                // A notification-level deep link must be ignored for a carousel card tap.
+                every { mockRemoteMessage.deepLink } returns deepLinkUri
+            }
+            every {
+                KlaviyoTrampolineActivity.forBrowserUrl(any(), capture(browserUrlSlot))
+            } returns mockk(relaxed = true)
+            every {
+                PendingIntent.getActivity(any(), any(), any(), any())
+            } returns mockk(relaxed = true)
+
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                carouselIndex = 2
+            )
+
+            // Card 3 is an open_url card, so the tap goes to its own browser URL.
+            assertEquals("https://card-3.example.com", browserUrlSlot.captured)
+            verify(exactly = 0) { DeepLinking.makeDeepLinkIntent(any(), any()) }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel arrow taps go to the carousel receiver`() {
+        // AC-2: prev and next are RemoteViews click targets bound to internal broadcasts. A middle
+        // card shows both arrows.
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                carouselIndex = 1
+            )
+
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setOnClickPendingIntent(eq(R.id.klaviyo_carousel_prev), any())
+            }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setOnClickPendingIntent(eq(R.id.klaviyo_carousel_next), any())
+            }
+            // Both arrows (and the delete intent) target the internal receiver by explicit component.
+            verify(exactly = 3) {
+                anyConstructed<Intent>().setClassName(
+                    any<String>(),
+                    eq(KlaviyoCarouselReceiver::class.java.name)
+                )
+            }
+            verify { anyConstructed<Intent>().setAction(Constants.CAROUSEL_ACTION_PREV) }
+            verify { anyConstructed<Intent>().setAction(Constants.CAROUSEL_ACTION_NEXT) }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel arrows are never rendered as action buttons`() {
+        // AC-2 / AC-4 boundary: the three-button budget belongs to action_buttons.
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID
+            )
+
+            // No action_buttons in the payload, so nothing should be added.
+            verify(exactly = 0) {
+                anyConstructed<NotificationCompat.Builder>()
+                    .addAction(any<NotificationCompat.Action>())
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel broadcasts carry the tag, uid and request-code base`() {
+        // AC-2: the receiver needs everything to re-post in place under the same tag.
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID
+            )
+
+            verify { anyConstructed<Intent>().putExtra(Constants.NOTIFICATION_TAG_EXTRA, TEST_TAG) }
+            verify {
+                anyConstructed<Intent>().putExtra(Constants.NOTIFICATION_UID_EXTRA, TEST_UID)
+            }
+            verify {
+                anyConstructed<Intent>()
+                    .putExtra(Constants.CAROUSEL_REQUEST_CODE_BASE_EXTRA, TEST_REQUEST_CODE_BASE)
+            }
+            verify {
+                anyConstructed<Intent>().putExtra(
+                    Constants.CAROUSEL_SENDER_EXTRA,
+                    any<String>()
+                )
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel arrow and delete request codes are unique against content and buttons`() {
+        withCarouselPush()
+        try {
+            with(KlaviyoRemoteMessage) {
+                // The full three-button budget, so the offset range is checked end to end.
+                every { mockRemoteMessage.actionButtons } returns listOf(
+                    ActionButton.OpenApp(id = "one", label = "One"),
+                    ActionButton.OpenApp(id = "two", label = "Two"),
+                    ActionButton.OpenApp(id = "three", label = "Three")
+                )
+            }
+            val broadcastCodes = mutableListOf<Int>()
+            val activityCodes = mutableListOf<Int>()
+            every {
+                PendingIntent.getBroadcast(any(), capture(broadcastCodes), any(), any())
+            } returns mockk(relaxed = true)
+            every {
+                PendingIntent.getActivity(any(), capture(activityCodes), any(), any())
+            } returns mockk(relaxed = true)
+
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                // A middle card, so both arrows are present.
+                carouselIndex = 1
+            )
+
+            // prev, next and delete, each at its own offset.
+            assertEquals(
+                listOf(
+                    TEST_REQUEST_CODE_BASE + Constants.CAROUSEL_PREV_OFFSET,
+                    TEST_REQUEST_CODE_BASE + Constants.CAROUSEL_NEXT_OFFSET,
+                    TEST_REQUEST_CODE_BASE + Constants.CAROUSEL_DELETE_OFFSET
+                ),
+                broadcastCodes
+            )
+            val allCodes = broadcastCodes + activityCodes
+            assertEquals(
+                "every request code must be unique",
+                allCodes.size,
+                allCodes.distinct().size
+            )
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel arrow and delete intents use UPDATE_CURRENT and IMMUTABLE`() {
+        withCarouselPush()
+        try {
+            val flags = mutableListOf<Int>()
+            every {
+                PendingIntent.getBroadcast(any(), any(), any(), capture(flags))
+            } returns mockk(relaxed = true)
+
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                // A middle card, so both arrows are present.
+                carouselIndex = 1
+            )
+
+            assertEquals(3, flags.size)
+            val expected = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            assertTrue(flags.all { it == expected })
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel sets a delete intent`() {
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID
+            )
+
+            verify { anyConstructed<NotificationCompat.Builder>().setDeleteIntent(any()) }
+            verify { anyConstructed<Intent>().setAction(Constants.CAROUSEL_ACTION_DELETE) }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel arrow re-post sets onlyAlertOnce`() {
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                carouselIndex = 1,
+                isCarouselRepost = true
+            )
+
+            verify { anyConstructed<NotificationCompat.Builder>().setOnlyAlertOnce(true) }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel first post alerts even when re-sent under the same tag`() {
+        // A campaign re-sent with a reused notification_tag replaces the tray entry; it must still
+        // sound, vibrate and show heads-up like a standard push.
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID
+            )
+
+            verify { anyConstructed<NotificationCompat.Builder>().setOnlyAlertOnce(false) }
+            verify(exactly = 0) {
+                anyConstructed<NotificationCompat.Builder>().setOnlyAlertOnce(true)
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel still adds notification-level action buttons`() {
+        // AC-4: action_buttons are notification-level and render on every card.
+        withCarouselPush()
+        try {
+            with(KlaviyoRemoteMessage) {
+                every { mockRemoteMessage.actionButtons } returns listOf(
+                    ActionButton.OpenApp(id = "open", label = "Open"),
+                    ActionButton.OpenApp(id = "view", label = "View")
+                )
+            }
+
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID
+            )
+
+            verify(exactly = 2) {
+                anyConstructed<NotificationCompat.Builder>()
+                    .addAction(any<NotificationCompat.Action>())
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `standard push still sets BigTextStyle and never attaches custom views`() {
+        // AC-5: standard pushes are unchanged.
+        with(KlaviyoRemoteMessage) {
+            every { mockRemoteMessage.carouselCards } returns null
+        }
+
+        notification.displayNotification(mockContext)
+
+        verify {
+            anyConstructed<NotificationCompat.Builder>().setStyle(
+                match { it is NotificationCompat.BigTextStyle }
+            )
+        }
+        verify(exactly = 0) {
+            anyConstructed<NotificationCompat.Builder>().setStyle(
+                match { it is NotificationCompat.DecoratedCustomViewStyle }
+            )
+        }
+        verify(exactly = 0) {
+            anyConstructed<NotificationCompat.Builder>().setCustomContentView(
+                any()
+            )
+        }
+        verify(exactly = 0) {
+            anyConstructed<NotificationCompat.Builder>().setCustomBigContentView(any())
+        }
+        verify(exactly = 0) { anyConstructed<NotificationCompat.Builder>().setOnlyAlertOnce(any()) }
+        verify(exactly = 0) { anyConstructed<NotificationCompat.Builder>().setDeleteIntent(any()) }
+    }
+
+    @Test
+    fun `carousel display preloads its images under a new uid and posts through the store`() {
+        // AC-3: a re-sent push starts at card 1 with fresh images. The images are cached under the
+        // new notification's own UID, so they can never mix with the carousel it replaces.
+        withCarouselPush()
+        try {
+            with(KlaviyoRemoteMessage) { every { mockRemoteMessage.notificationTag } returns TEST_TAG }
+            val uid = slot<String>()
+
+            notification.displayNotification(mockContext)
+
+            verify { CarouselImageLoader.loadAll(capture(uid), carouselCards) }
+            verifyOrder {
+                // Leftovers from tapped (auto-cancelled) carousels go before the new one is added.
+                CarouselStateStore.pruneInactive(mockContext)
+                CarouselImageLoader.loadAll(uid.captured, carouselCards)
+                CarouselStateStore.replace(mockContext, TEST_TAG, uid.captured, any())
+            }
+            verify {
+                anyConstructed<NotificationCompat.Builder>()
+                    .setCustomBigContentView(any())
+            }
+            verify(exactly = 0) { CarouselImageLoader.evict(any()) }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel display evicts the replaced carousel's images after posting`() {
+        withCarouselPush()
+        try {
+            with(KlaviyoRemoteMessage) { every { mockRemoteMessage.notificationTag } returns TEST_TAG }
+            every { CarouselStateStore.replace(any(), any(), any(), any()) } answers {
+                arg<() -> Unit>(3).invoke()
+                "replaced-uid"
+            }
+
+            notification.displayNotification(mockContext)
+
+            verify { CarouselImageLoader.evict("replaced-uid") }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel display does not apply the standard rich image`() {
+        withCarouselPush()
+        try {
+            val topLevelImage = mockk<URL>(relaxed = true)
+            with(KlaviyoRemoteMessage) {
+                every { mockRemoteMessage.notificationTag } returns TEST_TAG
+                every { mockRemoteMessage.imageUrl } returns topLevelImage
+            }
+
+            notification.displayNotification(mockContext)
+
+            // The top-level image is never even downloaded, let alone applied as BigPictureStyle.
+            verify(exactly = 0) { topLevelImage.openStream() }
+            verify(exactly = 0) {
+                anyConstructed<NotificationCompat.Builder>()
+                    .setStyle(match { it is NotificationCompat.BigPictureStyle })
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `stale carousel body intent flags include UPDATE_CURRENT and carry the card position`() {
+        // Regression for 7485c91d91: a re-post reuses the body request code, and a filterEquals
+        // intent (extras not compared) would otherwise hand back the previously shown card's
+        // token. UPDATE_CURRENT makes getActivity replace it with the new card's destination.
+        withCarouselPush()
+        try {
+            val flagsSlot = slot<Int>()
+            val requestCodeSlot = slot<Int>()
+            val intentSlot = slot<Intent>()
+            every {
+                PendingIntent.getActivity(
+                    any(),
+                    capture(requestCodeSlot),
+                    capture(intentSlot),
+                    capture(flagsSlot)
+                )
+            } returns mockk(relaxed = true)
+
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                carouselIndex = 2
+            )
+
+            assertEquals(TEST_REQUEST_CODE_BASE, requestCodeSlot.captured)
+            assertEquals(
+                PendingIntent.FLAG_IMMUTABLE or
+                    PendingIntent.FLAG_ONE_SHOT or
+                    PendingIntent.FLAG_UPDATE_CURRENT,
+                flagsSlot.captured
+            )
+            // Card 3 is 1-based position 3.
+            verify { intentSlot.captured.putExtra(Constants.CAROUSEL_POSITION_EXTRA, 3) }
+            // An open_app card carries no link for getKlaviyoDeepLink to fall back on.
+            verify(exactly = 0) {
+                intentSlot.captured.putExtra(Constants.CAROUSEL_CARD_LINK_EXTRA, any<String>())
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `a deep link card's body intent carries the card link for getKlaviyoDeepLink`() {
+        // With no matching intent filter the host is launched without intent data, so the card
+        // link must ride as an extra or the host cannot route the tap.
+        withCarouselPush()
+        try {
+            val cardLink = mockk<Uri>()
+            every { cardLink.toString() } returns "klaviyotest://product/7"
+            every { cardLink.scheme } returns "klaviyotest"
+            with(KlaviyoRemoteMessage) {
+                every { mockRemoteMessage.carouselCards } returns carouselCards.mapIndexed { i, card ->
+                    if (i == 1) card.copy(action = CarouselCardAction.DeepLink(cardLink)) else card
+                }
+            }
+            val intentSlot = slot<Intent>()
+            every {
+                PendingIntent.getActivity(any(), any(), capture(intentSlot), any())
+            } returns mockk(relaxed = true)
+
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                carouselIndex = 1
+            )
+
+            verify {
+                intentSlot.captured.putExtra(
+                    Constants.CAROUSEL_CARD_LINK_EXTRA,
+                    "klaviyotest://product/7"
+                )
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel clamps an out-of-range index to the last card`() {
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                carouselIndex = 99
+            )
+
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setTextViewText(R.id.klaviyo_carousel_title, "Card 4 title")
+            }
+            verify {
+                anyConstructed<RemoteViews>()
+                    .setContentDescription(R.id.klaviyo_carousel_dots, "Card 4 of 4")
+            }
+        } finally {
+            withoutCarouselPush()
+        }
     }
 }

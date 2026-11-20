@@ -602,6 +602,22 @@ internal class KlaviyoPushOpenHandlerTest : BaseTest() {
     }
 
     @Test
+    fun `getKlaviyoDeepLink reads a carousel card's link over the notification body's`() {
+        // A carousel card whose link no activity resolves: the host is launched without intent
+        // data, and the body's own url would send the user somewhere they did not tap.
+        val cardUri = mockk<Uri>()
+        every { Uri.parse("klaviyotest://product/7") } returns cardUri
+        every { Uri.parse("klaviyotest://detail/1") } returns mockk()
+        val extras = mapOf(
+            "com.klaviyo._k" to requireNotNull(stubIntentExtras["com.klaviyo._k"]),
+            "com.klaviyo.url" to "klaviyotest://detail/1",
+            Constants.CAROUSEL_CARD_LINK_EXTRA to "klaviyotest://product/7"
+        )
+
+        assertEquals(cardUri, Klaviyo.getKlaviyoDeepLink(mockIntent(extras)))
+    }
+
+    @Test
     fun `getKlaviyoDeepLink ignores a blank payload url`() {
         // toUri() happily returns a non-null, useless Uri for whitespace, so an empty check alone
         // would hand the host a link to navigate to.

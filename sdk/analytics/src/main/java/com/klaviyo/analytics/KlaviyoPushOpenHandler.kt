@@ -132,8 +132,8 @@ internal object KlaviyoPushOpenHandler {
      * not a JSON array, are removed from [intent]. Otherwise the
      * token is the string value in the key/value pairs, else the first of these links that carries
      * it: the intent data, then the payload `Button Link`, `url` and `web_url` extras, then the
-     * trampoline's browser URL extra. The token is removed from the key/value pairs and from every
-     * one of those links, so it reaches neither `$opened_push`, nor the host's deep link handling,
+     * trampoline's browser URL extra, then the carousel card link extra. The token is removed
+     * from the key/value pairs and from every one of those links, so it reaches neither `$opened_push`, nor the host's deep link handling,
      * nor the URL the trampoline opens in the browser. The preview parameter is also removed from
      * each button `url` in the `action_buttons` extra, whether or not a token was found elsewhere.
      * The returned token is not validated.
@@ -144,7 +144,8 @@ internal object KlaviyoPushOpenHandler {
             PACKAGE_PREFIX + BUTTON_LINK_PARAMETER,
             PACKAGE_PREFIX + URL_PARAMETER,
             PACKAGE_PREFIX + WEB_URL_PARAMETER,
-            Constants.BROWSER_URL_EXTRA
+            Constants.BROWSER_URL_EXTRA,
+            Constants.CAROUSEL_CARD_LINK_EXTRA
         )
 
         intent.getStringExtra(keyValuePairsExtra)?.let {

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Maximum card description lines before API 31. One line, so the description still fits
+        under the shorter pre-12 image (see klaviyo_carousel_image_height). API 31+ allows two,
+        from values-v31.
+    -->
+    <integer name="klaviyo_carousel_description_max_lines">1</integer>
+</resources>

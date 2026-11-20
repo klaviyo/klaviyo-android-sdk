@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Carousel card image height before API 31. Android 11 and older give a custom expanded
+        notification much less room: measured at about 183dp for our content on API 30, and on
+        API 23 the whole expanded notification is capped at 256dp including the action buttons.
+        The 156dp image from the design leaves no room there, so the description (API 30) or the
+        buttons (API 23) get clipped. 120dp (about 2.6:1) plus the 1-line description below fits
+        both. API 31+ uses the design's 156dp from values-v31.
+    -->
+    <dimen name="klaviyo_carousel_image_height">120dp</dimen>
+
+    <!-- Image corner radius. Clipped on API 31+ only; RemoteViews cannot clip views before that. -->
+    <dimen name="klaviyo_carousel_image_corner_radius">12dp</dimen>
+
+    <!-- Gap between stacked elements, and the inset of the arrows and dots from the image edge. -->
+    <dimen name="klaviyo_carousel_spacing">8dp</dimen>
+
+    <!-- Prev/next arrow circle, and the inset of the chevron inside it. -->
+    <dimen name="klaviyo_carousel_arrow_size">32dp</dimen>
+    <dimen name="klaviyo_carousel_arrow_padding">6dp</dimen>
+
+    <!-- Page-dot pill: its height and side padding, each dot and the gap between dots. -->
+    <dimen name="klaviyo_carousel_dots_height">16dp</dimen>
+    <dimen name="klaviyo_carousel_dots_padding">8dp</dimen>
+    <dimen name="klaviyo_carousel_dot_size">6dp</dimen>
+    <dimen name="klaviyo_carousel_dot_gap">6dp</dimen>
+
+    <!-- Collapsed-view thumbnail of card 1, and its corner radius (API 31+). -->
+    <dimen name="klaviyo_carousel_thumbnail_size">48dp</dimen>
+    <dimen name="klaviyo_carousel_thumbnail_corner_radius">8dp</dimen>
+</resources>
