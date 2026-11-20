@@ -102,6 +102,7 @@ class InboxStoreInstrumentedTest {
         source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_READ, 9_000L)
 
         val stored = source.stored("tm-1")
+        assertTrue(stored.isRead)
         assertEquals(9_000L, stored.localUpdatedAt)
         assertEquals(SERVER_UPDATED_AT, stored.serverUpdatedAt)
         assertEquals(EXPIRES_AT, stored.expiresAt)
