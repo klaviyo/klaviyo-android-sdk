@@ -113,10 +113,11 @@ object KlaviyoInbox {
      */
     @JvmStatic
     fun removeChangeListener(listener: InboxChangeListener) {
-        listeners.remove(listener)?.also {
-            it.isActive = false
-            it.job?.cancel()
-        }
+        val subscription = listeners[listener] ?: return
+        // Deactivate before removing, so a second remover that finds the entry gone cannot return
+        // while the callbacks it is waiting on are still live
+        subscription.isActive = false
+        if (listeners.remove(listener, subscription)) subscription.job?.cancel()
     }
 
     private fun <T> deliver(
