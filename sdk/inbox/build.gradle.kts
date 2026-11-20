@@ -34,6 +34,7 @@ ksp {
 dependencies {
     api(project(":sdk:inbox-core"))
     implementation(project(":sdk:core"))
+    implementation(project(":sdk:analytics"))
     implementation(project(":sdk:push-fcm"))
     implementation(KotlinX.coroutines.core)
     implementation(AndroidX.room.runtime)
