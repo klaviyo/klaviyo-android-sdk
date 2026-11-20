@@ -3,6 +3,8 @@ package com.klaviyo.inbox
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.MissingKlaviyoModule
 import com.klaviyo.core.Registry
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -25,14 +27,18 @@ object KlaviyoInbox {
 
     /**
      * One registration of a listener. A callback posted to the main thread outlives the job that
-     * posted it, so each callback checks [isActive] when it runs. Guarded by [listeners].
+     * posted it, so each callback checks [isActive] when it runs. Both fields are read and written
+     * from several threads without a lock, so they are volatile.
      */
     private class ChangeSubscription {
-        var isActive = true
-        var job: Job? = null
+        @Volatile var isActive = true
+
+        @Volatile var job: Job? = null
     }
 
-    private val listeners = mutableMapOf<InboxChangeListener, ChangeSubscription>()
+    // Typed as ConcurrentMap so putIfAbsent and remove(key, value) resolve to the API 1 methods
+    private val listeners: ConcurrentMap<InboxChangeListener, ChangeSubscription> =
+        ConcurrentHashMap()
 
     /**
      * @see MobileInbox.fetchPage
@@ -72,32 +78,29 @@ object KlaviyoInbox {
     @JvmStatic
     fun addChangeListener(listener: InboxChangeListener) {
         val inbox = Klaviyo.mobileInbox
-        synchronized(listeners) {
-            if (listeners.containsKey(listener)) return
-            val subscription = ChangeSubscription().also { listeners[listener] = it }
-            // Undispatched, so the collection is subscribed before this returns
-            subscription.job = scope.launch(start = CoroutineStart.UNDISPATCHED) {
-                try {
-                    inbox.changes.collect {
-                        Registry.threadHelper.runOnUiThread {
-                            if (synchronized(listeners) { subscription.isActive }) {
-                                listener.onChange()
-                            }
-                        }
-                    }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    Registry.log.error("Mobile Inbox change listener stopped", e)
-                    // Free the slot so the host can add the listener again. Only this
-                    // registration, in case the listener was already removed and re-added.
-                    synchronized(listeners) {
-                        subscription.isActive = false
-                        if (listeners[listener] === subscription) listeners.remove(listener)
+        val subscription = ChangeSubscription()
+        if (listeners.putIfAbsent(listener, subscription) != null) return
+        // Undispatched, so the collection is subscribed before this returns
+        val job = scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                inbox.changes.collect {
+                    Registry.threadHelper.runOnUiThread {
+                        if (subscription.isActive) listener.onChange()
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Registry.log.error("Mobile Inbox change listener stopped", e)
+                // Free the slot so the host can add the listener again. Only this
+                // registration, in case the listener was already removed and re-added.
+                subscription.isActive = false
+                listeners.remove(listener, subscription)
             }
         }
+        subscription.job = job
+        // A remove that ran before the job was stored found nothing to cancel
+        if (!subscription.isActive) job.cancel()
     }
 
     /**
@@ -110,9 +113,10 @@ object KlaviyoInbox {
      */
     @JvmStatic
     fun removeChangeListener(listener: InboxChangeListener) {
-        synchronized(listeners) {
-            listeners.remove(listener)?.also { it.isActive = false }
-        }?.job?.cancel()
+        listeners.remove(listener)?.also {
+            it.isActive = false
+            it.job?.cancel()
+        }
     }
 
     private fun <T> deliver(
