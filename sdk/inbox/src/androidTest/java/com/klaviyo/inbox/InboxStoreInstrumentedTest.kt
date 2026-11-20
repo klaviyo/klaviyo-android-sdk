@@ -78,14 +78,33 @@ class InboxStoreInstrumentedTest {
         attributionJson = """{"tm":"$transmissionId"}"""
     )
 
+    private fun InboxMessageEntity.withEveryTimestamp() = copy(
+        expiresAt = EXPIRES_AT,
+        localUpdatedAt = LOCAL_UPDATED_AT,
+        serverUpdatedAt = SERVER_UPDATED_AT
+    )
+
     @Test
     fun storedMessageReadsBackWithEveryField() = runBlocking {
         val dao = dao
-        val message = message("tm-1", sentAt = 5_000L)
+        val message = message("tm-1", sentAt = 5_000L).withEveryTimestamp()
 
         assertTrue(dao.insertAndTrim(message, LIMIT))
 
         assertEquals(message, dao.get("tm-1"))
+    }
+
+    @Test
+    fun aStateChangeLeavesTheServerTimestampAndExpiryAlone() = runBlocking {
+        val source = openSource()
+        source.seed(message("tm-1").withEveryTimestamp())
+
+        source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_READ, 9_000L)
+
+        val stored = source.stored("tm-1")
+        assertEquals(9_000L, stored.localUpdatedAt)
+        assertEquals(SERVER_UPDATED_AT, stored.serverUpdatedAt)
+        assertEquals(EXPIRES_AT, stored.expiresAt)
     }
 
     @Test
@@ -580,7 +599,7 @@ class InboxStoreInstrumentedTest {
     @Test
     fun aMessageReadsBackThroughAPageWithEveryField() = runBlocking {
         val source = openSource()
-        val stored = message("tm-1", sentAt = 5_000L)
+        val stored = message("tm-1", sentAt = 5_000L).withEveryTimestamp()
         source.seed(stored)
 
         assertEquals(
@@ -602,5 +621,8 @@ class InboxStoreInstrumentedTest {
         const val COMPANY = "company"
         const val LIMIT = 100
         const val CONCURRENT_INSERTS = 20
+        const val EXPIRES_AT = 90_000L
+        const val LOCAL_UPDATED_AT = 5_000L
+        const val SERVER_UPDATED_AT = 6_000L
     }
 }
