@@ -12,8 +12,10 @@ import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.model.StateKey
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Constants
+import com.klaviyo.core.ExternalPushTapReceiver
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
+import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.core.utils.activityResolved
 import com.klaviyo.core.utils.startActivityIfResolved
 
@@ -144,11 +146,21 @@ internal class KlaviyoTrampolineActivity : Activity() {
 
         private fun dispatchDestination(intent: Intent, context: Context) {
             intent.getStringExtra(Constants.BROWSER_URL_EXTRA)?.let { url ->
+                notifyExternalPushTapReceiver(intent, url)
                 Registry.log.verbose("Trampoline dispatching external intent")
                 DeepLinking.makeExternalIntent(url.toUri()).startActivityIfResolved(context)
                 return
             }
             startDestination(intent, context)
+        }
+
+        @OptIn(AdvancedAPI::class)
+        private fun notifyExternalPushTapReceiver(intent: Intent, url: String) {
+            try {
+                Registry.getOrNull<ExternalPushTapReceiver>()?.onExternalPushTap(intent, url)
+            } catch (e: Exception) {
+                Registry.log.error("ExternalPushTapReceiver failed", e)
+            }
         }
 
         /**
