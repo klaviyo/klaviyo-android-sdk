@@ -668,6 +668,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
         val request = makeTestRequest()
         assertEquals(KlaviyoApiRequest.Status.PendingRetry, request.send())
         assertEquals(1, request.attempts)
+        verify(exactly = 1) { spyLog.warning(any(), any()) }
     }
 
     @Test
@@ -724,6 +725,7 @@ internal class KlaviyoApiRequestTest : BaseApiRequestTest<KlaviyoApiRequest>() {
         val request = makeTestRequest()
         assertEquals(KlaviyoApiRequest.Status.Failed, request.send())
         assertEquals(1, request.attempts)
+        verify(exactly = 1) { spyLog.error(any(), any()) }
     }
 
     @Test

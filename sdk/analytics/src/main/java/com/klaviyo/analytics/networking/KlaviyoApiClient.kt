@@ -12,6 +12,8 @@ import com.klaviyo.analytics.networking.requests.EventApiRequest
 import com.klaviyo.analytics.networking.requests.FetchGeofencesCallback
 import com.klaviyo.analytics.networking.requests.FetchGeofencesRequest
 import com.klaviyo.analytics.networking.requests.FetchGeofencesResult
+import com.klaviyo.analytics.networking.requests.InboxApiRequest
+import com.klaviyo.analytics.networking.requests.InboxApiResponse
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequest.Status
 import com.klaviyo.analytics.networking.requests.KlaviyoApiRequestDecoder
@@ -205,6 +207,29 @@ internal object KlaviyoApiClient : ApiClient {
             sendAndBroadcast()
             callback(getResult())
         }
+    }
+
+    /**
+     * Fetch one page of the Mobile Inbox. Uses send, not sendAndBroadcast, so the request is never
+     * broadcast to observers or persisted, and the bearer token stays out of both.
+     */
+    override suspend fun fetchInboxPage(
+        token: String,
+        profileId: String,
+        cursor: String?,
+        pageSize: Int
+    ): InboxApiResponse = withContext(Registry.dispatcher) {
+        InboxApiRequest.fetchPage(token, profileId, cursor, pageSize).execute()
+    }
+
+    /**
+     * Submit Mobile Inbox state changes, with the same token handling as [fetchInboxPage]
+     */
+    override suspend fun submitInboxStateChanges(
+        token: String,
+        body: String
+    ): InboxApiResponse = withContext(Registry.dispatcher) {
+        InboxApiRequest.submitChanges(token, body).execute()
     }
 
     /**

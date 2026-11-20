@@ -48,7 +48,7 @@ internal abstract class BaseApiRequestTest<T> : BaseTest() where T : KlaviyoApiR
     }
 
     @Test
-    fun `Uses expected URL after encoding and decoding even if base url has changed`() {
+    open fun `Uses expected URL after encoding and decoding even if base url has changed`() {
         val requestJson = makeTestRequest().toJson()
         val expectedUrl = expectedUrl
         every { mockConfig.baseUrl } returns "https://test-two.fake-klaviyo.com"

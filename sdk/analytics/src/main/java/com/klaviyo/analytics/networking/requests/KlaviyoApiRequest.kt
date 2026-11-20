@@ -196,6 +196,20 @@ internal open class KlaviyoApiRequest(
     )
 
     /**
+     * Request headers applied after [headers] but kept out of [headers], [toJson], [toString] and
+     * persistence, e.g. a bearer token. When any are present, redirects are not followed so the
+     * values cannot be replayed to another host, and responses are not served from or stored in a
+     * host-installed response cache.
+     */
+    protected open val unloggedHeaders: Map<String, String> = emptyMap()
+
+    /**
+     * Whether an I/O failure is logged here. Callers that classify and log failures themselves
+     * turn this off so one failure is not reported twice.
+     */
+    protected open val logsTransportFailure: Boolean = true
+
+    /**
      * HTTP request query params
      */
     override var query: Map<String, String> = emptyMap()
@@ -375,14 +389,18 @@ internal open class KlaviyoApiRequest(
             val isRetryable = isRetryableIOException(ex)
 
             status = if (isRetryable && attempts < maxAttempts) {
-                Registry.log.warning(
-                    "Retryable I/O error on attempt $attempts: ${ex.javaClass.simpleName}",
-                    ex
-                )
+                if (logsTransportFailure) {
+                    Registry.log.warning(
+                        "Retryable I/O error on attempt $attempts: ${ex.javaClass.simpleName}",
+                        ex
+                    )
+                }
                 Status.PendingRetry
             } else {
-                val reason = if (!isRetryable) "non-retryable" else "max attempts reached"
-                Registry.log.error("Request failed ($reason): ${ex.javaClass.simpleName}", ex)
+                if (logsTransportFailure) {
+                    val reason = if (!isRetryable) "non-retryable" else "max attempts reached"
+                    Registry.log.error("Request failed ($reason): ${ex.javaClass.simpleName}", ex)
+                }
                 Status.Failed
             }
             status
@@ -402,6 +420,15 @@ internal open class KlaviyoApiRequest(
 
         headers.forEach { (key, header) ->
             connection.setRequestProperty(key, header)
+        }
+
+        unloggedHeaders.forEach { (key, header) ->
+            connection.setRequestProperty(key, header)
+        }
+
+        if (unloggedHeaders.isNotEmpty()) {
+            connection.instanceFollowRedirects = false
+            connection.useCaches = false
         }
 
         connection.requestMethod = method.name
