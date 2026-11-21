@@ -13,7 +13,6 @@ import com.klaviyo.analytics.model.StateKey
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Constants
 import com.klaviyo.core.PushTapDestination
-import com.klaviyo.core.PushTapReceiver
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.utils.AdvancedAPI
@@ -149,7 +148,7 @@ internal class KlaviyoTrampolineActivity : Activity() {
         private fun dispatchDestination(intent: Intent, context: Context) {
             val browserUrl = intent.getStringExtra(Constants.BROWSER_URL_EXTRA)
             val deepLink = intent.data
-            notifyPushTapReceiver(
+            dispatchToPushTapObservers(
                 intent,
                 when {
                     browserUrl != null -> PushTapDestination.External(browserUrl)
@@ -163,15 +162,6 @@ internal class KlaviyoTrampolineActivity : Activity() {
                 return
             }
             startDestination(intent, context)
-        }
-
-        @OptIn(AdvancedAPI::class)
-        private fun notifyPushTapReceiver(intent: Intent, destination: PushTapDestination) {
-            try {
-                Registry.getOrNull<PushTapReceiver>()?.onPushTap(intent, destination)
-            } catch (e: Exception) {
-                Registry.log.error("PushTapReceiver failed", e)
-            }
         }
 
         /**

@@ -13,7 +13,6 @@ import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.PushTapDestination
-import com.klaviyo.core.PushTapReceiver
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.utils.AdvancedAPI
@@ -71,7 +70,7 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
     override fun cleanup() {
         Registry.unregister<State>()
         Registry.unregister<Config>()
-        Registry.unregister<PushTapReceiver>()
+        Registry.unregister<PushTapDispatcher>()
         unmockkStatic(Uri::class)
         unmockkObject(DeepLinking)
         unmockkObject(Klaviyo)
@@ -366,15 +365,18 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
     }
 
     @OptIn(AdvancedAPI::class)
-    private fun registerPushTapReceiver(): PushTapReceiver =
-        mockk<PushTapReceiver>(relaxed = true).also {
-            Registry.register<PushTapReceiver>(it)
+    private fun observePushTaps(): PushTapObserver =
+        mockk<PushTapObserver>(relaxed = true).also { observer ->
+            KlaviyoPushTapDispatcher().also {
+                Registry.register<PushTapDispatcher>(it)
+                it.onPushTap(observer)
+            }
         }
 
     @OptIn(AdvancedAPI::class)
     @Test
-    fun `handleTrampolineIntent notifies the receiver of an external tap before opening the browser`() {
-        val receiver = registerPushTapReceiver()
+    fun `handleTrampolineIntent dispatches an external tap before opening the browser`() {
+        val observer = observePushTaps()
         val intent = klaviyoIntent()
         every { intent.getStringExtra(Constants.BROWSER_URL_EXTRA) } returns "https://example.com"
 
@@ -382,15 +384,15 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
 
         verifyOrder {
             Klaviyo.handlePush(intent)
-            receiver.onPushTap(intent, PushTapDestination.External("https://example.com"))
+            observer.onPushTap(intent, PushTapDestination.External("https://example.com"))
             mockTrampolineContext.startActivity(mockBrowserIntent)
         }
     }
 
     @OptIn(AdvancedAPI::class)
     @Test
-    fun `handleTrampolineIntent notifies the receiver of a deep link tap before launching the host`() {
-        val receiver = registerPushTapReceiver()
+    fun `handleTrampolineIntent dispatches a deep link tap before launching the host`() {
+        val observer = observePushTaps()
         val deepLink = mockk<Uri>(relaxed = true)
         val intent = klaviyoIntent()
         every { intent.data } returns deepLink
@@ -399,43 +401,43 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
 
         verifyOrder {
             Klaviyo.handlePush(intent)
-            receiver.onPushTap(intent, PushTapDestination.DeepLink(deepLink))
+            observer.onPushTap(intent, PushTapDestination.DeepLink(deepLink))
             mockTrampolineContext.startActivity(mockDeepLinkIntent)
         }
     }
 
     @OptIn(AdvancedAPI::class)
     @Test
-    fun `handleTrampolineIntent notifies the receiver of an open app tap before launching the host`() {
-        val receiver = registerPushTapReceiver()
+    fun `handleTrampolineIntent dispatches an open app tap before launching the host`() {
+        val observer = observePushTaps()
         val intent = klaviyoIntent()
 
         KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
 
         verifyOrder {
             Klaviyo.handlePush(intent)
-            receiver.onPushTap(intent, PushTapDestination.OpenApp)
+            observer.onPushTap(intent, PushTapDestination.OpenApp)
             mockTrampolineContext.startActivity(mockLaunchIntent)
         }
     }
 
     @OptIn(AdvancedAPI::class)
     @Test
-    fun `handleTrampolineIntent does not notify the receiver for a non-Klaviyo intent`() {
-        val receiver = registerPushTapReceiver()
+    fun `handleTrampolineIntent does not dispatch a non-Klaviyo intent`() {
+        val observer = observePushTaps()
         val intent = mockk<Intent>(relaxed = true)
         every { intent.getStringExtra(any()) } returns null
 
         KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
 
-        verify(exactly = 0) { receiver.onPushTap(any(), any()) }
+        verify(exactly = 0) { observer.onPushTap(any(), any()) }
     }
 
     @OptIn(AdvancedAPI::class)
     @Test
-    fun `handleTrampolineIntent still dispatches when the receiver throws`() {
-        val receiver = registerPushTapReceiver()
-        every { receiver.onPushTap(any(), any()) } throws IllegalStateException("boom")
+    fun `handleTrampolineIntent still dispatches the destination when an observer throws`() {
+        val observer = observePushTaps()
+        every { observer.onPushTap(any(), any()) } throws IllegalStateException("boom")
         val intent = klaviyoIntent()
         every { intent.getStringExtra(Constants.BROWSER_URL_EXTRA) } returns "https://example.com"
 
@@ -443,5 +445,22 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
 
         verify { mockTrampolineContext.startActivity(mockBrowserIntent) }
         verify { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @OptIn(AdvancedAPI::class)
+    @Test
+    fun `handleTrampolineIntent dispatches nothing without a push-fcm dispatcher`() {
+        val observer = mockk<PushTapObserver>(relaxed = true)
+        Registry.register<PushTapDispatcher>(
+            object : PushTapDispatcher {
+                override fun onPushTap(observer: PushTapObserver) = Unit
+                override fun offPushTap(observer: PushTapObserver) = Unit
+            }.also { it.onPushTap(observer) }
+        )
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(klaviyoIntent(), mockTrampolineContext)
+
+        verify(exactly = 0) { observer.onPushTap(any(), any()) }
+        verify { mockTrampolineContext.startActivity(mockLaunchIntent) }
     }
 }

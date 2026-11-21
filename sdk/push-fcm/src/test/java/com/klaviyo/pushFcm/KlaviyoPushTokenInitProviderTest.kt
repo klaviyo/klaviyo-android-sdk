@@ -2,18 +2,21 @@ package com.klaviyo.pushFcm
 
 import com.klaviyo.core.PushTokenFetcher
 import com.klaviyo.core.Registry
+import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.fixtures.BaseTest
 import org.junit.After
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(AdvancedAPI::class)
 class KlaviyoPushTokenInitProviderTest : BaseTest() {
 
     @After
     override fun cleanup() {
         super.cleanup()
         Registry.unregister<PushTokenFetcher>()
+        Registry.unregister<PushTapDispatcher>()
     }
 
     @Test
@@ -25,5 +28,14 @@ class KlaviyoPushTokenInitProviderTest : BaseTest() {
 
         assertTrue(created)
         assertTrue(Registry.getOrNull<PushTokenFetcher>() is KlaviyoPushTokenFetcher)
+    }
+
+    @Test
+    fun `onCreate registers the push tap dispatcher`() {
+        Registry.unregister<PushTapDispatcher>()
+
+        KlaviyoPushTokenInitProvider().onCreate()
+
+        assertTrue(Registry.getOrNull<PushTapDispatcher>() is KlaviyoPushTapDispatcher)
     }
 }
