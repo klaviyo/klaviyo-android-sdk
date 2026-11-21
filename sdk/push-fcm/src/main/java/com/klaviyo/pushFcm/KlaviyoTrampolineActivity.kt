@@ -12,8 +12,11 @@ import com.klaviyo.analytics.linking.DeepLinking
 import com.klaviyo.analytics.model.StateKey
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Constants
+import com.klaviyo.core.PushTapDestination
+import com.klaviyo.core.PushTapReceiver
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
+import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.core.utils.activityResolved
 import com.klaviyo.core.utils.startActivityIfResolved
 
@@ -142,13 +145,33 @@ internal class KlaviyoTrampolineActivity : Activity() {
             }
         }
 
+        @OptIn(AdvancedAPI::class)
         private fun dispatchDestination(intent: Intent, context: Context) {
-            intent.getStringExtra(Constants.BROWSER_URL_EXTRA)?.let { url ->
+            val browserUrl = intent.getStringExtra(Constants.BROWSER_URL_EXTRA)
+            val deepLink = intent.data
+            notifyPushTapReceiver(
+                intent,
+                when {
+                    browserUrl != null -> PushTapDestination.External(browserUrl)
+                    deepLink != null -> PushTapDestination.DeepLink(deepLink)
+                    else -> PushTapDestination.OpenApp
+                }
+            )
+            if (browserUrl != null) {
                 Registry.log.verbose("Trampoline dispatching external intent")
-                DeepLinking.makeExternalIntent(url.toUri()).startActivityIfResolved(context)
+                DeepLinking.makeExternalIntent(browserUrl.toUri()).startActivityIfResolved(context)
                 return
             }
             startDestination(intent, context)
+        }
+
+        @OptIn(AdvancedAPI::class)
+        private fun notifyPushTapReceiver(intent: Intent, destination: PushTapDestination) {
+            try {
+                Registry.getOrNull<PushTapReceiver>()?.onPushTap(intent, destination)
+            } catch (e: Exception) {
+                Registry.log.error("PushTapReceiver failed", e)
+            }
         }
 
         /**

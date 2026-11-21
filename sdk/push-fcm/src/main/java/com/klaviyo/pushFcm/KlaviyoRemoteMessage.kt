@@ -15,6 +15,7 @@ import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import com.google.firebase.messaging.CommonNotificationBuilder
 import com.google.firebase.messaging.RemoteMessage
+import com.klaviyo.core.Constants.BUTTON_ID_PARAMETER
 import com.klaviyo.core.Constants.BUTTON_LINK_PARAMETER
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
@@ -59,7 +60,7 @@ object KlaviyoRemoteMessage {
      * @param button The action button that was clicked
      */
     fun Intent.appendActionButtonExtras(button: ActionButton) = apply {
-        putExtra(PACKAGE_PREFIX + "Button ID", button.id)
+        putExtra(PACKAGE_PREFIX + BUTTON_ID_PARAMETER, button.id)
         putExtra(PACKAGE_PREFIX + "Button Label", button.label)
 
         val actionName = when (button) {
