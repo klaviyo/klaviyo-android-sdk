@@ -16,6 +16,8 @@ internal object InboxClickMetric : EventMetric.CUSTOM("Clicked App Inbox Message
 }
 
 internal object InboxClickProperty {
+    // TODO: Rename once product settles the key. The value is the push transmission ID, and the
+    //  candidates are "$message", as other push events use, or "id", as the inbox API uses.
     object MESSAGE_ID : EventKey.CUSTOM("Inbox Message ID")
     object ACTION_TYPE : EventKey.CUSTOM("Action Type")
     object ACTION_URL : EventKey.CUSTOM("Action URL")
