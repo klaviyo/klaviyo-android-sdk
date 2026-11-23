@@ -602,7 +602,9 @@ class InboxStoreInstrumentedTest {
             2,
             everything.bulk(InboxStateChange.UNARCHIVE, InboxReadFilter.ALL, InboxArchiveFilter.ALL)
         )
+        everything.close()
         context.deleteDatabase("$databaseName-all")
+        Unit
     }
 
     @Test
