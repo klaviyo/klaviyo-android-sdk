@@ -60,7 +60,7 @@ internal abstract class InboxMessageDao {
 
     /**
      * One page of the company's messages, newest first by sort time. A null [afterSortTime]
-     * starts at the newest message.
+     * starts at the newest message. A null [isRead] or [isArchived] matches either state.
      *
      * Pages by keyset on (sortTime, transmissionId), the order the index and retention use, so a
      * message captured or removed between pages never shifts the page boundary.
@@ -73,6 +73,8 @@ internal abstract class InboxMessageDao {
                 :afterSortTime IS NULL OR sortTime < :afterSortTime
                 OR (sortTime = :afterSortTime AND transmissionId < :afterId)
             )
+            AND (:isRead IS NULL OR isRead = :isRead)
+            AND (:isArchived IS NULL OR isArchived = :isArchived)
         ORDER BY sortTime DESC, transmissionId DESC
         LIMIT :limit
         """
@@ -81,6 +83,8 @@ internal abstract class InboxMessageDao {
         companyId: String,
         afterSortTime: Long?,
         afterId: String?,
+        isRead: Boolean?,
+        isArchived: Boolean?,
         limit: Int
     ): List<InboxMessageEntity>
 
@@ -137,7 +141,8 @@ internal abstract class InboxMessageDao {
      * [InboxMessageEntity.updatedAt] only when the change alters it, so a repeat of the same
      * change leaves the row and its timestamp alone.
      *
-     * @return True when the company has the message, whether or not the change altered it
+     * @return Whether the change altered the message, left it as it was, or the company has no
+     *  such message
      */
     @Transaction
     open suspend fun updateState(
@@ -145,14 +150,18 @@ internal abstract class InboxMessageDao {
         transmissionId: String,
         change: InboxStateChange,
         updatedAt: Long
-    ): Boolean {
+    ): InboxStateUpdate {
         val altered = when (change) {
             InboxStateChange.MARK_READ -> setRead(companyId, transmissionId, true, updatedAt)
             InboxStateChange.MARK_UNREAD -> setRead(companyId, transmissionId, false, updatedAt)
             InboxStateChange.ARCHIVE -> setArchived(companyId, transmissionId, true, updatedAt)
             InboxStateChange.UNARCHIVE -> setArchived(companyId, transmissionId, false, updatedAt)
         }
-        return altered > 0 || count(companyId, transmissionId) > 0
+        return when {
+            altered > 0 -> InboxStateUpdate.ALTERED
+            count(companyId, transmissionId) > 0 -> InboxStateUpdate.UNCHANGED
+            else -> InboxStateUpdate.NOT_FOUND
+        }
     }
 
     @Query("DELETE FROM ${InboxMessageEntity.TABLE_NAME} WHERE companyId = :companyId")
@@ -164,4 +173,10 @@ internal abstract class InboxMessageDao {
     companion object {
         const val IGNORED_ROW_ID = -1L
     }
+}
+
+internal enum class InboxStateUpdate {
+    ALTERED,
+    UNCHANGED,
+    NOT_FOUND
 }
