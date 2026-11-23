@@ -31,7 +31,7 @@ import org.junit.Test
 
 class KlaviyoRemoteMessageTest : BaseTest() {
     private companion object {
-        /** Payload key holding the carousel card array; mirrors `Constants.CAROUSEL_CARDS_PARAMETER`. */
+        /** Payload key holding the carousel card array; mirrors `CarouselConstants.CAROUSEL_CARDS_PARAMETER`. */
         const val CAROUSEL_CARDS_KEY = "carousel_cards"
     }
 

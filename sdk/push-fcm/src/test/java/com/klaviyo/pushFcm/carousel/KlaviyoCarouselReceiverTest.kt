@@ -49,6 +49,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         const val SENDER = "test-sender"
         const val REQUEST_CODE_BASE = 1000
         const val CARD_COUNT = 3
+        const val POSTED_AT = 1_700_000_000_000L
     }
 
     private val notificationManager = mockk<NotificationManagerCompat>(relaxed = true)
@@ -104,6 +105,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
                 any(),
                 any(),
                 any(),
+                any(),
                 any()
             )
         } returns compatBuilder
@@ -120,10 +122,10 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
 
         mockkObject(CarouselStateStore)
         every { CarouselStateStore.getIndex(any(), any(), any()) } answers { storedIndex }
-        every { CarouselStateStore.advance(any(), any(), any(), any(), any()) } answers {
+        every { CarouselStateStore.advance(any(), any(), any(), any(), any(), any()) } answers {
             if (stillShowing) {
-                arg<() -> Unit>(4).invoke()
-                storedIndex = arg(3)
+                arg<() -> Unit>(5).invoke()
+                storedIndex = arg(4)
             }
             stillShowing
         }
@@ -182,16 +184,18 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
 
     /** Build the arrow intent the notification's RemoteViews would send. */
     private fun arrowIntent(
-        action: String = Constants.CAROUSEL_ACTION_NEXT,
-        payload: Bundle? = mockk<Bundle>(relaxed = true)
+        action: String = CarouselConstants.CAROUSEL_ACTION_NEXT,
+        payload: Bundle? = mockk<Bundle>(relaxed = true),
+        postedAt: Long = POSTED_AT
     ): Intent = mockk<Intent>(relaxed = true).apply {
         every { this@apply.action } returns action
         every { getStringExtra(Constants.NOTIFICATION_TAG_EXTRA) } returns TAG
         every { getStringExtra(Constants.NOTIFICATION_UID_EXTRA) } returns UID
-        every { getStringExtra(Constants.CAROUSEL_SENDER_EXTRA) } returns SENDER
-        every { getIntExtra(Constants.CAROUSEL_REQUEST_CODE_BASE_EXTRA, any()) } returns
+        every { getStringExtra(CarouselConstants.CAROUSEL_SENDER_EXTRA) } returns SENDER
+        every { getIntExtra(CarouselConstants.CAROUSEL_REQUEST_CODE_BASE_EXTRA, any()) } returns
             REQUEST_CODE_BASE
-        every { getBundleExtra(Constants.CAROUSEL_PAYLOAD_EXTRA) } returns payload
+        every { getBundleExtra(CarouselConstants.CAROUSEL_PAYLOAD_EXTRA) } returns payload
+        every { getLongExtra(CarouselConstants.CAROUSEL_POSTED_AT_EXTRA, any()) } returns postedAt
     }
 
     /** Two valid cards as the wire format sends them, for the payload round-trip test. */
@@ -212,7 +216,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         )
     ).toString()
 
-    private fun verifyRepost(index: Int) {
+    private fun verifyRepost(index: Int, fromIndex: Int) {
         verify {
             anyConstructed<KlaviyoNotification>().buildNotification(
                 mockContext,
@@ -222,11 +226,13 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
                 index,
                 // The received sender is re-stamped so the next tap can rebuild the message.
                 SENDER,
+                // The first post's time, so the re-post keeps its timestamp and shade position.
+                POSTED_AT,
                 // An arrow re-post updates the notification without alerting again.
                 true
             )
         }
-        verify { CarouselStateStore.advance(mockContext, TAG, UID, index, any()) }
+        verify { CarouselStateStore.advance(mockContext, TAG, UID, fromIndex, index, any()) }
         verify { notificationManager.notify(TAG, Constants.NOTIFICATION_ID, builtNotification) }
     }
 
@@ -234,9 +240,12 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
     fun `next advances the index and re-posts under the same tag`() {
         storedIndex = 0
 
-        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+        receiverReturning().onReceive(
+            mockContext,
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_NEXT)
+        )
 
-        verifyRepost(index = 1)
+        verifyRepost(index = 1, fromIndex = 0)
     }
 
     @Test
@@ -244,7 +253,10 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         // Design: the next arrow is hidden on the last card, so a stale tap changes nothing.
         storedIndex = CARD_COUNT - 1
 
-        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+        receiverReturning().onReceive(
+            mockContext,
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_NEXT)
+        )
 
         verifyNoMove()
     }
@@ -253,13 +265,16 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
     fun `prev on the first card does not wrap or re-post`() {
         storedIndex = 0
 
-        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_PREV))
+        receiverReturning().onReceive(
+            mockContext,
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_PREV)
+        )
 
         verifyNoMove()
     }
 
     private fun verifyNoMove() {
-        verify(exactly = 0) { CarouselStateStore.advance(any(), any(), any(), any(), any()) }
+        verify(exactly = 0) { CarouselStateStore.advance(any(), any(), any(), any(), any(), any()) }
         verify(exactly = 0) { notificationManager.notify(any(), any(), any()) }
     }
 
@@ -267,26 +282,35 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
     fun `prev decrements a mid-list index`() {
         storedIndex = 2
 
-        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_PREV))
+        receiverReturning().onReceive(
+            mockContext,
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_PREV)
+        )
 
-        verifyRepost(index = 1)
+        verifyRepost(index = 1, fromIndex = 2)
     }
 
     @Test
     fun `a stored index out of range is clamped before moving`() {
         storedIndex = 99
 
-        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_PREV))
+        receiverReturning().onReceive(
+            mockContext,
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_PREV)
+        )
 
         // clamped to the last card (index 2), then back one
-        verifyRepost(index = 1)
+        verifyRepost(index = 1, fromIndex = 99)
     }
 
     @Test
     fun `re-post looks up the image by the card's original position`() {
         storedIndex = 0
 
-        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+        receiverReturning().onReceive(
+            mockContext,
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_NEXT)
+        )
 
         // Index 1 is the card at original position 3, cached under the notification UID.
         verify { CarouselImageLoader.get(UID, 3) }
@@ -297,13 +321,14 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
     fun `delete clears the dismissed generation's index and images`() {
         receiverReturning().onReceive(
             mockContext,
-            arrowIntent(Constants.CAROUSEL_ACTION_DELETE)
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_DELETE)
         )
 
         verify { CarouselStateStore.clear(mockContext, TAG, UID) }
         verify { CarouselImageLoader.evict(UID) }
         verify(exactly = 0) {
             anyConstructed<KlaviyoNotification>().buildNotification(
+                any(),
                 any(),
                 any(),
                 any(),
@@ -317,7 +342,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
 
     @Test
     fun `delete ignores an intent with no tag`() {
-        val intent = arrowIntent(Constants.CAROUSEL_ACTION_DELETE).apply {
+        val intent = arrowIntent(CarouselConstants.CAROUSEL_ACTION_DELETE).apply {
             every { getStringExtra(Constants.NOTIFICATION_TAG_EXTRA) } returns null
         }
 
@@ -329,7 +354,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
 
     @Test
     fun `delete ignores an intent with no uid`() {
-        val intent = arrowIntent(Constants.CAROUSEL_ACTION_DELETE).apply {
+        val intent = arrowIntent(CarouselConstants.CAROUSEL_ACTION_DELETE).apply {
             every { getStringExtra(Constants.NOTIFICATION_UID_EXTRA) } returns null
         }
 
@@ -344,9 +369,36 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         // A re-send reused the tag; this intent's UID no longer owns it.
         storedIndex = null
 
-        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+        receiverReturning().onReceive(
+            mockContext,
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_NEXT)
+        )
 
         verifyNoMove()
+    }
+
+    @Test
+    fun `an arrow intent without a post time re-posts with the current time`() {
+        // An arrow intent built before the post-time extra existed reads the 0L default.
+        storedIndex = 0
+
+        receiverReturning().onReceive(
+            mockContext,
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_NEXT, postedAt = 0L)
+        )
+
+        verify {
+            anyConstructed<KlaviyoNotification>().buildNotification(
+                mockContext,
+                TAG,
+                REQUEST_CODE_BASE,
+                UID,
+                1,
+                SENDER,
+                null,
+                true
+            )
+        }
     }
 
     @Test
@@ -354,9 +406,12 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         // Replaced or dismissed while the image downloaded: advance declines to run the post.
         stillShowing = false
 
-        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+        receiverReturning().onReceive(
+            mockContext,
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_NEXT)
+        )
 
-        verify { CarouselStateStore.advance(mockContext, TAG, UID, 1, any()) }
+        verify { CarouselStateStore.advance(mockContext, TAG, UID, 0, 1, any()) }
         verify(exactly = 0) { notificationManager.notify(any(), any(), any()) }
         assertEquals(0, storedIndex)
     }
@@ -367,7 +422,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         val pendingResult = mockk<BroadcastReceiver.PendingResult>(relaxed = true)
         val receiver = receiverReturning(pendingResult)
 
-        receiver.onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+        receiver.onReceive(mockContext, arrowIntent(CarouselConstants.CAROUSEL_ACTION_NEXT))
 
         verify { receiver["goAsync"]() }
         // The executor thread downloads then reposts; wait for it so the assertions are stable.
@@ -375,7 +430,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         verify(timeout = 5_000) { CarouselImageLoader.loadAll(UID, listOf(cards[1], cards[0])) }
         verify(timeout = 5_000) { pendingResult.finish() }
         // No bitmap came back, but the card still advances.
-        verifyRepost(index = 1)
+        verifyRepost(index = 1, fromIndex = 0)
     }
 
     @Test
@@ -385,11 +440,11 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         val pendingResult = mockk<BroadcastReceiver.PendingResult>(relaxed = true)
 
         receiverReturning(pendingResult)
-            .onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_PREV))
+            .onReceive(mockContext, arrowIntent(CarouselConstants.CAROUSEL_ACTION_PREV))
 
         verify(timeout = 5_000) { CarouselImageLoader.loadAll(UID, listOf(cards[0])) }
         verify(timeout = 5_000) { pendingResult.finish() }
-        verifyRepost(index = 0)
+        verifyRepost(index = 0, fromIndex = 1)
     }
 
     @Test
@@ -425,7 +480,10 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         // throw on every arrow tap and leave the carousel frozen on one card.
         cachedBitmap = mockk(relaxed = true)
 
-        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+        receiverReturning().onReceive(
+            mockContext,
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_NEXT)
+        )
 
         verify { RemoteMessage.Builder(SENDER) }
     }
@@ -437,8 +495,8 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         // tap should still advance the card.
         cachedBitmap = mockk(relaxed = true)
         storedIndex = 0
-        val intent = arrowIntent(Constants.CAROUSEL_ACTION_NEXT).apply {
-            every { getStringExtra(Constants.CAROUSEL_SENDER_EXTRA) } returns null
+        val intent = arrowIntent(CarouselConstants.CAROUSEL_ACTION_NEXT).apply {
+            every { getStringExtra(CarouselConstants.CAROUSEL_SENDER_EXTRA) } returns null
         }
 
         receiverReturning().onReceive(mockContext, intent)
@@ -457,10 +515,10 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
         cachedBitmap = mockk(relaxed = true)
         val receiver = receiverReturning(mockk(relaxed = true))
 
-        receiver.onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+        receiver.onReceive(mockContext, arrowIntent(CarouselConstants.CAROUSEL_ACTION_NEXT))
 
         verify(exactly = 0) { receiver["goAsync"]() }
-        verifyRepost(index = 1)
+        verifyRepost(index = 1, fromIndex = 0)
     }
 
     @Test
@@ -469,9 +527,12 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
             every { any<RemoteMessage>().carouselCards } returns null
         }
 
-        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+        receiverReturning().onReceive(
+            mockContext,
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_NEXT)
+        )
 
-        verify(exactly = 0) { CarouselStateStore.advance(any(), any(), any(), any(), any()) }
+        verify(exactly = 0) { CarouselStateStore.advance(any(), any(), any(), any(), any(), any()) }
         verify(exactly = 0) { notificationManager.notify(any(), any(), any()) }
     }
 
@@ -479,10 +540,10 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
     fun `an intent missing its payload is a no-op`() {
         receiverReturning().onReceive(
             mockContext,
-            arrowIntent(Constants.CAROUSEL_ACTION_NEXT, payload = null)
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_NEXT, payload = null)
         )
 
-        verify(exactly = 0) { CarouselStateStore.advance(any(), any(), any(), any(), any()) }
+        verify(exactly = 0) { CarouselStateStore.advance(any(), any(), any(), any(), any(), any()) }
         verify(exactly = 0) { notificationManager.notify(any(), any(), any()) }
     }
 
@@ -490,9 +551,12 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
     fun `arrow taps are ignored when notifications are disabled`() {
         every { notificationManager.areNotificationsEnabled() } returns false
 
-        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+        receiverReturning().onReceive(
+            mockContext,
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_NEXT)
+        )
 
-        verify(exactly = 0) { CarouselStateStore.advance(any(), any(), any(), any(), any()) }
+        verify(exactly = 0) { CarouselStateStore.advance(any(), any(), any(), any(), any(), any()) }
         verify(exactly = 0) { notificationManager.notify(any(), any(), any()) }
     }
 
@@ -500,7 +564,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
     fun `an unknown action is ignored`() {
         receiverReturning().onReceive(mockContext, arrowIntent("com.example.unknown"))
 
-        verify(exactly = 0) { CarouselStateStore.advance(any(), any(), any(), any(), any()) }
+        verify(exactly = 0) { CarouselStateStore.advance(any(), any(), any(), any(), any(), any()) }
         verify(exactly = 0) { notificationManager.notify(any(), any(), any()) }
     }
 
@@ -511,7 +575,10 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
             "boom"
         )
 
-        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+        receiverReturning().onReceive(
+            mockContext,
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_NEXT)
+        )
 
         verify { spyLog.error(any(), any()) }
         verify(exactly = 0) { notificationManager.notify(any(), any(), any()) }
@@ -527,16 +594,22 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
 
         storedIndex = 2
 
-        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_PREV))
+        receiverReturning().onReceive(
+            mockContext,
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_PREV)
+        )
 
-        verifyRepost(index = 1)
+        verifyRepost(index = 1, fromIndex = 2)
     }
 
     @Test
     fun `re-post reuses the original uid and request-code base from the intent`() {
         storedIndex = 0
 
-        receiverReturning().onReceive(mockContext, arrowIntent(Constants.CAROUSEL_ACTION_NEXT))
+        receiverReturning().onReceive(
+            mockContext,
+            arrowIntent(CarouselConstants.CAROUSEL_ACTION_NEXT)
+        )
 
         val tag = slot<String>()
         val uid = slot<String>()
@@ -546,6 +619,7 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
                 capture(tag),
                 REQUEST_CODE_BASE,
                 capture(uid),
+                any(),
                 any(),
                 any(),
                 any()

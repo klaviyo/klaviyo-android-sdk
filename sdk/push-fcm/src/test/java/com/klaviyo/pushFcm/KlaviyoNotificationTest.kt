@@ -24,6 +24,7 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.CarouselCard
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.CarouselCardAction
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.carouselCards
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.webUrl
+import com.klaviyo.pushFcm.carousel.CarouselConstants
 import com.klaviyo.pushFcm.carousel.CarouselImageLoader
 import com.klaviyo.pushFcm.carousel.CarouselStateStore
 import com.klaviyo.pushFcm.carousel.KlaviyoCarouselReceiver
@@ -119,6 +120,9 @@ class KlaviyoNotificationTest : BaseTest() {
         } answers { self as NotificationCompat.Builder }
         every {
             anyConstructed<NotificationCompat.Builder>().setDeleteIntent(any())
+        } answers { self as NotificationCompat.Builder }
+        every {
+            anyConstructed<NotificationCompat.Builder>().setWhen(any())
         } answers { self as NotificationCompat.Builder }
         every { anyConstructed<NotificationCompat.Builder>().build() } returns mockk(relaxed = true)
 
@@ -1147,6 +1151,9 @@ class KlaviyoNotificationTest : BaseTest() {
             anyConstructed<Intent>().putExtra(any<String>(), any<Int>())
         } answers { self as Intent }
         every {
+            anyConstructed<Intent>().putExtra(any<String>(), any<Long>())
+        } answers { self as Intent }
+        every {
             anyConstructed<Intent>().putExtra(any<String>(), any<Bundle>())
         } answers { self as Intent }
         mockkConstructor(Bundle::class)
@@ -1542,8 +1549,8 @@ class KlaviyoNotificationTest : BaseTest() {
                     eq(KlaviyoCarouselReceiver::class.java.name)
                 )
             }
-            verify { anyConstructed<Intent>().setAction(Constants.CAROUSEL_ACTION_PREV) }
-            verify { anyConstructed<Intent>().setAction(Constants.CAROUSEL_ACTION_NEXT) }
+            verify { anyConstructed<Intent>().setAction(CarouselConstants.CAROUSEL_ACTION_PREV) }
+            verify { anyConstructed<Intent>().setAction(CarouselConstants.CAROUSEL_ACTION_NEXT) }
         } finally {
             withoutCarouselPush()
         }
@@ -1589,11 +1596,14 @@ class KlaviyoNotificationTest : BaseTest() {
             }
             verify {
                 anyConstructed<Intent>()
-                    .putExtra(Constants.CAROUSEL_REQUEST_CODE_BASE_EXTRA, TEST_REQUEST_CODE_BASE)
+                    .putExtra(
+                        CarouselConstants.CAROUSEL_REQUEST_CODE_BASE_EXTRA,
+                        TEST_REQUEST_CODE_BASE
+                    )
             }
             verify {
                 anyConstructed<Intent>().putExtra(
-                    Constants.CAROUSEL_SENDER_EXTRA,
+                    CarouselConstants.CAROUSEL_SENDER_EXTRA,
                     any<String>()
                 )
             }
@@ -1635,9 +1645,9 @@ class KlaviyoNotificationTest : BaseTest() {
             // prev, next and delete, each at its own offset.
             assertEquals(
                 listOf(
-                    TEST_REQUEST_CODE_BASE + Constants.CAROUSEL_PREV_OFFSET,
-                    TEST_REQUEST_CODE_BASE + Constants.CAROUSEL_NEXT_OFFSET,
-                    TEST_REQUEST_CODE_BASE + Constants.CAROUSEL_DELETE_OFFSET
+                    TEST_REQUEST_CODE_BASE + CarouselConstants.CAROUSEL_PREV_OFFSET,
+                    TEST_REQUEST_CODE_BASE + CarouselConstants.CAROUSEL_NEXT_OFFSET,
+                    TEST_REQUEST_CODE_BASE + CarouselConstants.CAROUSEL_DELETE_OFFSET
                 ),
                 broadcastCodes
             )
@@ -1690,10 +1700,65 @@ class KlaviyoNotificationTest : BaseTest() {
             )
 
             verify { anyConstructed<NotificationCompat.Builder>().setDeleteIntent(any()) }
-            verify { anyConstructed<Intent>().setAction(Constants.CAROUSEL_ACTION_DELETE) }
+            verify { anyConstructed<Intent>().setAction(CarouselConstants.CAROUSEL_ACTION_DELETE) }
         } finally {
             withoutCarouselPush()
         }
+    }
+
+    @Test
+    fun `carousel first post stamps now as its post time on the notification and arrows`() {
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID
+            )
+
+            verify { anyConstructed<NotificationCompat.Builder>().setWhen(TIME) }
+            verify {
+                anyConstructed<Intent>().putExtra(CarouselConstants.CAROUSEL_POSTED_AT_EXTRA, TIME)
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `carousel re-post keeps the original post time`() {
+        // A fresh builder would stamp now, so Android would show "now" and re-rank the carousel
+        // above newer notifications after every arrow tap.
+        val postedAt = TIME - 120_000L
+        withCarouselPush()
+        try {
+            notification.buildNotification(
+                mockContext,
+                TEST_TAG,
+                requestCodeBase = TEST_REQUEST_CODE_BASE,
+                notificationUid = TEST_UID,
+                carouselIndex = 1,
+                carouselPostedAt = postedAt,
+                isCarouselRepost = true
+            )
+
+            verify { anyConstructed<NotificationCompat.Builder>().setWhen(postedAt) }
+            verify(exactly = 0) { anyConstructed<NotificationCompat.Builder>().setWhen(TIME) }
+            verify {
+                anyConstructed<Intent>()
+                    .putExtra(CarouselConstants.CAROUSEL_POSTED_AT_EXTRA, postedAt)
+            }
+        } finally {
+            withoutCarouselPush()
+        }
+    }
+
+    @Test
+    fun `standard push does not override the post time`() {
+        notification.buildNotification(mockContext, TEST_TAG)
+
+        verify(exactly = 0) { anyConstructed<NotificationCompat.Builder>().setWhen(any()) }
     }
 
     @Test
@@ -1900,7 +1965,7 @@ class KlaviyoNotificationTest : BaseTest() {
                 flagsSlot.captured
             )
             // Card 3 is 1-based position 3.
-            verify { intentSlot.captured.putExtra(Constants.CAROUSEL_POSITION_EXTRA, 3) }
+            verify { intentSlot.captured.putExtra(CarouselConstants.CAROUSEL_POSITION_EXTRA, 3) }
             // An open_app card carries no link for getKlaviyoDeepLink to fall back on.
             verify(exactly = 0) {
                 intentSlot.captured.putExtra(Constants.CAROUSEL_CARD_LINK_EXTRA, any<String>())

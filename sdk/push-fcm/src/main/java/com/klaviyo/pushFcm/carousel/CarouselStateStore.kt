@@ -82,16 +82,20 @@ internal object CarouselStateStore {
         }
 
     /**
-     * Re-post the carousel [uid] under [tag] at [index], if it is still the one showing.
+     * Re-post the carousel [uid] under [tag] at [index], if it is still the one showing and still
+     * on card [fromIndex].
      *
-     * Does nothing when a newer carousel has replaced [uid] under the tag, or when the
-     * notification is no longer showing (dismissed while its image downloaded). The index is
-     * written only after [post] returns, so a failed re-post leaves the stored card unchanged.
+     * Does nothing when a newer carousel has replaced [uid] under the tag, when the notification is
+     * no longer showing (dismissed while its image downloaded), or when another move has changed
+     * the card since this one read [fromIndex] (a later tap finished first while this one waited on
+     * a download). The index is written only after [post] returns, so a failed re-post leaves the
+     * stored card unchanged.
      *
      * @param context The caller's context; used to read the active notifications and open
      *  [PREFS_NAME].
      * @param tag The notification tag identifying the carousel.
      * @param uid The notification UID carried by the arrow intent.
+     * @param fromIndex The stored index the move started from, as returned by [getIndex].
      * @param index The 0-based index of the card being posted.
      * @param post Posts the notification.
      * @return Whether the notification was re-posted.
@@ -100,13 +104,18 @@ internal object CarouselStateStore {
         context: Context,
         tag: String,
         uid: String,
+        fromIndex: Int,
         index: Int,
         post: () -> Unit
     ): Boolean = synchronized(this) {
         val map = load(context).toMutableMap()
-        val ownerUid = map[tag]?.optString(UID_KEY)
-        if (ownerUid != null && ownerUid != uid) {
+        val entry = map[tag]
+        if (entry != null && entry.optString(UID_KEY) != uid) {
             Registry.log.verbose("Carousel under tag '$tag' was replaced; dropping re-post")
+            return@synchronized false
+        }
+        if ((entry?.optInt(INDEX_KEY, 0) ?: 0) != fromIndex) {
+            Registry.log.verbose("Carousel under tag '$tag' moved since this tap; dropping re-post")
             return@synchronized false
         }
         if (activeTags(context)?.contains(tag) == false) {
@@ -147,8 +156,10 @@ internal object CarouselStateStore {
      *  [PREFS_NAME].
      */
     fun pruneInactive(context: Context) {
-        val activeTags = activeTags(context)
         val removed = synchronized(this) {
+            // Read under the lock, like advance: a snapshot taken before a concurrent replace
+            // posted its tag would otherwise delete that carousel's fresh entry.
+            val activeTags = activeTags(context)
             val map = load(context)
             val cutoff = System.currentTimeMillis() - MAX_AGE_MS
             val stale = map.filter { (tag, entry) ->

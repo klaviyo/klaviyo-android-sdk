@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Translucent dark circle behind the carousel arrows. -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="oval">
-    <solid android:color="#80000000" />
-</shape>
+<!--
+    Translucent dark circle behind the carousel arrows. The arrow button is a 48dp touch target;
+    the circle is inset within it so it still draws at 32dp, 8dp from the image edge.
+-->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:inset="@dimen/klaviyo_carousel_arrow_inset">
+    <shape android:shape="oval">
+        <solid android:color="#80000000" />
+    </shape>
+</inset>

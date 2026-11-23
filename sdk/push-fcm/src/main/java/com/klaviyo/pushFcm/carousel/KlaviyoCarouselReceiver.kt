@@ -12,6 +12,13 @@ import com.klaviyo.core.Registry
 import com.klaviyo.pushFcm.KlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.CarouselCard
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.carouselCards
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_ACTION_DELETE
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_ACTION_NEXT
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_ACTION_PREV
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_PAYLOAD_EXTRA
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_POSTED_AT_EXTRA
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_REQUEST_CODE_BASE_EXTRA
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_SENDER_EXTRA
 import java.util.concurrent.Executors
 
 /**
@@ -58,9 +65,9 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         try {
             when (intent.action) {
-                Constants.CAROUSEL_ACTION_PREV -> handleMove(context, intent, direction = -1)
-                Constants.CAROUSEL_ACTION_NEXT -> handleMove(context, intent, direction = 1)
-                Constants.CAROUSEL_ACTION_DELETE -> handleDelete(context, intent)
+                CAROUSEL_ACTION_PREV -> handleMove(context, intent, direction = -1)
+                CAROUSEL_ACTION_NEXT -> handleMove(context, intent, direction = 1)
+                CAROUSEL_ACTION_DELETE -> handleDelete(context, intent)
                 else -> Registry.log.warning("KlaviyoCarouselReceiver ignoring unknown action")
             }
         } catch (e: Exception) {
@@ -80,15 +87,18 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
         val notificationUid = intent.getStringExtra(Constants.NOTIFICATION_UID_EXTRA)
             ?: return logMissing("notification uid")
         val requestCodeBase = intent.getIntExtra(
-            Constants.CAROUSEL_REQUEST_CODE_BASE_EXTRA,
+            CAROUSEL_REQUEST_CODE_BASE_EXTRA,
             Int.MIN_VALUE
         ).takeIf { it != Int.MIN_VALUE } ?: return logMissing("request code base")
         // A rebuilt RemoteMessage cannot carry `from` (Builder(String) sets the `to` field), so a
         // re-post's arrow intents may lack the sender. Treat it as optional and fall back to a
         // fixed non-empty placeholder for the rebuild, which only needs a non-empty `to`.
-        val sender = intent.getStringExtra(Constants.CAROUSEL_SENDER_EXTRA)
-        val payload = intent.getBundleExtra(Constants.CAROUSEL_PAYLOAD_EXTRA)
+        val sender = intent.getStringExtra(CAROUSEL_SENDER_EXTRA)
+        val payload = intent.getBundleExtra(CAROUSEL_PAYLOAD_EXTRA)
             ?: return logMissing("payload")
+        // A missing post time is not worth dropping the tap over; the re-post then stamps now.
+        val postedAt = intent.getLongExtra(CAROUSEL_POSTED_AT_EXTRA, 0L)
+            .takeIf { it > 0L }
 
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
             Registry.log.warning("Carousel arrow tapped with notifications disabled; ignoring")
@@ -127,8 +137,10 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
                 tag,
                 notificationUid,
                 requestCodeBase,
+                storedIndex,
                 nextIndex,
-                sender
+                sender,
+                postedAt
             )
         }
 
@@ -169,9 +181,9 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
     }
 
     /**
-     * Re-post the carousel notification in place under the original tag, UID and request codes,
-     * unless [CarouselStateStore.advance] finds it replaced or dismissed. The store records [index]
-     * only once the notification is posted.
+     * Re-post the carousel notification in place under the original tag, UID, request codes and
+     * post time, unless [CarouselStateStore.advance] finds it replaced, dismissed, or moved off
+     * [fromIndex] by a later tap. The store records [index] only once the notification is posted.
      */
     @WorkerThread
     @Suppress("MissingPermission") // Gated by areNotificationsEnabled() in handleMove().
@@ -182,8 +194,10 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
         tag: String,
         notificationUid: String,
         requestCodeBase: Int,
+        fromIndex: Int,
         index: Int,
-        sender: String?
+        sender: String?,
+        postedAt: Long?
     ) {
         val built = notification.buildNotification(
             context,
@@ -192,9 +206,10 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
             notificationUid = notificationUid,
             carouselIndex = index,
             carouselSender = sender,
+            carouselPostedAt = postedAt,
             isCarouselRepost = true
         )
-        val posted = CarouselStateStore.advance(context, tag, notificationUid, index) {
+        val posted = CarouselStateStore.advance(context, tag, notificationUid, fromIndex, index) {
             NotificationManagerCompat
                 .from(context)
                 .notify(tag, Constants.NOTIFICATION_ID, built.build())

@@ -16,9 +16,15 @@
     <!-- Gap between stacked elements, and the inset of the arrows and dots from the image edge. -->
     <dimen name="klaviyo_carousel_spacing">8dp</dimen>
 
-    <!-- Prev/next arrow circle, and the inset of the chevron inside it. -->
-    <dimen name="klaviyo_carousel_arrow_size">32dp</dimen>
-    <dimen name="klaviyo_carousel_arrow_padding">6dp</dimen>
+    <!--
+        Prev/next arrow touch target (the 48dp minimum), and the inset of its 32dp circle within
+        it. The inset matches klaviyo_carousel_spacing, so the circle sits 8dp from the image edge
+        with the button itself flush to it. The padding is the inset plus the chevron's 6dp margin
+        inside the circle.
+    -->
+    <dimen name="klaviyo_carousel_arrow_size">48dp</dimen>
+    <dimen name="klaviyo_carousel_arrow_inset">8dp</dimen>
+    <dimen name="klaviyo_carousel_arrow_padding">14dp</dimen>
 
     <!-- Page-dot pill: its height and side padding, each dot and the gap between dots. -->
     <dimen name="klaviyo_carousel_dots_height">16dp</dimen>

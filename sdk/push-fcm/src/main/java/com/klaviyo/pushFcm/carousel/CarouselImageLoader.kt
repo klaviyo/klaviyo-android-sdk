@@ -4,10 +4,10 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.LruCache
 import androidx.core.graphics.scale
-import com.klaviyo.core.Constants.MAX_CAROUSEL_CARDS
 import com.klaviyo.core.Registry
 import com.klaviyo.pushFcm.KlaviyoNotification
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.CarouselCard
+import com.klaviyo.pushFcm.carousel.CarouselConstants.MAX_CAROUSEL_CARDS
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.HttpURLConnection

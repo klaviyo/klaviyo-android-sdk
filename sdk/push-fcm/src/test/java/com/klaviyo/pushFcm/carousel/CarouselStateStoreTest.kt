@@ -73,7 +73,7 @@ internal class CarouselStateStoreTest : BaseTest() {
         activeTags += tag
         CarouselStateStore.replace(mockContext, tag, uid) {}
         if (index != 0) {
-            CarouselStateStore.advance(mockContext, tag, uid, index) {}
+            CarouselStateStore.advance(mockContext, tag, uid, 0, index) {}
         }
     }
 
@@ -148,10 +148,33 @@ internal class CarouselStateStoreTest : BaseTest() {
         var posted = false
 
         assertNull(CarouselStateStore.getIndex(mockContext, TAG, UID))
-        assertFalse(CarouselStateStore.advance(mockContext, TAG, UID, 2) { posted = true })
+        assertFalse(CarouselStateStore.advance(mockContext, TAG, UID, 1, 2) { posted = true })
 
         assertFalse(posted)
         assertEquals(0, CarouselStateStore.getIndex(mockContext, TAG, NEW_UID))
+    }
+
+    @Test
+    fun `advance drops a move whose starting card another move has changed`() {
+        // Next from card 1 waited on a download; meanwhile a cached Prev moved card 2 back to 1.
+        show(TAG, UID, index = 1)
+        assertTrue(CarouselStateStore.advance(mockContext, TAG, UID, 1, 0) {})
+        var posted = false
+
+        assertFalse(CarouselStateStore.advance(mockContext, TAG, UID, 1, 2) { posted = true })
+
+        assertFalse(posted)
+        assertEquals(0, CarouselStateStore.getIndex(mockContext, TAG, UID))
+    }
+
+    @Test
+    fun `advance from a carousel with no stored entry starts from card 1`() {
+        activeNotifications(TAG)
+
+        assertFalse(CarouselStateStore.advance(mockContext, TAG, UID, 1, 2) {})
+        assertTrue(CarouselStateStore.advance(mockContext, TAG, UID, 0, 1) {})
+
+        assertEquals(1, CarouselStateStore.getIndex(mockContext, TAG, UID))
     }
 
     @Test
@@ -160,7 +183,7 @@ internal class CarouselStateStoreTest : BaseTest() {
         activeNotifications("unrelated")
         var posted = false
 
-        assertFalse(CarouselStateStore.advance(mockContext, TAG, UID, 1) { posted = true })
+        assertFalse(CarouselStateStore.advance(mockContext, TAG, UID, 0, 1) { posted = true })
 
         assertFalse(posted)
         assertEquals(0, CarouselStateStore.getIndex(mockContext, TAG, UID))
@@ -174,7 +197,7 @@ internal class CarouselStateStoreTest : BaseTest() {
         } throws SecurityException("nope")
         var posted = false
 
-        assertTrue(CarouselStateStore.advance(mockContext, TAG, UID, 1) { posted = true })
+        assertTrue(CarouselStateStore.advance(mockContext, TAG, UID, 0, 1) { posted = true })
 
         assertTrue(posted)
         assertEquals(1, CarouselStateStore.getIndex(mockContext, TAG, UID))
@@ -185,7 +208,7 @@ internal class CarouselStateStoreTest : BaseTest() {
         show(TAG, UID, index = 1)
 
         assertThrows(IllegalStateException::class.java) {
-            CarouselStateStore.advance(mockContext, TAG, UID, 2) { error("notify failed") }
+            CarouselStateStore.advance(mockContext, TAG, UID, 1, 2) { error("notify failed") }
         }
 
         assertEquals(1, CarouselStateStore.getIndex(mockContext, TAG, UID))
@@ -290,6 +313,24 @@ internal class CarouselStateStoreTest : BaseTest() {
     }
 
     @Test
+    fun `pruneInactive reads the active notifications under the store lock`() {
+        // Read outside the lock, a snapshot taken before a concurrent replace posted its tag would
+        // prune that carousel's fresh entry once the replace released the lock.
+        show(TAG, UID)
+        val manager = mockk<NotificationManager>()
+        var readUnderLock: Boolean? = null
+        every { manager.activeNotifications } answers {
+            readUnderLock = Thread.holdsLock(CarouselStateStore)
+            emptyArray()
+        }
+        every { mockContext.getSystemService(NotificationManager::class.java) } returns manager
+
+        CarouselStateStore.pruneInactive(mockContext)
+
+        assertEquals(true, readUnderLock)
+    }
+
+    @Test
     fun `pruneInactive keeps a carousel still showing however old its entry is`() {
         storedState = JSONObject()
             .put(
@@ -330,12 +371,15 @@ internal class CarouselStateStoreTest : BaseTest() {
         val tags = (1..8).map { "tag-$it" }
         activeNotifications(*tags.toTypedArray())
         tags.forEach { tag -> CarouselStateStore.replace(mockContext, tag, "uid-$tag") {} }
-        // Every index is nonzero, so a dropped entry cannot pass as the default of 0.
+        // Every index is nonzero, so a dropped entry cannot pass as the default of 0. Each tag
+        // toggles between 0 and its index, so every advance starts from the card it last stored.
         val threads = tags.mapIndexed { i, tag ->
             Thread {
                 repeat(25) {
-                    CarouselStateStore.advance(mockContext, tag, "uid-$tag", i + 1) {}
+                    CarouselStateStore.advance(mockContext, tag, "uid-$tag", 0, i + 1) {}
+                    CarouselStateStore.advance(mockContext, tag, "uid-$tag", i + 1, 0) {}
                 }
+                CarouselStateStore.advance(mockContext, tag, "uid-$tag", 0, i + 1) {}
             }
         }
         threads.forEach { it.start() }

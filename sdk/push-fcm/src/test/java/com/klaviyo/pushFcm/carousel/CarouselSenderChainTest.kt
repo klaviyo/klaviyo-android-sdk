@@ -11,7 +11,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.RemoteMessage
 import com.klaviyo.analytics.linking.DeepLinking
-import com.klaviyo.core.Constants
 import com.klaviyo.core.config.getManifestBoolean
 import com.klaviyo.fixtures.BaseTest
 import com.klaviyo.pushFcm.KlaviyoNotification
@@ -133,9 +132,9 @@ internal class CarouselSenderChainTest : BaseTest() {
 
         mockkObject(CarouselStateStore)
         every { CarouselStateStore.getIndex(any(), any(), any()) } answers { storedIndex }
-        every { CarouselStateStore.advance(any(), any(), any(), any(), any()) } answers {
-            arg<() -> Unit>(4).invoke()
-            storedIndex = arg(3)
+        every { CarouselStateStore.advance(any(), any(), any(), any(), any(), any()) } answers {
+            arg<() -> Unit>(5).invoke()
+            storedIndex = arg(4)
             true
         }
         every { CarouselStateStore.clear(any(), any(), any()) } returns Unit
@@ -179,7 +178,7 @@ internal class CarouselSenderChainTest : BaseTest() {
         assertEquals(
             "the first post must stamp the message sender",
             SENDER,
-            active?.extras?.get(Constants.CAROUSEL_SENDER_EXTRA)
+            active?.extras?.get(CarouselConstants.CAROUSEL_SENDER_EXTRA)
         )
 
         // Hop 1: the receiver advances card 1 -> 2 and re-posts. The message it rebuilds has no
@@ -191,9 +190,9 @@ internal class CarouselSenderChainTest : BaseTest() {
         // Capture what the re-post stamped before hop 2 rebuilds the records. Only intents the
         // re-post appended count, so a missing one fails rather than reusing the first post's.
         active = recorded.drop(recordedAfterFirstPost)
-            .lastOrNull { it.action == Constants.CAROUSEL_ACTION_NEXT }
+            .lastOrNull { it.action == CarouselConstants.CAROUSEL_ACTION_NEXT }
             ?: error("the re-post built no next-arrow intent")
-        val repostSender = active?.extras?.get(Constants.CAROUSEL_SENDER_EXTRA)
+        val repostSender = active?.extras?.get(CarouselConstants.CAROUSEL_SENDER_EXTRA)
 
         // Hop 2: replay the re-post's own next-arrow intent. On the pre-fix code its sender extra
         // is null, so this bails at the "missing sender" guard and never re-posts — the on-device
@@ -213,7 +212,7 @@ internal class CarouselSenderChainTest : BaseTest() {
 
     /** The most recently assembled next-arrow intent (the re-post wins over the first post). */
     private fun latestNext(): RecordedIntent? =
-        recorded.lastOrNull { it.action == Constants.CAROUSEL_ACTION_NEXT }
+        recorded.lastOrNull { it.action == CarouselConstants.CAROUSEL_ACTION_NEXT }
 
     private var capturedIntent: Intent? = null
 
@@ -350,6 +349,12 @@ internal class CarouselSenderChainTest : BaseTest() {
             self as Intent
         }
         every {
+            anyConstructed<Intent>().putExtra(any<String>(), any<Long>())
+        } answers {
+            active?.extras?.put(firstArg(), secondArg<Long>())
+            self as Intent
+        }
+        every {
             anyConstructed<Intent>().putExtra(any<String>(), any<Bundle>())
         } answers {
             active?.extras?.put(firstArg(), secondArg<Bundle>())
@@ -360,6 +365,9 @@ internal class CarouselSenderChainTest : BaseTest() {
         }
         every { anyConstructed<Intent>().getIntExtra(any(), any()) } answers {
             (active?.extras?.get(firstArg()) as? Int) ?: secondArg()
+        }
+        every { anyConstructed<Intent>().getLongExtra(any(), any()) } answers {
+            (active?.extras?.get(firstArg()) as? Long) ?: secondArg()
         }
         every { anyConstructed<Intent>().getBundleExtra(any()) } answers {
             active?.extras?.get(firstArg()) as? Bundle

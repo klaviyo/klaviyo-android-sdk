@@ -44,6 +44,7 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationTag
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.sound
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.title
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.webUrl
+import com.klaviyo.pushFcm.carousel.CarouselConstants
 import com.klaviyo.pushFcm.carousel.CarouselImageLoader
 import com.klaviyo.pushFcm.carousel.CarouselNotificationBuilder
 import com.klaviyo.pushFcm.carousel.CarouselStateStore
@@ -205,6 +206,8 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      *  passes the sender it received, because the `RemoteMessage` it rebuilds cannot carry `from`
      *  (the `Builder(String)` argument is the `to` field). Defaults to [RemoteMessage.getFrom] for
      *  the first post.
+     * @param carouselPostedAt The carousel's first-post time. A re-post passes the time it received
+     *  so the notification keeps its timestamp and shade position. Null (the default) uses now.
      * @param isCarouselRepost True only when the carousel receiver re-posts after an arrow tap.
      *  A re-post updates the notification silently; a first post, including a re-send that reuses
      *  `notification_tag`, alerts like any other push.
@@ -217,6 +220,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         notificationUid: String? = null,
         carouselIndex: Int = 0,
         carouselSender: String? = null,
+        carouselPostedAt: Long? = null,
         isCarouselRepost: Boolean = false
     ): NotificationCompat.Builder {
         // null means "generate"; resolved here rather than in a default expression so a mocked
@@ -281,7 +285,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             destination = card?.action,
             extras = {
                 if (card != null) {
-                    putExtra(Constants.CAROUSEL_POSITION_EXTRA, card.position)
+                    putExtra(CarouselConstants.CAROUSEL_POSITION_EXTRA, card.position)
                     (card.action as? CarouselCardAction.DeepLink)?.let { link ->
                         putExtra(Constants.CAROUSEL_CARD_LINK_EXTRA, link.uri.toString())
                     }
@@ -316,6 +320,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                     notificationUid = resolvedNotificationUid,
                     requestCodeBase = resolvedRequestCodeBase,
                     sender = resolvedCarouselSender,
+                    postedAt = carouselPostedAt ?: Registry.clock.currentTimeMillis(),
                     contentIntent = contentIntent
                 )
             }

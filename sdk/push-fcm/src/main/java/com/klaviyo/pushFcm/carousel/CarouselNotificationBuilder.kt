@@ -8,22 +8,23 @@ import android.view.View
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.RemoteMessage
-import com.klaviyo.core.Constants.CAROUSEL_ACTION_DELETE
-import com.klaviyo.core.Constants.CAROUSEL_ACTION_NEXT
-import com.klaviyo.core.Constants.CAROUSEL_ACTION_PREV
-import com.klaviyo.core.Constants.CAROUSEL_DELETE_OFFSET
-import com.klaviyo.core.Constants.CAROUSEL_NEXT_OFFSET
-import com.klaviyo.core.Constants.CAROUSEL_PAYLOAD_EXTRA
-import com.klaviyo.core.Constants.CAROUSEL_PREV_OFFSET
-import com.klaviyo.core.Constants.CAROUSEL_REQUEST_CODE_BASE_EXTRA
-import com.klaviyo.core.Constants.CAROUSEL_SENDER_EXTRA
-import com.klaviyo.core.Constants.MAX_CAROUSEL_CARDS
 import com.klaviyo.core.Constants.NOTIFICATION_TAG_EXTRA
 import com.klaviyo.core.Constants.NOTIFICATION_UID_EXTRA
 import com.klaviyo.core.Registry
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.CarouselCard
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.title
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_ACTION_DELETE
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_ACTION_NEXT
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_ACTION_PREV
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_DELETE_OFFSET
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_NEXT_OFFSET
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_PAYLOAD_EXTRA
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_POSTED_AT_EXTRA
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_PREV_OFFSET
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_REQUEST_CODE_BASE_EXTRA
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_SENDER_EXTRA
+import com.klaviyo.pushFcm.carousel.CarouselConstants.MAX_CAROUSEL_CARDS
 import com.klaviyo.push_fcm.R
 
 /**
@@ -57,6 +58,8 @@ internal object CarouselNotificationBuilder {
      * @param sender The FCM sender stamped on every arrow intent so the receiver can rebuild the
      *  message. Supplied by the caller (not read from [message]) because a re-post's rebuilt
      *  message has no `from`; see [KlaviyoNotification.buildNotification].
+     * @param postedAt The carousel's first-post time, set as the notification's `when` and stamped
+     *  on every arrow intent so each re-post keeps it.
      * @param contentIntent The body-tap intent for this card, built by the caller through the
      *  standard open-intent path so a card opens its own destination.
      */
@@ -70,6 +73,7 @@ internal object CarouselNotificationBuilder {
         notificationUid: String,
         requestCodeBase: Int,
         sender: String?,
+        postedAt: Long,
         contentIntent: PendingIntent?
     ) {
         val safeIndex = index.coerceIn(0, cards.lastIndex)
@@ -110,7 +114,8 @@ internal object CarouselNotificationBuilder {
                         tag,
                         notificationUid,
                         requestCodeBase,
-                        sender
+                        sender,
+                        postedAt
                     )
                 )
             } else {
@@ -128,7 +133,8 @@ internal object CarouselNotificationBuilder {
                         tag,
                         notificationUid,
                         requestCodeBase,
-                        sender
+                        sender,
+                        postedAt
                     )
                 )
             } else {
@@ -137,6 +143,7 @@ internal object CarouselNotificationBuilder {
         }
 
         builder
+            .setWhen(postedAt)
             .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setCustomContentView(collapsed)
             .setCustomBigContentView(expanded)
@@ -150,7 +157,8 @@ internal object CarouselNotificationBuilder {
                     tag,
                     notificationUid,
                     requestCodeBase,
-                    sender
+                    sender,
+                    postedAt
                 )
             )
 
@@ -213,7 +221,8 @@ internal object CarouselNotificationBuilder {
         tag: String,
         notificationUid: String,
         requestCodeBase: Int,
-        sender: String?
+        sender: String?,
+        postedAt: Long
     ) = PendingIntent.getBroadcast(
         context,
         requestCodeBase + offset,
@@ -228,6 +237,7 @@ internal object CarouselNotificationBuilder {
             putExtra(NOTIFICATION_TAG_EXTRA, tag)
             putExtra(NOTIFICATION_UID_EXTRA, notificationUid)
             putExtra(CAROUSEL_REQUEST_CODE_BASE_EXTRA, requestCodeBase)
+            putExtra(CAROUSEL_POSTED_AT_EXTRA, postedAt)
         },
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
     )
