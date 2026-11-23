@@ -16,6 +16,11 @@ public class MobileInboxJavaApiTest {
         assertEquals(5, new InboxQuery(5).getPageSize());
         InboxCursor cursor = new InboxCursor("token");
         assertEquals(cursor, new InboxQuery(10, cursor).getCursor());
+
+        InboxQuery filtered = new InboxQuery(10, null, InboxReadFilter.UNREAD, InboxArchiveFilter.ARCHIVED);
+        assertEquals(InboxReadFilter.UNREAD, filtered.getReadFilter());
+        assertEquals(InboxArchiveFilter.ARCHIVED, filtered.getArchiveFilter());
+        assertEquals(InboxArchiveFilter.ACTIVE, new InboxQuery().getArchiveFilter());
     }
 
     @Test
@@ -23,6 +28,7 @@ public class MobileInboxJavaApiTest {
         InboxPageCallback page = result -> { };
         InboxCountCallback count = result -> { };
         InboxUpdateCallback update = result -> { };
+        InboxChangeListener listener = () -> { };
 
         // Compiles only if the Java entry points accept these types
         Runnable unused = () -> {
@@ -30,6 +36,8 @@ public class MobileInboxJavaApiTest {
             KlaviyoInbox.fetchPage(new InboxQuery(), page);
             KlaviyoInbox.fetchUnreadCount(count);
             KlaviyoInbox.updateMessageState("tm-1", InboxStateChange.MARK_READ, update);
+            KlaviyoInbox.addChangeListener(listener);
+            KlaviyoInbox.removeChangeListener(listener);
         };
     }
 

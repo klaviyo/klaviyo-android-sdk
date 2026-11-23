@@ -5,9 +5,14 @@ import androidx.room.Room
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.platform.app.InstrumentationRegistry
 import java.util.UUID
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -444,11 +449,116 @@ class InboxStoreInstrumentedTest {
     private suspend fun RoomInboxDataSource.seed(vararg messages: InboxMessageEntity) =
         messages.forEach { insert(it, LIMIT) }
 
+    /**
+     * How many times [RoomInboxDataSource.changes] emitted while [block] ran
+     */
+    private suspend fun RoomInboxDataSource.emissionsDuring(block: suspend () -> Unit): Int =
+        coroutineScope {
+            var emissions = 0
+            val collector = launch(Dispatchers.Unconfined, CoroutineStart.UNDISPATCHED) {
+                changes.collect { emissions++ }
+            }
+            block()
+            delay(SETTLE_MS)
+            collector.cancel()
+            emissions
+        }
+
+    @Test
+    fun storingAPushEmitsOnceAndADuplicateDoesNot() = runBlocking {
+        val source = openSource()
+
+        assertEquals(1, source.emissionsDuring { source.insert(message("tm-1"), LIMIT) })
+        assertEquals(0, source.emissionsDuring { source.insert(message("tm-1"), LIMIT) })
+    }
+
+    @Test
+    fun aStoredPushThatTrimsEmitsOnce() = runBlocking {
+        val source = openSource()
+        source.insert(message("old", receivedAt = 1L), 1)
+
+        assertEquals(
+            1,
+            source.emissionsDuring { source.insert(message("new", receivedAt = 2L), 1) }
+        )
+        assertEquals(listOf("new"), source.ids(10))
+    }
+
+    @Test
+    fun aStateChangeEmitsOnlyWhenItAltersAMessage() = runBlocking {
+        val source = openSource()
+        source.seed(message("tm-1"))
+
+        assertEquals(
+            1,
+            source.emissionsDuring {
+                source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_READ, 1L)
+            }
+        )
+        assertEquals(
+            0,
+            source.emissionsDuring {
+                source.updateState(COMPANY, "tm-1", InboxStateChange.MARK_READ, 2L)
+            }
+        )
+        assertEquals(
+            0,
+            source.emissionsDuring {
+                source.updateState(COMPANY, "gone", InboxStateChange.MARK_READ, 3L)
+            }
+        )
+    }
+
+    @Test
+    fun clearingEmitsOnlyWhenItRemovedMessages() = runBlocking {
+        val source = openSource()
+        source.seed(message("a"), message("b", companyId = "other"))
+
+        assertEquals(0, source.emissionsDuring { source.clearByCompanyId("nobody") })
+        assertEquals(1, source.emissionsDuring { source.clearByCompanyId(COMPANY) })
+        assertEquals(1, source.emissionsDuring { source.clearAll() })
+        assertEquals(0, source.emissionsDuring { source.clearAll() })
+    }
+
+    @Test
+    fun collectingChangesDoesNotCreateTheDatabase() = runBlocking {
+        val source = RoomInboxDataSource(context, databaseName)
+
+        source.emissionsDuring { }
+
+        assertFalse(context.getDatabasePath(databaseName).exists())
+    }
+
+    @Test
+    fun aSlowCollectorMergesChangesAndNeverBlocksTheWriter() = runBlocking {
+        val source = openSource()
+        val release = CompletableDeferred<Unit>()
+        var received = 0
+        val collector = launch(Dispatchers.Unconfined, CoroutineStart.UNDISPATCHED) {
+            source.changes.collect {
+                received++
+                release.await()
+            }
+        }
+
+        source.seed(message("a"), message("b"), message("c"))
+        release.complete(Unit)
+        delay(SETTLE_MS)
+        collector.cancel()
+
+        // The first is taken, the next two merge into one
+        assertEquals(2, received)
+        assertEquals(3, source.ids(10).size)
+    }
+
     private suspend fun RoomInboxDataSource.ids(
         pageSize: Int,
         after: InboxRecordPosition? = null,
-        companyId: String = COMPANY
-    ) = fetchPage(companyId, InboxRecordQuery(pageSize, after)).messages.map { it.transmissionId }
+        companyId: String = COMPANY,
+        isRead: Boolean? = null,
+        isArchived: Boolean? = null
+    ) = fetchPage(companyId, InboxRecordQuery(pageSize, after, isRead, isArchived))
+        .messages.map { it.transmissionId }
 
     @Test
     fun pagesRunNewestFirstBySortTime() = runBlocking {
@@ -574,6 +684,87 @@ class InboxStoreInstrumentedTest {
         assertEquals(listOf("unread", "read", "archived"), source.ids(10))
     }
 
+    private suspend fun RoomInboxDataSource.seedEveryState() = seed(
+        message("unread", sentAt = 400L),
+        message("read", sentAt = 300L).copy(isRead = true),
+        message("archived-unread", sentAt = 200L).copy(isArchived = true),
+        message("archived-read", sentAt = 100L).copy(isRead = true, isArchived = true)
+    )
+
+    @Test
+    fun pagesFilterByReadState() = runBlocking {
+        val source = openSource()
+        source.seedEveryState()
+
+        assertEquals(listOf("unread", "archived-unread"), source.ids(10, isRead = false))
+        assertEquals(listOf("read", "archived-read"), source.ids(10, isRead = true))
+    }
+
+    @Test
+    fun pagesFilterByArchivedState() = runBlocking {
+        val source = openSource()
+        source.seedEveryState()
+
+        assertEquals(listOf("unread", "read"), source.ids(10, isArchived = false))
+        assertEquals(listOf("archived-unread", "archived-read"), source.ids(10, isArchived = true))
+    }
+
+    @Test
+    fun pagesCombineTheReadAndArchivedFilters() = runBlocking {
+        val source = openSource()
+        source.seedEveryState()
+
+        assertEquals(listOf("unread"), source.ids(10, isRead = false, isArchived = false))
+        assertEquals(listOf("archived-read"), source.ids(10, isRead = true, isArchived = true))
+    }
+
+    @Test
+    fun aFilteredPageWalksOnlyMatchingMessagesAcrossPages() = runBlocking {
+        val source = openSource()
+        source.seed(
+            *(1..6).map {
+                message("m$it", sentAt = it * 100L).copy(isArchived = it % 2 == 0)
+            }.toTypedArray()
+        )
+
+        val first = source.fetchPage(COMPANY, InboxRecordQuery(2, null, isArchived = false))
+        val second = source.fetchPage(
+            COMPANY,
+            InboxRecordQuery(2, first.messages.last().position(), isArchived = false)
+        )
+
+        assertEquals(listOf("m5", "m3"), first.messages.map { it.transmissionId })
+        assertTrue(first.hasMore)
+        assertEquals(listOf("m1"), second.messages.map { it.transmissionId })
+        assertFalse(second.hasMore)
+    }
+
+    @Test
+    fun aFilteredPageStaysStableWhenAMessageLeavesTheFilterBetweenPages() = runBlocking {
+        val source = openSource()
+        source.seed(*(1..4).map { message("m$it", sentAt = it * 100L) }.toTypedArray())
+        val first = source.fetchPage(COMPANY, InboxRecordQuery(2, null, isRead = false))
+
+        // The message the first page ended on is read, so it leaves the filter
+        source.updateState(COMPANY, "m3", InboxStateChange.MARK_READ, 1L)
+        val second = source.fetchPage(
+            COMPANY,
+            InboxRecordQuery(2, first.messages.last().position(), isRead = false)
+        )
+
+        assertEquals(listOf("m4", "m3"), first.messages.map { it.transmissionId })
+        assertEquals(listOf("m2", "m1"), second.messages.map { it.transmissionId })
+    }
+
+    @Test
+    fun filteredPagesSurviveRestart() = runBlocking {
+        val first = RoomInboxDataSource(context, databaseName)
+        first.seedEveryState()
+        first.close()
+
+        assertEquals(listOf("unread"), openSource().ids(10, isRead = false, isArchived = false))
+    }
+
     @Test
     fun pagesSurviveRestart() = runBlocking {
         val first = RoomInboxDataSource(context, databaseName)
@@ -618,6 +809,7 @@ class InboxStoreInstrumentedTest {
         const val COMPANY = "company"
         const val LIMIT = 100
         const val CONCURRENT_INSERTS = 20
+        const val SETTLE_MS = 100L
         const val EXPIRES_AT = 90_000L
         const val UPDATED_AT = 5_000L
         const val SENT_AT = 4_000L

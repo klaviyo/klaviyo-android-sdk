@@ -8,6 +8,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -20,6 +22,7 @@ import org.junit.Test
 internal class KlaviyoInboxRepositoryTest : BaseTest() {
 
     private val dataSource = mockk<LocalInboxDataSource>(relaxed = true)
+    private val sourceChanges = MutableSharedFlow<Unit>(replay = 1)
     private val repository = KlaviyoInboxRepository(dataSource, retentionLimit = RETENTION_LIMIT)
     private val message = inboxMessageEntity(
         transmissionId = "tm-1",
@@ -178,15 +181,64 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
     @Test
     fun `a page is read for the current company from the query's position`() = runBlocking {
         coEvery { dataSource.fetchPage(any(), any()) } returns InboxRecordPage(emptyList(), false)
-        val cursor = InboxCursorCodec.encode(message)
+        val cursor = InboxCursorCodec.encode(message, InboxQuery())
 
         repository.fetchPage(InboxQuery(pageSize = 5, cursor = cursor))
 
         coVerify {
             dataSource.fetchPage(
                 API_KEY,
-                InboxRecordQuery(5, InboxRecordPosition(message.sortTime, "tm-1"))
+                InboxRecordQuery(
+                    5,
+                    InboxRecordPosition(message.sortTime, "tm-1"),
+                    isRead = null,
+                    isArchived = false
+                )
             )
+        }
+    }
+
+    @Test
+    fun `a page excludes archived messages unless the query asks for them`() = runBlocking {
+        coEvery { dataSource.fetchPage(any(), any()) } returns InboxRecordPage(emptyList(), false)
+
+        repository.fetchPage(InboxQuery())
+        repository.fetchPage(InboxQuery(archiveFilter = InboxArchiveFilter.ARCHIVED))
+        repository.fetchPage(InboxQuery(archiveFilter = InboxArchiveFilter.ALL))
+
+        coVerify { dataSource.fetchPage(API_KEY, InboxRecordQuery(20, null, null, false)) }
+        coVerify { dataSource.fetchPage(API_KEY, InboxRecordQuery(20, null, null, true)) }
+        coVerify { dataSource.fetchPage(API_KEY, InboxRecordQuery(20, null, null, null)) }
+    }
+
+    @Test
+    fun `a page is filtered by read state`() = runBlocking {
+        coEvery { dataSource.fetchPage(any(), any()) } returns InboxRecordPage(emptyList(), false)
+
+        repository.fetchPage(InboxQuery(readFilter = InboxReadFilter.UNREAD))
+        repository.fetchPage(InboxQuery(readFilter = InboxReadFilter.READ))
+
+        coVerify { dataSource.fetchPage(API_KEY, InboxRecordQuery(20, null, false, false)) }
+        coVerify { dataSource.fetchPage(API_KEY, InboxRecordQuery(20, null, true, false)) }
+    }
+
+    @Test
+    fun `a next cursor continues the filtered query it came from`() {
+        coEvery { dataSource.fetchPage(any(), any()) } returns
+            InboxRecordPage(listOf(message), hasMore = true)
+        val query = InboxQuery(readFilter = InboxReadFilter.UNREAD)
+
+        val page = runBlocking { repository.fetchPage(query) }
+
+        assertEquals(
+            InboxRecordPosition(message.sortTime, "tm-1"),
+            InboxCursorCodec.decode(
+                InboxQuery(cursor = page.nextCursor, readFilter = InboxReadFilter.UNREAD),
+                API_KEY
+            )
+        )
+        assertThrows(InboxException.InvalidCursor::class.java) {
+            runBlocking { repository.fetchPage(InboxQuery(cursor = page.nextCursor)) }
         }
     }
 
@@ -272,6 +324,14 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
         assertThrows(CancellationException::class.java) {
             runBlocking { repository.fetchUnreadCount() }
         }
+    }
+
+    @Test
+    fun `changes are the data source's changes`() = runBlocking {
+        every { dataSource.changes } returns sourceChanges
+        sourceChanges.emit(Unit)
+
+        assertEquals(Unit, repository.changes.first())
     }
 
     private companion object {

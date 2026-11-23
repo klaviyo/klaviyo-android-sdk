@@ -3,6 +3,7 @@ package com.klaviyo.inbox
 import com.klaviyo.core.KlaviyoException
 import com.klaviyo.core.Registry
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.flow.Flow
 
 /**
  * The SDK's [InboxRepository]. Storage failures are logged with their cause. A capture reports
@@ -13,6 +14,8 @@ internal class KlaviyoInboxRepository(
     private val dataSource: LocalInboxDataSource,
     private val retentionLimit: Int = DEFAULT_RETENTION_LIMIT
 ) : InboxRepository {
+
+    override val changes: Flow<Unit> get() = dataSource.changes
 
     override suspend fun capture(message: InboxMessageEntity): InboxCaptureResult = guarded(
         "store a push",
@@ -53,14 +56,22 @@ internal class KlaviyoInboxRepository(
         val after = InboxCursorCodec.decode(query, companyId)
 
         val page = storeCall("fetch a page") {
-            dataSource.fetchPage(companyId, InboxRecordQuery(query.pageSize, after))
+            dataSource.fetchPage(
+                companyId,
+                InboxRecordQuery(
+                    query.pageSize,
+                    after,
+                    isRead = query.readFilter.toState(),
+                    isArchived = query.archiveFilter.toState()
+                )
+            )
         }
 
         return InboxPage(
             messages = page.messages.map { it.toInboxMessage() },
             nextCursor = page.messages.lastOrNull()
                 ?.takeIf { page.hasMore }
-                ?.let(InboxCursorCodec::encode)
+                ?.let { InboxCursorCodec.encode(it, query) }
         )
     }
 
@@ -100,6 +111,18 @@ internal class KlaviyoInboxRepository(
     } catch (e: KlaviyoException) {
         Registry.log.debug("Mobile Inbox read before the SDK was initialized: ${e.message}")
         null
+    }
+
+    private fun InboxReadFilter.toState(): Boolean? = when (this) {
+        InboxReadFilter.ALL -> null
+        InboxReadFilter.UNREAD -> false
+        InboxReadFilter.READ -> true
+    }
+
+    private fun InboxArchiveFilter.toState(): Boolean? = when (this) {
+        InboxArchiveFilter.ACTIVE -> false
+        InboxArchiveFilter.ARCHIVED -> true
+        InboxArchiveFilter.ALL -> null
     }
 
     companion object {

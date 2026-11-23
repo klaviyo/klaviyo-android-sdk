@@ -11,6 +11,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -77,5 +79,18 @@ internal class KlaviyoMobileInboxProviderTest : BaseTest() {
         val page = KlaviyoMobileInboxProvider().mobileInbox.fetchPage()
 
         assertEquals(emptyList<InboxMessage>(), page.messages)
+    }
+
+    @Test
+    fun `changes come from the repository registered when they are collected`() = runBlocking {
+        val repositoryChanges = MutableSharedFlow<Unit>(replay = 1)
+        val repository = mockk<InboxRepository> {
+            every { changes } returns repositoryChanges
+        }
+        val inbox = KlaviyoMobileInboxProvider().mobileInbox
+        Registry.register<InboxRepository>(repository)
+        repositoryChanges.emit(Unit)
+
+        assertEquals(Unit, inbox.changes.first())
     }
 }
