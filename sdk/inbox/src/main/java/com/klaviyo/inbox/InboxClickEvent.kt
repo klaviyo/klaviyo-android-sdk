@@ -7,10 +7,11 @@ import com.klaviyo.core.Registry
 import java.util.UUID
 
 /**
- * The metric for a host-reported tap on an inbox message or one of its buttons. Branded under the
- * `klaviyo` service so the backend shows it as a Klaviyo metric rather than a raw API metric.
+ * The metric for a host-reported tap on an inbox message or one of its buttons. A `$`-prefixed key
+ * like other built-in Klaviyo metrics, branded under the `klaviyo` service so the backend maps it to
+ * the display name Clicked App Inbox Message.
  */
-internal object InboxClickMetric : EventMetric.CUSTOM("Clicked App Inbox Message") {
+internal object InboxClickMetric : EventMetric.CUSTOM("\$clicked_app_inbox_message") {
     const val SERVICE = "klaviyo"
     override val service: String = SERVICE
 }
