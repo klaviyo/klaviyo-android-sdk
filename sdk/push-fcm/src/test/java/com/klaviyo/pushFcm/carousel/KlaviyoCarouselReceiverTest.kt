@@ -413,6 +413,19 @@ internal class KlaviyoCarouselReceiverTest : BaseTest() {
 
         verify { CarouselStateStore.advance(mockContext, TAG, UID, 0, 1, any()) }
         verify(exactly = 0) { notificationManager.notify(any(), any(), any()) }
+        // Building would rewrite the shown card's PendingIntent extras, so it must not happen.
+        verify(exactly = 0) {
+            anyConstructed<KlaviyoNotification>().buildNotification(
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any(),
+                any()
+            )
+        }
         assertEquals(0, storedIndex)
     }
 

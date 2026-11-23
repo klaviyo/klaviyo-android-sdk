@@ -199,17 +199,19 @@ internal class KlaviyoCarouselReceiver : BroadcastReceiver() {
         sender: String?,
         postedAt: Long?
     ) {
-        val built = notification.buildNotification(
-            context,
-            tag,
-            requestCodeBase = requestCodeBase,
-            notificationUid = notificationUid,
-            carouselIndex = index,
-            carouselSender = sender,
-            carouselPostedAt = postedAt,
-            isCarouselRepost = true
-        )
         val posted = CarouselStateStore.advance(context, tag, notificationUid, fromIndex, index) {
+            // Build only once the move is accepted: FLAG_UPDATE_CURRENT rewrites the shown card's
+            // content intent extras, so a rejected stale move must not touch them.
+            val built = notification.buildNotification(
+                context,
+                tag,
+                requestCodeBase = requestCodeBase,
+                notificationUid = notificationUid,
+                carouselIndex = index,
+                carouselSender = sender,
+                carouselPostedAt = postedAt,
+                isCarouselRepost = true
+            )
             NotificationManagerCompat
                 .from(context)
                 .notify(tag, Constants.NOTIFICATION_ID, built.build())
