@@ -54,10 +54,10 @@ object KlaviyoConfig : Config {
     /**
      * Network request timeout duration
      *
-     * Reasoning: Ten seconds accommodates a reasonable network latency
+     * Reasoning: Thirty seconds avoids abandoning requests the server already accepted
      * On a perfect connection our API calls should take around 1 second
      */
-    private const val NETWORK_TIMEOUT_DEFAULT: Int = 10_000
+    private const val NETWORK_TIMEOUT_DEFAULT: Int = 30_000
 
     /**
      * Network request timeout duration for a request that impacts critical user experience
