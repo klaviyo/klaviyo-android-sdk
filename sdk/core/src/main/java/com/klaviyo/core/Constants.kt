@@ -71,7 +71,6 @@ object Constants {
      */
     const val CLICK_ELEMENT_BODY = "body"
     const val CLICK_ELEMENT_BUTTON = "button"
-    const val CLICK_ELEMENT_IMAGE = "image"
 
     /**
      * Intent extra key for the notification tag, used to dismiss the notification

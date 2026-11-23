@@ -67,15 +67,6 @@ internal class InboxClickEventTest : BaseTest() {
     }
 
     @Test
-    fun `an image click reports the default destination without a label`() {
-        val event = buildInboxClickEvent(message, null, InboxClickElement.IMAGE)!!
-
-        assertEquals("image", event.prop(InboxClickProperty.ELEMENT))
-        assertEquals("myapp://sale", event.prop(InboxClickProperty.ACTION_URL))
-        assertNull(event.prop(InboxClickProperty.BUTTON_LABEL))
-    }
-
-    @Test
     fun `an unknown destination type is reported as received`() {
         val unknown = inboxMessageEntity(
             transmissionId = "tm-8",

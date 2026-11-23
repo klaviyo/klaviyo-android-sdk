@@ -53,7 +53,6 @@ public class MobileInboxJavaApiTest {
         };
         assertEquals("button", InboxClickElement.BUTTON.getRawValue());
         assertEquals("body", InboxClickElement.BODY.getRawValue());
-        assertEquals("image", InboxClickElement.IMAGE.getRawValue());
     }
 
     @Test

@@ -22,9 +22,5 @@ class InboxClickElement private constructor(val rawValue: String) {
         /** One of the message's [InboxMessage.actions] */
         @JvmField
         val BUTTON = InboxClickElement(Constants.CLICK_ELEMENT_BUTTON)
-
-        /** The message's media */
-        @JvmField
-        val IMAGE = InboxClickElement(Constants.CLICK_ELEMENT_IMAGE)
     }
 }
