@@ -20,6 +20,8 @@ import com.klaviyo.forms.FormLifecycleEvent
 import com.klaviyo.forms.FormLifecycleHandler
 import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.presentation.PresentationState
+import com.klaviyo.forms.preview.FormsPreviewTokenStore
+import com.klaviyo.forms.preview.VALID_PREVIEW_TOKEN
 import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 import io.mockk.every
@@ -32,10 +34,10 @@ import io.mockk.slot
 import io.mockk.unmockkAll
 import io.mockk.unmockkConstructor
 import io.mockk.verify
-import org.json.JSONException
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -85,6 +87,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         Registry.unregister<PresentationManager>()
         Registry.unregister<AuthTokenManager>()
         Registry.unregister<JsBridge>()
+        Registry.unregister<FormsPreviewTokenStore>()
         super.cleanup()
     }
 
@@ -618,7 +621,7 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
 
         verify(exactly = 1) { mockAuthTokenManager.refreshRejectedToken() }
         verify(exactly = 0) { mockJsBridge.jwtMutation(any()) }
-        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+        verify(exactly = 0) { spyLog.error(any(), any()) }
     }
 
     @Test
@@ -629,16 +632,85 @@ internal class KlaviyoNativeBridgeTest : BaseTest() {
         assertTrue(handshake.contains(HandshakeSpec("jwtMutation", 1)))
     }
 
+    private fun registerPreviewTokenStore(): FormsPreviewTokenStore =
+        FormsPreviewTokenStore().apply { setToken(VALID_PREVIEW_TOKEN) }
+            .also { Registry.register<FormsPreviewTokenStore>(it) }
+
     @Test
-    fun `malformed message throws an error`() {
-        postMessage("sawr a warewolf with a chinese menu inhis hands")
-        verify { spyLog.error(any(), any<JSONException>()) }
+    fun `formsPreviewEnded clears the stored preview token`() {
+        val store = registerPreviewTokenStore()
+
+        postMessage("""{"type":"formsPreviewEnded","data":{"reason":"expired"}}""")
+
+        assertNull(store.token)
+        verify { spyLog.warning(match { it.contains("expired") }, null) }
+        verify(exactly = 0) { mockWebViewClient.destroyWebView() }
+        verify(exactly = 0) { spyLog.error(any(), any()) }
     }
 
     @Test
-    fun `unknown type throws an error`() {
+    fun `logged bridge messages never include the preview token`() {
+        registerPreviewTokenStore()
+
+        postMessage(
+            """{"type":"formsPreviewEnded","data":{"reason":"expired","token":"$VALID_PREVIEW_TOKEN"}}"""
+        )
+
+        verify { spyLog.debug(match { it.contains("FormsPreviewEnded") }, null) }
+        verify(exactly = 0) { spyLog.debug(match { it.contains(VALID_PREVIEW_TOKEN) }, any()) }
+        verify(exactly = 0) { spyLog.error(match { it.contains(VALID_PREVIEW_TOKEN) }, any()) }
+    }
+
+    @Test
+    fun `formsPreviewEnded with a matching token clears the stored preview token`() {
+        val store = registerPreviewTokenStore()
+
+        postMessage(
+            """{"type":"formsPreviewEnded","data":{"reason":"expired","token":"$VALID_PREVIEW_TOKEN"}}"""
+        )
+
+        assertNull(store.token)
+        verify { spyLog.warning(match { it.contains("expired") }, null) }
+        verify(exactly = 0) { spyLog.error(any(), any()) }
+    }
+
+    @Test
+    fun `formsPreviewEnded with a mismatched token keeps the stored preview token`() {
+        val store = registerPreviewTokenStore()
+        val olderToken = VALID_PREVIEW_TOKEN.dropLast(1) + "a"
+
+        postMessage(
+            """{"type":"formsPreviewEnded","data":{"reason":"expired","token":"$olderToken"}}"""
+        )
+
+        assertEquals(VALID_PREVIEW_TOKEN, store.token)
+        verify { spyLog.debug(any(), null) }
+        verify(exactly = 0) { spyLog.warning(any(), null) }
+        verify(exactly = 0) { spyLog.error(any(), any()) }
+    }
+
+    @Test
+    fun `formsPreviewEnded without a token store is a no-op`() {
+        postMessage("""{"type":"formsPreviewEnded","data":{"reason":"ended"}}""")
+
+        verify(exactly = 0) { spyLog.error(any(), any()) }
+    }
+
+    @Test
+    fun `handshake advertises forms preview support at version 1`() {
+        assertTrue(bridgeMessageHandler.handshake.contains(HandshakeSpec("formsPreviewEnded", 1)))
+    }
+
+    @Test
+    fun `malformed message logs an error without the message`() {
+        postMessage("sawr a warewolf with a chinese menu inhis hands")
+        verify { spyLog.error("Failed to relay webview message", null) }
+    }
+
+    @Test
+    fun `unknown type logs an error without the message`() {
         postMessage("""{"type":"unknown"}""")
-        verify { spyLog.error(any(), any<IllegalStateException>()) }
+        verify { spyLog.error("Failed to relay webview message", null) }
     }
 
     @Test
