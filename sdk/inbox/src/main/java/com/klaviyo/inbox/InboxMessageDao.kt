@@ -128,6 +128,54 @@ internal abstract class InboxMessageDao {
         updatedAt: Long
     ): Int
 
+    /**
+     * Sets the company's messages that match [matchRead] and [matchArchived] to [isRead], stamping
+     * [updatedAt] on the ones that change. A null [matchRead] or [matchArchived] matches either
+     * state. A message already at [isRead] is not matched, so it keeps its timestamp.
+     *
+     * @return How many messages changed
+     */
+    @Query(
+        """
+        UPDATE ${InboxMessageEntity.TABLE_NAME}
+        SET isRead = :isRead, updatedAt = :updatedAt
+        WHERE companyId = :companyId AND isRead != :isRead
+            AND (:matchRead IS NULL OR isRead = :matchRead)
+            AND (:matchArchived IS NULL OR isArchived = :matchArchived)
+        """
+    )
+    abstract suspend fun setReadWhere(
+        companyId: String,
+        isRead: Boolean,
+        matchRead: Boolean?,
+        matchArchived: Boolean?,
+        updatedAt: Long
+    ): Int
+
+    /**
+     * Sets the company's messages that match [matchRead] and [matchArchived] to [isArchived],
+     * stamping [updatedAt] on the ones that change. A null [matchRead] or [matchArchived] matches
+     * either state. A message already at [isArchived] is not matched, so it keeps its timestamp.
+     *
+     * @return How many messages changed
+     */
+    @Query(
+        """
+        UPDATE ${InboxMessageEntity.TABLE_NAME}
+        SET isArchived = :isArchived, updatedAt = :updatedAt
+        WHERE companyId = :companyId AND isArchived != :isArchived
+            AND (:matchRead IS NULL OR isRead = :matchRead)
+            AND (:matchArchived IS NULL OR isArchived = :matchArchived)
+        """
+    )
+    abstract suspend fun setArchivedWhere(
+        companyId: String,
+        isArchived: Boolean,
+        matchRead: Boolean?,
+        matchArchived: Boolean?,
+        updatedAt: Long
+    ): Int
+
     @Query(
         """
         SELECT COUNT(*) FROM ${InboxMessageEntity.TABLE_NAME}
@@ -162,6 +210,29 @@ internal abstract class InboxMessageDao {
             count(companyId, transmissionId) > 0 -> InboxStateUpdate.UNCHANGED
             else -> InboxStateUpdate.NOT_FOUND
         }
+    }
+
+    /**
+     * Applies [change] to every company message that matches [matchRead] and [matchArchived], as
+     * [updateState] does for one, in a single statement.
+     *
+     * @return How many messages the change altered
+     */
+    open suspend fun updateStateWhere(
+        companyId: String,
+        change: InboxStateChange,
+        matchRead: Boolean?,
+        matchArchived: Boolean?,
+        updatedAt: Long
+    ): Int = when (change) {
+        InboxStateChange.MARK_READ ->
+            setReadWhere(companyId, true, matchRead, matchArchived, updatedAt)
+        InboxStateChange.MARK_UNREAD ->
+            setReadWhere(companyId, false, matchRead, matchArchived, updatedAt)
+        InboxStateChange.ARCHIVE ->
+            setArchivedWhere(companyId, true, matchRead, matchArchived, updatedAt)
+        InboxStateChange.UNARCHIVE ->
+            setArchivedWhere(companyId, false, matchRead, matchArchived, updatedAt)
     }
 
     @Query("DELETE FROM ${InboxMessageEntity.TABLE_NAME} WHERE companyId = :companyId")

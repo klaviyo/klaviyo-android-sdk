@@ -51,6 +51,23 @@ internal interface LocalInboxDataSource {
         updatedAt: Long
     ): Boolean
 
+    /**
+     * Apply [change] to every one of [companyId]'s messages that matches [isRead] and
+     * [isArchived], in one statement. Messages already in the target state are not touched, and
+     * the rest are stamped with [updatedAt]. Emits [changes] once, only when something changed.
+     *
+     * @param isRead Only messages with this read state, or null for either
+     * @param isArchived Only messages with this archived state, or null for either
+     * @return How many messages changed. Zero when nothing has ever been stored.
+     */
+    suspend fun updateStateWhere(
+        companyId: String,
+        change: InboxStateChange,
+        isRead: Boolean?,
+        isArchived: Boolean?,
+        updatedAt: Long
+    ): Int
+
     suspend fun clearByCompanyId(companyId: String)
 
     suspend fun clearAll()

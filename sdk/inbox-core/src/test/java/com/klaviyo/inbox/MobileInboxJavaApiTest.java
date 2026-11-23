@@ -24,6 +24,17 @@ public class MobileInboxJavaApiTest {
     }
 
     @Test
+    public void filterIsBuiltWithFactoryAndConstant() {
+        InboxFilter unreadActive = InboxFilter.where(InboxReadFilter.UNREAD, InboxArchiveFilter.ACTIVE);
+        assertEquals(InboxReadFilter.UNREAD, unreadActive.getReadFilter());
+        assertEquals(InboxArchiveFilter.ACTIVE, unreadActive.getArchiveFilter());
+        assertEquals(unreadActive, InboxFilter.where(InboxReadFilter.UNREAD, InboxArchiveFilter.ACTIVE));
+
+        assertEquals(InboxReadFilter.ALL, InboxFilter.ALL_MESSAGES.getReadFilter());
+        assertEquals(InboxArchiveFilter.ALL, InboxFilter.ALL_MESSAGES.getArchiveFilter());
+    }
+
+    @Test
     public void callbacksAreLambdaCompatible() {
         InboxPageCallback page = result -> { };
         InboxCountCallback count = result -> { };

@@ -73,6 +73,46 @@ class InboxQuery @JvmOverloads constructor(
 }
 
 /**
+ * Which messages a bulk state change applies to, by read state and archived state. Build one with
+ * [where], or use [ALL_MESSAGES] for every message, read or unread, archived or not.
+ *
+ * Unlike [InboxQuery], which leaves archived messages out unless it asks for them, a filter has no
+ * default: the host always says which messages it means.
+ *
+ * @property readFilter Whether read messages, unread messages or both are matched
+ * @property archiveFilter Whether archived messages, messages that are not archived or both are
+ *  matched
+ */
+class InboxFilter private constructor(
+    val readFilter: InboxReadFilter,
+    val archiveFilter: InboxArchiveFilter
+) {
+    override fun equals(other: Any?): Boolean = other is InboxFilter &&
+        readFilter == other.readFilter &&
+        archiveFilter == other.archiveFilter
+
+    override fun hashCode(): Int = Objects.hash(readFilter, archiveFilter)
+
+    override fun toString(): String =
+        "InboxFilter(readFilter=$readFilter, archiveFilter=$archiveFilter)"
+
+    companion object {
+        /**
+         * Every message: read and unread, archived and not archived
+         */
+        @JvmField
+        val ALL_MESSAGES = InboxFilter(InboxReadFilter.ALL, InboxArchiveFilter.ALL)
+
+        /**
+         * The messages that match both [read] and [archive]
+         */
+        @JvmStatic
+        fun where(read: InboxReadFilter, archive: InboxArchiveFilter): InboxFilter =
+            InboxFilter(read, archive)
+    }
+}
+
+/**
  * @property nextCursor Pass in [InboxQuery.cursor] for the next page. Null on the last page.
  */
 class InboxPage

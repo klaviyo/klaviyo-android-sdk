@@ -155,6 +155,123 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
     }
 
     @Test
+    fun `a bulk change reports the count the store changed and stamps the current time`() =
+        runBlocking {
+            coEvery { dataSource.updateStateWhere(any(), any(), any(), any(), any()) } returns 3
+
+            val changed = repository.updateMessageState(
+                InboxStateChange.MARK_READ,
+                InboxFilter.where(InboxReadFilter.UNREAD, InboxArchiveFilter.ACTIVE)
+            )
+
+            assertEquals(3, changed)
+            coVerify(exactly = 1) {
+                dataSource.updateStateWhere(
+                    API_KEY,
+                    InboxStateChange.MARK_READ,
+                    isRead = false,
+                    isArchived = false,
+                    updatedAt = TIME
+                )
+            }
+        }
+
+    @Test
+    fun `every read and archive filter maps to the matching store states`() = runBlocking {
+        coEvery { dataSource.updateStateWhere(any(), any(), any(), any(), any()) } returns 0
+        val readStates = mapOf(
+            InboxReadFilter.ALL to null,
+            InboxReadFilter.UNREAD to false,
+            InboxReadFilter.READ to true
+        )
+        val archiveStates = mapOf(
+            InboxArchiveFilter.ALL to null,
+            InboxArchiveFilter.ACTIVE to false,
+            InboxArchiveFilter.ARCHIVED to true
+        )
+
+        readStates.forEach { (read, isRead) ->
+            archiveStates.forEach { (archive, isArchived) ->
+                repository.updateMessageState(
+                    InboxStateChange.ARCHIVE,
+                    InboxFilter.where(read, archive)
+                )
+                coVerify {
+                    dataSource.updateStateWhere(
+                        API_KEY,
+                        InboxStateChange.ARCHIVE,
+                        isRead,
+                        isArchived,
+                        TIME
+                    )
+                }
+            }
+        }
+        coVerify(exactly = 9) {
+            dataSource.updateStateWhere(any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `all messages matches both states`() = runBlocking {
+        coEvery { dataSource.updateStateWhere(any(), any(), any(), any(), any()) } returns 2
+
+        assertEquals(
+            2,
+            repository.updateMessageState(InboxStateChange.UNARCHIVE, InboxFilter.ALL_MESSAGES)
+        )
+        coVerify {
+            dataSource.updateStateWhere(API_KEY, InboxStateChange.UNARCHIVE, null, null, TIME)
+        }
+    }
+
+    @Test
+    fun `a bulk change before the SDK is initialized reports zero without touching the store`() =
+        runBlocking {
+            every { mockConfig.apiKey } throws MissingAPIKey()
+
+            assertEquals(
+                0,
+                repository.updateMessageState(InboxStateChange.MARK_READ, InboxFilter.ALL_MESSAGES)
+            )
+            coVerify(exactly = 0) {
+                dataSource.updateStateWhere(any(), any(), any(), any(), any())
+            }
+        }
+
+    @Test
+    fun `a failed bulk change is logged and reported as a storage failure`() {
+        val cause = IllegalStateException("disk full")
+        coEvery {
+            dataSource.updateStateWhere(any(), any(), any(), any(), any())
+        } throws cause
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking {
+                repository.updateMessageState(InboxStateChange.MARK_READ, InboxFilter.ALL_MESSAGES)
+            }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        assertSame(cause, error.cause)
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `cancellation during a bulk change is not reported as a storage failure`() {
+        coEvery {
+            dataSource.updateStateWhere(any(), any(), any(), any(), any())
+        } throws CancellationException("cancelled")
+
+        assertThrows(CancellationException::class.java) {
+            runBlocking {
+                repository.updateMessageState(InboxStateChange.MARK_READ, InboxFilter.ALL_MESSAGES)
+            }
+        }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
     fun `a page maps rows to public messages and a cursor when more follow`() = runBlocking {
         val second = message.copy(transmissionId = "tm-2", sortTime = TIME - 1)
         coEvery { dataSource.fetchPage(any(), any()) } returns

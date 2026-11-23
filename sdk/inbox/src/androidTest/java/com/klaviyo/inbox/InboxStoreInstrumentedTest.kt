@@ -446,6 +446,209 @@ class InboxStoreInstrumentedTest {
         assertFalse(context.getDatabasePath(databaseName).exists())
     }
 
+    private suspend fun RoomInboxDataSource.bulk(
+        change: InboxStateChange,
+        read: InboxReadFilter,
+        archive: InboxArchiveFilter,
+        updatedAt: Long = 9_000L,
+        companyId: String = COMPANY
+    ) = updateStateWhere(
+        companyId,
+        change,
+        isRead = when (read) {
+            InboxReadFilter.ALL -> null
+            InboxReadFilter.UNREAD -> false
+            InboxReadFilter.READ -> true
+        },
+        isArchived = when (archive) {
+            InboxArchiveFilter.ALL -> null
+            InboxArchiveFilter.ACTIVE -> false
+            InboxArchiveFilter.ARCHIVED -> true
+        },
+        updatedAt = updatedAt
+    )
+
+    private suspend fun RoomInboxDataSource.updatedIds() = fetchPage(
+        COMPANY,
+        InboxRecordQuery(LIMIT, null)
+    ).messages.filter { it.updatedAt != null }.map { it.transmissionId }.toSet()
+
+    @Test
+    fun bulkMarkReadChangesOnlyMatchingMessagesAndCountsThem() = runBlocking {
+        val source = openSource()
+        source.seedEveryState()
+
+        val changed = source.bulk(
+            InboxStateChange.MARK_READ,
+            InboxReadFilter.ALL,
+            InboxArchiveFilter.ACTIVE
+        )
+
+        // read-active already read, and the archived ones are outside the filter
+        assertEquals(1, changed)
+        assertTrue(source.stored("unread").isRead)
+        assertFalse(source.stored("archived-unread").isRead)
+        assertEquals(setOf("unread"), source.updatedIds())
+        assertEquals(9_000L, source.stored("unread").updatedAt)
+    }
+
+    @Test
+    fun bulkChangeKeepsTheTimestampOfMessagesAlreadyInTheTargetState() = runBlocking {
+        val source = openSource()
+        source.seed(
+            message("done").copy(isRead = true, updatedAt = 1_234L),
+            message("todo")
+        )
+
+        assertEquals(
+            1,
+            source.bulk(InboxStateChange.MARK_READ, InboxReadFilter.ALL, InboxArchiveFilter.ALL)
+        )
+
+        assertEquals(1_234L, source.stored("done").updatedAt)
+        assertEquals(9_000L, source.stored("todo").updatedAt)
+    }
+
+    @Test
+    fun bulkChangeLeavesOtherCompaniesAlone() = runBlocking {
+        val source = openSource()
+        source.seed(message("mine"), message("theirs", companyId = "B"))
+
+        assertEquals(
+            1,
+            source.bulk(InboxStateChange.MARK_READ, InboxReadFilter.ALL, InboxArchiveFilter.ALL)
+        )
+
+        assertTrue(source.stored("mine").isRead)
+        assertFalse(source.stored("theirs", "B").isRead)
+        assertNull(source.stored("theirs", "B").updatedAt)
+    }
+
+    @Test
+    fun everyReadAndArchiveFilterMatchesExactlyItsMessages() = runBlocking {
+        val expected = mapOf(
+            (InboxReadFilter.ALL to InboxArchiveFilter.ALL) to
+                setOf("unread", "read", "archived-unread", "archived-read"),
+            (InboxReadFilter.ALL to InboxArchiveFilter.ACTIVE) to setOf("unread", "read"),
+            (InboxReadFilter.ALL to InboxArchiveFilter.ARCHIVED) to
+                setOf("archived-unread", "archived-read"),
+            (InboxReadFilter.UNREAD to InboxArchiveFilter.ALL) to
+                setOf("unread", "archived-unread"),
+            (InboxReadFilter.UNREAD to InboxArchiveFilter.ACTIVE) to setOf("unread"),
+            (InboxReadFilter.UNREAD to InboxArchiveFilter.ARCHIVED) to setOf("archived-unread"),
+            (InboxReadFilter.READ to InboxArchiveFilter.ALL) to setOf("read", "archived-read"),
+            (InboxReadFilter.READ to InboxArchiveFilter.ACTIVE) to setOf("read"),
+            (InboxReadFilter.READ to InboxArchiveFilter.ARCHIVED) to setOf("archived-read")
+        )
+        assertEquals(9, expected.size)
+
+        // MARK_READ can only change the matches that are unread, MARK_UNREAD the ones that are read
+        val cases = expected.flatMap { (filter, ids) ->
+            listOf(
+                Triple(filter, InboxStateChange.MARK_READ, ids.filter { it.endsWith("unread") }),
+                Triple(
+                    filter,
+                    InboxStateChange.MARK_UNREAD,
+                    ids.filter { !it.endsWith("unread") }
+                )
+            )
+        }
+
+        cases.forEachIndexed { index, (filter, change, changing) ->
+            val name = "$databaseName-$index"
+            val source = RoomInboxDataSource(context, name).also { openSources += it }
+            source.seedEveryState()
+
+            val changed = source.bulk(change, filter.first, filter.second)
+
+            assertEquals("$filter $change", changing.size, changed)
+            assertEquals("$filter $change", changing.toSet(), source.updatedIds())
+            source.close()
+            context.deleteDatabase(name)
+        }
+    }
+
+    @Test
+    fun bulkUnarchiveWithTheActiveFilterMatchesNothing() = runBlocking {
+        val source = openSource()
+        source.seedEveryState()
+
+        assertEquals(
+            0,
+            source.bulk(InboxStateChange.UNARCHIVE, InboxReadFilter.ALL, InboxArchiveFilter.ACTIVE)
+        )
+        assertTrue(source.stored("archived-unread").isArchived)
+        assertTrue(source.updatedIds().isEmpty())
+    }
+
+    @Test
+    fun bulkUnarchiveRestoresArchivedMessagesWithTheArchivedFilterOrAllMessages() = runBlocking {
+        val archived = openSource()
+        archived.seedEveryState()
+        assertEquals(
+            2,
+            archived.bulk(
+                InboxStateChange.UNARCHIVE,
+                InboxReadFilter.ALL,
+                InboxArchiveFilter.ARCHIVED
+            )
+        )
+        assertFalse(archived.stored("archived-unread").isArchived)
+        assertFalse(archived.stored("archived-read").isArchived)
+
+        val everything = RoomInboxDataSource(context, "$databaseName-all").also { openSources += it }
+        everything.seedEveryState()
+        assertEquals(
+            2,
+            everything.bulk(InboxStateChange.UNARCHIVE, InboxReadFilter.ALL, InboxArchiveFilter.ALL)
+        )
+        context.deleteDatabase("$databaseName-all")
+    }
+
+    @Test
+    fun bulkChangeReadsBackThroughTheUnreadCountAndPages() = runBlocking {
+        val source = openSource()
+        source.seedEveryState()
+        assertEquals(1, source.countUnread(COMPANY))
+
+        source.bulk(InboxStateChange.ARCHIVE, InboxReadFilter.UNREAD, InboxArchiveFilter.ACTIVE)
+
+        assertEquals(0, source.countUnread(COMPANY))
+        val active = source.fetchPage(COMPANY, InboxRecordQuery(LIMIT, null, isArchived = false))
+        assertEquals(listOf("read"), active.messages.map { it.transmissionId })
+    }
+
+    @Test
+    fun bulkChangeEmitsOnceAndNothingWhenNothingChanged() = runBlocking {
+        val source = openSource()
+        source.seedEveryState()
+
+        assertEquals(
+            1,
+            source.emissionsDuring {
+                source.bulk(InboxStateChange.MARK_READ, InboxReadFilter.ALL, InboxArchiveFilter.ALL)
+            }
+        )
+        assertEquals(
+            0,
+            source.emissionsDuring {
+                source.bulk(InboxStateChange.MARK_READ, InboxReadFilter.ALL, InboxArchiveFilter.ALL)
+            }
+        )
+    }
+
+    @Test
+    fun bulkChangeDoesNotCreateTheDatabase() = runBlocking {
+        val source = RoomInboxDataSource(context, databaseName)
+
+        assertEquals(
+            0,
+            source.bulk(InboxStateChange.MARK_READ, InboxReadFilter.ALL, InboxArchiveFilter.ALL)
+        )
+
+        assertFalse(context.getDatabasePath(databaseName).exists())
+    }
+
     private suspend fun RoomInboxDataSource.seed(vararg messages: InboxMessageEntity) =
         messages.forEach { insert(it, LIMIT) }
 
