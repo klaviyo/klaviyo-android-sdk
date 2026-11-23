@@ -96,6 +96,15 @@ object Constants {
     const val SUPPRESS_DEEP_LINK_HANDLER_EXTRA = INTERNAL_PREFIX + "suppress_deep_link_handler"
 
     /**
+     * Intent extra carrying the deep link of the carousel card whose body was tapped. The tap's
+     * intent data holds the same link only when an activity resolves it; otherwise the host is
+     * launched without data, and `Klaviyo.getKlaviyoDeepLink` reads the link from here instead.
+     * Uses [INTERNAL_PREFIX] so the link stays out of analytics event properties. Absent on standard
+     * push taps and on carousel cards that do not deep link.
+     */
+    const val CAROUSEL_CARD_LINK_EXTRA = INTERNAL_PREFIX + "carousel_card_link"
+
+    /**
      * Manifest `<meta-data>` key a host app sets to opt into automatic push open tracking.
      *
      * Lives in core (not push-fcm) because telemetry's push token request must read it, and core

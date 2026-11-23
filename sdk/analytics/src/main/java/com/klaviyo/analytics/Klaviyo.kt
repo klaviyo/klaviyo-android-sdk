@@ -18,6 +18,7 @@ import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.Constants.BUTTON_LINK_PARAMETER
+import com.klaviyo.core.Constants.CAROUSEL_CARD_LINK_EXTRA
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.core.Constants.URL_PARAMETER
@@ -460,8 +461,8 @@ object Klaviyo {
      * populated for a Klaviyo notification tap: `data` is set when an activity declares a matching
      * intent-filter, and the payload value is always present, so this returns the link either way.
      *
-     * For an action button tap this is the button's own destination, which may differ from the
-     * notification body's.
+     * For an action button tap this is the button's own destination, and for a carousel card tap
+     * the card's own deep link; either may differ from the notification body's.
      *
      * Safe to call from `onCreate` and `onNewIntent` on any intent, Klaviyo or not.
      */
@@ -470,6 +471,7 @@ object Klaviyo {
         @JvmName("_klaviyoDeepLink")
         get() = this?.takeIf { it.isKlaviyoNotificationIntent }?.let { intent ->
             intent.data
+                ?: intent.extraUrl(CAROUSEL_CARD_LINK_EXTRA)
                 ?: intent.payloadUrl(BUTTON_LINK_PARAMETER)
                 ?: intent.payloadUrl(URL_PARAMETER)
         }
@@ -477,8 +479,13 @@ object Klaviyo {
     /**
      * Read a non-empty [PACKAGE_PREFIX]-scoped payload URL off this intent, or null.
      */
-    private fun Intent.payloadUrl(key: String): Uri? =
-        getStringExtra(PACKAGE_PREFIX + key)?.takeIf { it.isNotBlank() }?.toUri()
+    private fun Intent.payloadUrl(key: String): Uri? = extraUrl(PACKAGE_PREFIX + key)
+
+    /**
+     * Read a non-blank URL extra off this intent, or null.
+     */
+    private fun Intent.extraUrl(extra: String): Uri? =
+        getStringExtra(extra)?.takeIf { it.isNotBlank() }?.toUri()
 
     /**
      * The destination URL of the Klaviyo notification tap that delivered this [Intent], or null if

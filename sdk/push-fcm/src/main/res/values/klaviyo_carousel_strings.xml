@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Accessibility label for the page dots, e.g. "Card 1 of 4". -->
+    <string name="klaviyo_carousel_position_description">Card %1$d of %2$d</string>
+
+    <!-- Accessibility labels for the arrow controls. -->
+    <string name="klaviyo_carousel_prev_description">Previous card</string>
+    <string name="klaviyo_carousel_next_description">Next card</string>
+</resources>

@@ -9,8 +9,10 @@ import com.klaviyo.pushFcm.KlaviyoNotification.Companion.BODY_KEY
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.KEY_VALUE_PAIRS_KEY
 import com.klaviyo.pushFcm.KlaviyoNotification.Companion.TITLE_KEY
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.CarouselCardAction
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.actionButtons
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendActionButtonExtras
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.carouselCards
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.hasKlaviyoKeyValuePairs
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoMessage
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.isKlaviyoNotification
@@ -28,6 +30,11 @@ import org.junit.Before
 import org.junit.Test
 
 class KlaviyoRemoteMessageTest : BaseTest() {
+    private companion object {
+        /** Payload key holding the carousel card array; mirrors `CarouselConstants.CAROUSEL_CARDS_PARAMETER`. */
+        const val CAROUSEL_CARDS_KEY = "carousel_cards"
+    }
+
     @Before
     override fun setup() {
         super.setup()
@@ -776,6 +783,221 @@ class KlaviyoRemoteMessageTest : BaseTest() {
         every { msg.data } returns messageWithActions
 
         assert(msg.actionButtons == null)
+    }
+
+    /**
+     * Build a carousel payload map with [cardCount] plain `open_app` cards, each with its own
+     * image URL. Tests mutate individual cards through [cardJson] when they need an edge case.
+     */
+    private fun carouselPayload(cardCount: Int): MutableMap<String, String> =
+        stubMessage.toMutableMap().apply {
+            put(CAROUSEL_CARDS_KEY, JSONArray((1..cardCount).map { cardJson(it) }).toString())
+        }
+
+    /**
+     * A single valid `open_app` card JSON object, positioned at [position] for readability only —
+     * the parser never reads a `position` key.
+     */
+    private fun cardJson(position: Int, action: String = "open_app", url: String? = null) =
+        mutableMapOf<String, Any?>(
+            "image_url" to "https://cdn.example.com/card-$position.png",
+            "title" to "Card $position title",
+            "description" to "Card $position description",
+            "action" to action
+        ).apply { url?.let { put("url", it) } }
+
+    /** Wrap [cards] into a payload map with a real card list. */
+    private fun payloadOf(vararg cards: Map<String, Any?>): MutableMap<String, String> =
+        stubMessage.toMutableMap().apply {
+            put(CAROUSEL_CARDS_KEY, JSONArray(cards.toList()).toString())
+        }
+
+    private fun messageWith(vararg cards: Map<String, Any?>): RemoteMessage {
+        val payload = payloadOf(*cards)
+        return mockk<RemoteMessage>().apply { every { data } returns payload }
+    }
+
+    /**
+     * Stub [Uri.parse] for any string, deriving the scheme from the string's prefix the way
+     * `android.net.Uri` would. Carousel card actions call `toUri()` on their `url`, and the parser
+     * reads only [Uri.getScheme].
+     */
+    private fun stubUriSchemes() {
+        every { Uri.parse(any()) } answers {
+            val raw = firstArg<String>()
+            val scheme = raw.substringBefore(':', missingDelimiterValue = "")
+            mockk<Uri>(relaxed = true).apply { every { getScheme() } returns scheme }
+        }
+    }
+
+    @Test
+    fun `carouselCards parses valid 2 and 5 card payloads`() {
+        for (count in listOf(2, 5)) {
+            val msg = messageWith(*Array(count) { cardJson(it + 1) })
+
+            val cards = msg.carouselCards
+
+            assert(cards != null) { "Expected $count cards to parse" }
+            assert(cards?.size == count)
+        }
+    }
+
+    @Test
+    fun `carouselCards maps card fields and positions`() {
+        val msg = messageWith(cardJson(1), cardJson(2))
+
+        val first = msg.carouselCards?.first()
+
+        assert(first != null)
+        assert(first?.position == 1)
+        assert(first?.imageUrl.toString() == "https://cdn.example.com/card-1.png")
+        assert(first?.title == "Card 1 title")
+        assert(first?.description == "Card 1 description")
+        assert(first?.action == CarouselCardAction.OpenApp)
+    }
+
+    @Test
+    fun `carouselCards returns null for 6 cards`() {
+        val msg = messageWith(*Array(6) { cardJson(it + 1) })
+
+        assert(msg.carouselCards == null)
+    }
+
+    @Test
+    fun `carouselCards returns null for a single card`() {
+        val msg = messageWith(cardJson(1))
+
+        assert(msg.carouselCards == null)
+    }
+
+    @Test
+    fun `carouselCards returns null when the key is absent`() {
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns stubMessage
+
+        assert(msg.carouselCards == null)
+    }
+
+    @Test
+    fun `carouselCards returns null for malformed JSON`() {
+        val payload = stubMessage.toMutableMap().apply {
+            put(CAROUSEL_CARDS_KEY, "[{\"image_url\":")
+        }
+        val msg = mockk<RemoteMessage>()
+        every { msg.data } returns payload
+
+        assert(msg.carouselCards == null)
+    }
+
+    @Test
+    fun `carouselCards keeps original positions after dropping an invalid card`() {
+        val missingAction = cardJson(2).apply { remove("action") }
+        val msg = messageWith(cardJson(1), missingAction, cardJson(3))
+
+        val cards = msg.carouselCards
+
+        assert(cards?.size == 2)
+        assert(cards?.map { it.position } == listOf(1, 3))
+    }
+
+    @Test
+    fun `carouselCards drops a card with no action`() {
+        val missingAction = cardJson(2).apply { remove("action") }
+        val msg = messageWith(cardJson(1), missingAction, cardJson(3))
+
+        assert(msg.carouselCards?.none { it.position == 2 } == true)
+    }
+
+    @Test
+    fun `carouselCards drops open_app carrying a url`() {
+        val msg = messageWith(
+            cardJson(1),
+            cardJson(2, action = "open_app", url = "https://example.com")
+        )
+
+        assert(msg.carouselCards == null)
+    }
+
+    @Test
+    fun `carouselCards drops deep_link without a url`() {
+        val msg = messageWith(
+            cardJson(1),
+            cardJson(2, action = "deep_link")
+        )
+
+        assert(msg.carouselCards == null)
+    }
+
+    @Test
+    fun `carouselCards drops open_url with a disallowed scheme`() {
+        every { Uri.parse("javascript:alert(1)") } returns mockk<Uri>(relaxed = true).apply {
+            every { scheme } returns "javascript"
+        }
+        val msg = messageWith(
+            cardJson(1),
+            cardJson(2, action = "open_url", url = "javascript:alert(1)")
+        )
+
+        assert(msg.carouselCards == null)
+    }
+
+    @Test
+    fun `carouselCards accepts deep_link and allowlisted open_url cards`() {
+        stubUriSchemes()
+        val msg = messageWith(
+            cardJson(1, action = "deep_link", url = "klaviyotest://product/7"),
+            cardJson(2, action = "open_url", url = "https://example.com")
+        )
+
+        val cards = msg.carouselCards
+
+        assert(cards?.size == 2)
+        assert(cards?.get(0)?.action is CarouselCardAction.DeepLink)
+        assert(cards?.get(1)?.action is CarouselCardAction.OpenUrl)
+    }
+
+    @Test
+    fun `carouselCards ignores a position key in the payload`() {
+        val outOfOrder = cardJson(9).apply { put("position", 42) }
+        val msg = messageWith(cardJson(1), outOfOrder)
+
+        val cards = msg.carouselCards
+
+        assert(cards?.size == 2)
+        // Positions come from array order, not the payload's (spoofable) `position` key.
+        assert(cards?.map { it.position } == listOf(1, 2))
+    }
+
+    @Test
+    fun `carouselCards drops a card whose image_url is not http or https`() {
+        val fileImage = cardJson(2).apply { put("image_url", "file:///data/local/card.png") }
+        val ftpImage = cardJson(3).apply { put("image_url", "ftp://cdn.example.com/card.png") }
+        val httpImage = cardJson(4).apply { put("image_url", "http://cdn.example.com/card.png") }
+        val msg = messageWith(cardJson(1), fileImage, ftpImage, httpImage)
+
+        val cards = msg.carouselCards
+
+        assert(cards?.map { it.position } == listOf(1, 4))
+    }
+
+    @Test
+    fun `carouselCards falls back when an image_url has no host`() {
+        // java.net.URL parses `https:///card.png`, so the host check is what drops it; with one
+        // valid card left the push renders as a standard notification.
+        val noHost = cardJson(2).apply { put("image_url", "https:///card.png") }
+
+        assert(messageWith(cardJson(1), noHost).carouselCards == null)
+    }
+
+    @Test
+    fun `carouselCards drops a card with no image_url`() {
+        val noImage = cardJson(2).apply { remove("image_url") }
+        val msg = messageWith(cardJson(1), noImage, cardJson(3))
+
+        val cards = msg.carouselCards
+
+        assert(cards?.size == 2)
+        assert(cards?.map { it.position } == listOf(1, 3))
     }
 
     @Test

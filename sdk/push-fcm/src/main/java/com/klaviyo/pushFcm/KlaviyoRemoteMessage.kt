@@ -22,6 +22,9 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getApplicationInfoCompat
 import com.klaviyo.core.config.getManifestInt
 import com.klaviyo.core.utils.hasAllowedOpenUrlScheme
+import com.klaviyo.pushFcm.carousel.CarouselConstants.CAROUSEL_CARDS_PARAMETER
+import com.klaviyo.pushFcm.carousel.CarouselConstants.MAX_CAROUSEL_CARDS
+import com.klaviyo.pushFcm.carousel.CarouselConstants.MIN_CAROUSEL_CARDS
 import java.net.URL
 import org.json.JSONArray
 import org.json.JSONObject
@@ -335,6 +338,171 @@ object KlaviyoRemoteMessage {
         }
 
     /**
+     * Parse carousel cards from the payload, if present.
+     *
+     * Expected structure:
+     * [{"image_url":"...", "title":"...", "description":"...", "action":"deep_link|open_app|open_url", "url":"..."}]
+     *
+     * Each card's [CarouselCard.position] is its 1-based index in the original array, assigned
+     * before any invalid card is dropped, so a card keeps its position even when an earlier card
+     * was skipped. Invalid cards (missing required fields, disallowed scheme) are skipped with a
+     * warning; the URL itself is never logged, only its position and scheme.
+     *
+     * Unlike [actionButtons], `action` is required and has no default. `url` is required for
+     * `deep_link`/`open_url`, and must be absent for `open_app`; an `open_url` must pass
+     * [hasAllowedOpenUrlScheme].
+     *
+     * Returns null unless [MIN_CAROUSEL_CARDS] to [MAX_CAROUSEL_CARDS] valid cards remain, in
+     * which case the push renders as a standard notification. A carousel push carries no
+     * top-level `image_url`; if one arrives alongside `carousel_cards`, the carousel wins.
+     */
+    internal val RemoteMessage.carouselCards: List<CarouselCard>?
+        get() = this.data[CAROUSEL_CARDS_PARAMETER]?.let { jsonString ->
+            try {
+                val jsonArray = JSONArray(jsonString)
+                val cardCount = jsonArray.length()
+                Registry.log.verbose("JSON array has $cardCount carousel cards")
+                val cards = mutableListOf<CarouselCard>()
+
+                for (i in 0 until cardCount) {
+                    // Never read a `position` key: the wire format omits it. Position is the
+                    // 1-based original index, captured before any invalid card is dropped.
+                    val position = i + 1
+                    val jsonObject = jsonArray.optJSONObject(i)
+                    if (jsonObject == null) {
+                        Registry.log.warning(
+                            "Skipping carousel card $position: invalid JSON object"
+                        )
+                        continue
+                    }
+                    parseCarouselCard(position, jsonObject)?.let { cards.add(it) }
+                }
+
+                when {
+                    cards.size < MIN_CAROUSEL_CARDS -> {
+                        Registry.log.warning(
+                            "Only ${cards.size} valid carousel card(s); at least " +
+                                "$MIN_CAROUSEL_CARDS required. Falling back to standard notification."
+                        )
+                        null
+                    }
+                    cards.size > MAX_CAROUSEL_CARDS -> {
+                        Registry.log.warning(
+                            "${cards.size} valid carousel cards exceeds the maximum of " +
+                                "$MAX_CAROUSEL_CARDS. Falling back to standard notification."
+                        )
+                        null
+                    }
+                    else -> {
+                        Registry.log.verbose(
+                            "Successfully parsed ${cards.size} valid carousel cards"
+                        )
+                        cards
+                    }
+                }
+            } catch (_: Exception) {
+                Registry.log.error("Klaviyo SDK failed to parse carousel_cards JSON")
+                null
+            }
+        }
+
+    /**
+     * The only schemes a carousel card's `image_url` may use.
+     */
+    private val CAROUSEL_IMAGE_SCHEMES = setOf("http", "https")
+
+    /**
+     * Parse a single carousel card, returning null (and logging the reason) if it is invalid.
+     *
+     * @param position The card's 1-based original position, used for logging and attribution.
+     * @param jsonObject The card's JSON object.
+     */
+    private fun parseCarouselCard(position: Int, jsonObject: JSONObject): CarouselCard? {
+        // Unlike [toURL], this never logs the parse failure: a MalformedURLException message
+        // embeds the full URL, which must not reach logs. Only the position and scheme are logged.
+        val imageUrlString = jsonObject.optNonBlankString("image_url")
+        val imageUrl = imageUrlString?.let { runCatching { URL(it) }.getOrNull() }
+        if (imageUrl == null) {
+            Registry.log.warning("Skipping carousel card $position: missing or invalid image_url")
+            return null
+        }
+        // Images are fetched over the network only: java.net.URL also opens file:, jar: and ftp:.
+        if (imageUrl.protocol.lowercase() !in CAROUSEL_IMAGE_SCHEMES) {
+            Registry.log.warning(
+                "Skipping carousel card $position: image_url scheme " +
+                    "'${imageUrl.protocol}' is not allowed"
+            )
+            return null
+        }
+        // java.net.URL accepts `https:///card.png`, which has no host to fetch from.
+        if (imageUrl.host.isNullOrBlank()) {
+            Registry.log.warning("Skipping carousel card $position: image_url has no host")
+            return null
+        }
+
+        val actionType = jsonObject.optNonBlankString("action")
+        if (actionType == null) {
+            Registry.log.warning("Skipping carousel card $position: missing required action")
+            return null
+        }
+
+        val urlString = jsonObject.optNonBlankString("url")
+
+        val action = when (actionType) {
+            ActionButton.TYPE_DEEP_LINK -> {
+                if (urlString == null) {
+                    Registry.log.warning(
+                        "Skipping carousel card $position: DEEP_LINK missing required url"
+                    )
+                    return null
+                }
+                CarouselCardAction.DeepLink(urlString.toUri())
+            }
+            ActionButton.TYPE_OPEN_URL -> {
+                when {
+                    urlString == null -> {
+                        Registry.log.warning(
+                            "Skipping carousel card $position: OPEN_URL missing required url"
+                        )
+                        return null
+                    }
+                    !urlString.hasAllowedOpenUrlScheme() -> {
+                        Registry.log.warning(
+                            "Skipping carousel card $position: OPEN_URL scheme " +
+                                "'${urlString.toUri().scheme}' is not allowed"
+                        )
+                        return null
+                    }
+                    else -> CarouselCardAction.OpenUrl(urlString.toUri())
+                }
+            }
+            ActionButton.TYPE_OPEN_APP -> {
+                if (urlString != null) {
+                    Registry.log.warning(
+                        "Skipping carousel card $position: OPEN_APP must not carry a url"
+                    )
+                    return null
+                }
+                CarouselCardAction.OpenApp
+            }
+            else -> {
+                Registry.log.warning(
+                    "Skipping carousel card $position: unsupported action type"
+                )
+                return null
+            }
+        }
+
+        return CarouselCard(
+            position = position,
+            imageUrl = imageUrl,
+            title = jsonObject.optNonBlankString("title"),
+            description = jsonObject.optNonBlankString("description"),
+            action = action
+        )
+    }
+
+    /**
      * Sealed class representing different types of notification action buttons
      */
     sealed class ActionButton {
@@ -389,6 +557,46 @@ object KlaviyoRemoteMessage {
             const val DISPLAY_NAME_DEEP_LINK = "Deep Link"
             const val DISPLAY_NAME_OPEN_URL = "Open URL"
         }
+    }
+
+    /**
+     * A single card of a carousel notification, parsed from [CAROUSEL_CARDS_PARAMETER].
+     *
+     * @property position 1-based index in the original payload array, assigned before invalid
+     *  cards are dropped, so it is the card's identity for image caching and `$opened_push`
+     *  attribution even when an earlier card was skipped.
+     * @property imageUrl The card's image, downloaded at receipt.
+     * @property title Optional card title.
+     * @property description Optional card description.
+     * @property action What a tap on the card's body does.
+     */
+    internal data class CarouselCard(
+        val position: Int,
+        val imageUrl: URL,
+        val title: String?,
+        val description: String?,
+        val action: CarouselCardAction
+    )
+
+    /**
+     * The destination of a carousel card's body tap, mirroring the `action_buttons` action types.
+     */
+    internal sealed class CarouselCardAction {
+        /**
+         * Opens the app without navigating to a specific destination.
+         */
+        object OpenApp : CarouselCardAction()
+
+        /**
+         * Opens the app and navigates to a deep link destination.
+         */
+        data class DeepLink(val uri: Uri) : CarouselCardAction()
+
+        /**
+         * Opens a URL in the default browser. Only allowed schemes reach this type; see
+         * [hasAllowedOpenUrlScheme].
+         */
+        data class OpenUrl(val uri: Uri) : CarouselCardAction()
     }
 
     /**

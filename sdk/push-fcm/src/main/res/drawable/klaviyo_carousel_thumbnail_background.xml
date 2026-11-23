@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rounded clip outline for the collapsed-view thumbnail of card 1. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#33808080" />
+    <corners android:radius="@dimen/klaviyo_carousel_thumbnail_corner_radius" />
+</shape>

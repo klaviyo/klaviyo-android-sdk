@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Carousel card image height on API 31+, where the expanded custom content gets 252dp. The
+        card ratio is 2:1 (PUSH-1934 may change it): 156dp is half the 312dp content width of the
+        reference device, and the image is center-cropped to fill whatever width the device gives
+        it. The tallest case (2-line description) is 232dp.
+    -->
+    <dimen name="klaviyo_carousel_image_height">156dp</dimen>
+</resources>

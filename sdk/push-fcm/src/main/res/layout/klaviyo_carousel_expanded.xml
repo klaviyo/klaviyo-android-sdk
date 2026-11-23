@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Expanded carousel notification: the current card only. The image carries the prev/next arrows
+    (hidden on the first and last card) and a pill of page dots; the card title and description sit
+    below it, 8dp apart. The notification title and body appear only in the collapsed view.
+    Before API 31 the image is shorter and the description is one line, so the card fits the
+    smaller pre-12 notification; see klaviyo_carousel_dimens.xml.
+    Only RemoteViews-safe views are used here.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <!--
+        The placeholder background shows while a card's image is missing, so the arrows stay
+        usable. Its rounded shape is also the clip outline for the 12dp image corners, which
+        RemoteViews can only apply from API 31; older devices show square corners.
+    -->
+    <FrameLayout
+        android:id="@+id/klaviyo_carousel_image_frame"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/klaviyo_carousel_image_height"
+        android:background="@drawable/klaviyo_carousel_image_placeholder"
+        android:clipToOutline="true"
+        tools:targetApi="s">
+
+        <ImageView
+            android:id="@+id/klaviyo_carousel_image"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:contentDescription="@null" />
+
+        <ImageButton
+            android:id="@+id/klaviyo_carousel_prev"
+            android:layout_width="@dimen/klaviyo_carousel_arrow_size"
+            android:layout_height="@dimen/klaviyo_carousel_arrow_size"
+            android:layout_gravity="start|center_vertical"
+            android:padding="@dimen/klaviyo_carousel_arrow_padding"
+            android:scaleType="fitCenter"
+            android:background="@drawable/klaviyo_carousel_arrow_background"
+            android:src="@drawable/klaviyo_carousel_prev"
+            android:contentDescription="@string/klaviyo_carousel_prev_description" />
+
+        <ImageButton
+            android:id="@+id/klaviyo_carousel_next"
+            android:layout_width="@dimen/klaviyo_carousel_arrow_size"
+            android:layout_height="@dimen/klaviyo_carousel_arrow_size"
+            android:layout_gravity="end|center_vertical"
+            android:padding="@dimen/klaviyo_carousel_arrow_padding"
+            android:scaleType="fitCenter"
+            android:background="@drawable/klaviyo_carousel_arrow_background"
+            android:src="@drawable/klaviyo_carousel_next"
+            android:contentDescription="@string/klaviyo_carousel_next_description" />
+
+        <!-- One dot per card, up to MAX_CAROUSEL_CARDS (5); the builder hides the unused ones. -->
+        <LinearLayout
+            android:id="@+id/klaviyo_carousel_dots"
+            android:layout_width="wrap_content"
+            android:layout_height="@dimen/klaviyo_carousel_dots_height"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="@dimen/klaviyo_carousel_spacing"
+            android:paddingStart="@dimen/klaviyo_carousel_dots_padding"
+            android:paddingEnd="@dimen/klaviyo_carousel_dots_padding"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/klaviyo_carousel_dots_background">
+
+            <ImageView
+                android:id="@+id/klaviyo_carousel_dot_1"
+                android:layout_width="@dimen/klaviyo_carousel_dot_size"
+                android:layout_height="@dimen/klaviyo_carousel_dot_size"
+                android:src="@drawable/klaviyo_carousel_dot_inactive"
+                android:contentDescription="@null" />
+
+            <ImageView
+                android:id="@+id/klaviyo_carousel_dot_2"
+                android:layout_width="@dimen/klaviyo_carousel_dot_size"
+                android:layout_height="@dimen/klaviyo_carousel_dot_size"
+                android:layout_marginStart="@dimen/klaviyo_carousel_dot_gap"
+                android:src="@drawable/klaviyo_carousel_dot_inactive"
+                android:contentDescription="@null" />
+
+            <ImageView
+                android:id="@+id/klaviyo_carousel_dot_3"
+                android:layout_width="@dimen/klaviyo_carousel_dot_size"
+                android:layout_height="@dimen/klaviyo_carousel_dot_size"
+                android:layout_marginStart="@dimen/klaviyo_carousel_dot_gap"
+                android:src="@drawable/klaviyo_carousel_dot_inactive"
+                android:contentDescription="@null" />
+
+            <ImageView
+                android:id="@+id/klaviyo_carousel_dot_4"
+                android:layout_width="@dimen/klaviyo_carousel_dot_size"
+                android:layout_height="@dimen/klaviyo_carousel_dot_size"
+                android:layout_marginStart="@dimen/klaviyo_carousel_dot_gap"
+                android:src="@drawable/klaviyo_carousel_dot_inactive"
+                android:contentDescription="@null" />
+
+            <ImageView
+                android:id="@+id/klaviyo_carousel_dot_5"
+                android:layout_width="@dimen/klaviyo_carousel_dot_size"
+                android:layout_height="@dimen/klaviyo_carousel_dot_size"
+                android:layout_marginStart="@dimen/klaviyo_carousel_dot_gap"
+                android:src="@drawable/klaviyo_carousel_dot_inactive"
+                android:contentDescription="@null" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/klaviyo_carousel_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/klaviyo_carousel_spacing"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textAppearance="@style/TextAppearance.Compat.Notification.Title" />
+
+    <TextView
+        android:id="@+id/klaviyo_carousel_description"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/klaviyo_carousel_spacing"
+        android:maxLines="@integer/klaviyo_carousel_description_max_lines"
+        android:ellipsize="end"
+        android:textAppearance="@style/TextAppearance.Compat.Notification" />
+</LinearLayout>

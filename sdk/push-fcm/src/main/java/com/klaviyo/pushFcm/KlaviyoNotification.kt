@@ -23,10 +23,12 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getManifestBoolean
 import com.klaviyo.core.utils.activityResolved
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.ActionButton
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.CarouselCardAction
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.actionButtons
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendActionButtonExtras
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.appendKlaviyoExtras
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.body
+import com.klaviyo.pushFcm.KlaviyoRemoteMessage.carouselCards
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_description
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_id
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.channel_importance
@@ -42,6 +44,10 @@ import com.klaviyo.pushFcm.KlaviyoRemoteMessage.notificationTag
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.sound
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.title
 import com.klaviyo.pushFcm.KlaviyoRemoteMessage.webUrl
+import com.klaviyo.pushFcm.carousel.CarouselConstants
+import com.klaviyo.pushFcm.carousel.CarouselImageLoader
+import com.klaviyo.pushFcm.carousel.CarouselNotificationBuilder
+import com.klaviyo.pushFcm.carousel.CarouselStateStore
 import java.net.URL
 import java.util.UUID
 import java.util.concurrent.ExecutionException
@@ -77,7 +83,12 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         internal const val KEY_VALUE_PAIRS_KEY = Constants.KEY_VALUE_PAIRS
         internal const val ACTION_BUTTONS_KEY = Constants.ACTION_BUTTONS_PARAMETER
         internal const val WEB_URL_KEY = Constants.WEB_URL_PARAMETER
-        private const val DOWNLOAD_TIMEOUT_MS = 5_000
+
+        /**
+         * How long to wait for a rich-push image download before displaying without it.
+         * Shared with `CarouselImageLoader`, which caps its parallel card downloads the same way.
+         */
+        internal const val DOWNLOAD_TIMEOUT_MS = 5_000
         private const val ACTION_REQUEST_CODE_OFFSET = 1
 
         /**
@@ -129,17 +140,40 @@ class KlaviyoNotification(private val message: RemoteMessage) {
         createNotificationChannel(context)
 
         val notificationTag = message.notificationTag ?: generateId().toString()
-        val notification = buildNotification(context, notificationTag)
+        val cards = message.carouselCards
 
-        // Check for valid rich push image url, download and apply to the notification
-        message.imageUrl?.applyToNotification(builder = notification)
+        if (cards == null) {
+            val notification = buildNotification(context, notificationTag)
+            message.imageUrl?.applyToNotification(builder = notification)
+            post(context, notificationTag, notification)
+            return true
+        }
 
-        NotificationManagerCompat
-            .from(context)
-            .notify(notificationTag, NOTIFICATION_ID, notification.build())
+        // A body tap auto-cancels the notification without firing its delete intent, so drop
+        // state left by carousels that are no longer showing before adding this one.
+        CarouselStateStore.pruneInactive(context)
+        // The UID names this carousel's generation: its images are cached under it, and a re-send
+        // that reuses the tag gets a new one. The carousel being replaced keeps its own index and
+        // images until this one is posted, so its arrows still work during the download.
+        val notificationUid = UUID.randomUUID().toString()
+        CarouselImageLoader.loadAll(notificationUid, cards)
+        val notification = buildNotification(
+            context,
+            notificationTag,
+            notificationUid = notificationUid
+        )
+        CarouselStateStore.replace(context, notificationTag, notificationUid) {
+            post(context, notificationTag, notification)
+        }?.let(CarouselImageLoader::evict)
 
         return true
     }
+
+    @Suppress("MissingPermission") // Checked by hasNotificationPermission() in displayNotification.
+    private fun post(context: Context, tag: String, notification: NotificationCompat.Builder) =
+        NotificationManagerCompat
+            .from(context)
+            .notify(tag, NOTIFICATION_ID, notification.build())
 
     /**
      * Creates notification channel if one doesn't exist yet
@@ -161,13 +195,41 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * Build a [Notification] instance based on the [RemoteMessage] payload
      *
      * @param context
+     * @param notificationTag The tag this notification is posted under.
+     * @param requestCodeBase Base for the notification's PendingIntent request codes. A re-post
+     *  passes the original so `FLAG_UPDATE_CURRENT` replaces its tokens instead of adding new ones.
+     *  Null (the default) generates a fresh base.
+     * @param notificationUid The per-notification dedup uid. A re-post passes the original so the
+     *  opened-push dedupe key survives arrow taps. Null (the default) mints a new uid.
+     * @param carouselIndex The 0-based card to display for a carousel push; ignored otherwise.
+     * @param carouselSender The FCM sender to stamp on the carousel's arrow intents. A re-post
+     *  passes the sender it received, because the `RemoteMessage` it rebuilds cannot carry `from`
+     *  (the `Builder(String)` argument is the `to` field). Defaults to [RemoteMessage.getFrom] for
+     *  the first post.
+     * @param carouselPostedAt The carousel's first-post time. A re-post passes the time it received
+     *  so the notification keeps its timestamp and shade position. Null (the default) uses now.
+     * @param isCarouselRepost True only when the carousel receiver re-posts after an arrow tap.
+     *  A re-post updates the notification silently; a first post, including a re-send that reuses
+     *  `notification_tag`, alerts like any other push.
      * @return [Notification.Builder] to display
      */
     internal fun buildNotification(
         context: Context,
-        notificationTag: String
+        notificationTag: String,
+        requestCodeBase: Int? = null,
+        notificationUid: String? = null,
+        carouselIndex: Int = 0,
+        carouselSender: String? = null,
+        carouselPostedAt: Long? = null,
+        isCarouselRepost: Boolean = false
     ): NotificationCompat.Builder {
-        val requestCodeBase = generateId()
+        // null means "generate"; resolved here rather than in a default expression so a mocked
+        // Registry.clock is never touched while a caller (or test) records the call.
+        val resolvedRequestCodeBase = requestCodeBase ?: generateId()
+        val resolvedNotificationUid = notificationUid ?: UUID.randomUUID().toString()
+        // Only the first post reads the message; a re-post's rebuilt message has no `from`, so it
+        // supplies the sender it received to keep the extra stable across hops.
+        val resolvedCarouselSender = carouselSender ?: message.from
         // When the host opts into automatic push tracking, taps route through
         // KlaviyoTrampolineActivity so it can call handlePush itself.
         // Read the flag from the build-time context, not Registry.config, since FCM can build a
@@ -176,30 +238,92 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             KlaviyoPushService.METADATA_AUTOMATIC_PUSH_OPEN_TRACKING,
             false
         )
-        // One id per notification, stamped on the body and every action-button intent, so
-        // handlePush can dedupe a notification's opens even when the `_k` payload carries no `tm`.
-        // Distinct notifications get distinct ids; body and buttons of one notification share it.
-        val notificationUid = UUID.randomUUID().toString()
-        return NotificationCompat.Builder(context, message.channel_id)
-            .setContentIntent(
-                makePendingIntent(context, requestCodeBase, autoTracking, notificationUid)
-            )
+        val cards = message.carouselCards
+        val builder = NotificationCompat.Builder(context, message.channel_id)
             .setSmallIcon(message.getSmallIcon(context))
             .also { message.getColor(context)?.let { color -> it.setColor(color) } }
             .setContentTitle(message.title)
             .setContentText(message.body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(message.body))
             .setSound(message.sound)
             .setNumber(message.notificationCount)
             .setPriority(message.notificationPriority)
             .setAutoCancel(true)
+
+        if (cards == null) {
+            // Standard push, unchanged: content intent from the payload, BigTextStyle, actions.
+            builder
+                .setContentIntent(
+                    makePendingIntent(
+                        context,
+                        resolvedRequestCodeBase,
+                        autoTracking,
+                        resolvedNotificationUid
+                    )
+                )
+                .setStyle(NotificationCompat.BigTextStyle().bigText(message.body))
+                .addActionButtons(
+                    context,
+                    resolvedRequestCodeBase,
+                    notificationTag,
+                    autoTracking,
+                    resolvedNotificationUid
+                )
+            return builder
+        }
+
+        // Carousel push: the body tap opens the current card's own destination. The card position
+        // rides on the intent for card attribution, which isn't reported on `$opened_push` yet
+        // (PUSH-1944). A card deep link also rides as [Constants.CAROUSEL_CARD_LINK_EXTRA], so
+        // `Klaviyo.getKlaviyoDeepLink` still finds it when no activity resolves the link and the
+        // host is launched without intent data. Arrows are RemoteViews click targets, not actions.
+        val card = cards.getOrNull(carouselIndex.coerceIn(0, cards.lastIndex))
+        val contentIntent = makePendingIntent(
+            context,
+            resolvedRequestCodeBase,
+            autoTracking,
+            resolvedNotificationUid,
+            destination = card?.action,
+            extras = {
+                if (card != null) {
+                    putExtra(CarouselConstants.CAROUSEL_POSITION_EXTRA, card.position)
+                    (card.action as? CarouselCardAction.DeepLink)?.let { link ->
+                        putExtra(Constants.CAROUSEL_CARD_LINK_EXTRA, link.uri.toString())
+                    }
+                }
+            },
+            // A carousel re-post reuses the same request code and a filterEquals intent (extras
+            // are not compared), so without UPDATE_CURRENT getActivity would hand back the stale
+            // token still carrying the previously shown card's destination and position.
+            flags = PendingIntent.FLAG_IMMUTABLE or
+                PendingIntent.FLAG_ONE_SHOT or
+                PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        // An arrow tap re-posts silently. A first post doesn't set this, so a re-send that reuses
+        // `notification_tag` still alerts like a standard push.
+        builder.setOnlyAlertOnce(isCarouselRepost)
+        return builder
             .addActionButtons(
                 context,
-                requestCodeBase,
+                resolvedRequestCodeBase,
                 notificationTag,
                 autoTracking,
-                notificationUid
+                resolvedNotificationUid
             )
+            .also {
+                CarouselNotificationBuilder.apply(
+                    builder = it,
+                    context = context,
+                    message = message,
+                    cards = cards,
+                    index = carouselIndex,
+                    tag = notificationTag,
+                    notificationUid = resolvedNotificationUid,
+                    requestCodeBase = resolvedRequestCodeBase,
+                    sender = resolvedCarouselSender,
+                    postedAt = carouselPostedAt ?: Registry.clock.currentTimeMillis(),
+                    contentIntent = contentIntent
+                )
+            }
     }
 
     private fun URL.applyToNotification(builder: NotificationCompat.Builder) {
@@ -248,19 +372,28 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * It contains the action intent that will be invoked when the notification is clicked
      * This builder logic mimics the behavior from the FCM SDK notification handler
      *
+     * @param destination Optional explicit tap destination. Null (the default) keeps the
+     *  payload's own `url`/`web_url` precedence; a carousel card supplies its own action here.
+     * @param extras Optional block applied to the tap intent, e.g. to stamp a card position.
+     * @param flags The `PendingIntent` flags. Defaults to today's one-shot token; a carousel
+     *  re-post adds `FLAG_UPDATE_CURRENT` so the existing token's extras are replaced with the
+     *  newly displayed card's.
      * @return [PendingIntent]
      */
     private fun makePendingIntent(
         context: Context,
         requestCode: Int,
         autoTracking: Boolean,
-        notificationUid: String
+        notificationUid: String,
+        destination: CarouselCardAction? = null,
+        extras: Intent.() -> Unit = {},
+        flags: Int = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT
     ) =
         PendingIntent.getActivity(
             context,
             requestCode,
-            makeOpenedIntent(context, autoTracking, notificationUid),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_ONE_SHOT
+            makeOpenedIntent(context, autoTracking, notificationUid, destination, extras),
+            flags
         )
 
     /**
@@ -272,15 +405,37 @@ class KlaviyoNotification(private val message: RemoteMessage) {
      * user stays in the host app. The composer UI enforces a single action type at
      * creation, so this is only reachable via direct API calls or test tooling — we
      * warn so the misconfiguration is debuggable.
+     *
+     * @param destination Optional explicit tap destination that overrides the payload's own
+     *  `url`/`web_url`. Null (the default) preserves the standard-push behaviour above; a carousel
+     *  card passes its own action so a tap opens that card's link. [CarouselCardAction.OpenApp]
+     *  forces the plain-launch branch.
+     * @param extras Optional block applied to the returned intent, after the standard Klaviyo
+     *  extras, so a carousel card can stamp its position.
      */
-    private fun makeOpenedIntent(context: Context, autoTracking: Boolean, notificationUid: String): Intent? {
-        val deepLink = message.deepLink
-        val webUrl = message.webUrl
+    private fun makeOpenedIntent(
+        context: Context,
+        autoTracking: Boolean,
+        notificationUid: String,
+        destination: CarouselCardAction? = null,
+        extras: Intent.() -> Unit = {}
+    ): Intent? {
+        var deepLink: Uri? = null
+        var webUrl: String? = null
+        when (destination) {
+            null -> {
+                deepLink = message.deepLink
+                webUrl = message.webUrl
 
-        if (deepLink != null && webUrl != null) {
-            Registry.log.warning(
-                "Both url and web_url are present; url (deep link) takes precedence and web_url is ignored."
-            )
+                if (deepLink != null && webUrl != null) {
+                    Registry.log.warning(
+                        "Both url and web_url are present; url (deep link) takes precedence and web_url is ignored."
+                    )
+                }
+            }
+            is CarouselCardAction.DeepLink -> deepLink = destination.uri
+            is CarouselCardAction.OpenUrl -> webUrl = destination.uri.toString()
+            CarouselCardAction.OpenApp -> Unit // Plain launch: both destinations stay null.
         }
 
         if (deepLink != null) {
@@ -301,6 +456,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 putExtra(Constants.NOTIFICATION_UID_EXTRA, notificationUid)
                 appendKlaviyoExtras(message)
+                extras()
             }
         }
 
@@ -310,6 +466,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             return KlaviyoTrampolineActivity.forBrowserUrl(context, webUrl).apply {
                 putExtra(Constants.NOTIFICATION_UID_EXTRA, notificationUid)
                 appendKlaviyoExtras(message)
+                extras()
             }
         }
 
@@ -323,6 +480,7 @@ class KlaviyoNotification(private val message: RemoteMessage) {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra(Constants.NOTIFICATION_UID_EXTRA, notificationUid)
             appendKlaviyoExtras(message)
+            extras()
         }
     }
 

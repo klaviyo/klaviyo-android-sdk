@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Collapsed carousel notification: the notification title and body, one line each, with card 1's
+    image as a square thumbnail on the right. Fits the 48dp collapsed content limit: 20dp title,
+    8dp gap, 20dp body.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/klaviyo_carousel_collapsed_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textAppearance="@style/TextAppearance.Compat.Notification.Title" />
+
+        <TextView
+            android:id="@+id/klaviyo_carousel_collapsed_body"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/klaviyo_carousel_spacing"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textAppearance="@style/TextAppearance.Compat.Notification" />
+    </LinearLayout>
+
+    <!-- Rounded corners clip from API 31, as in the expanded image; square before that. -->
+    <ImageView
+        android:id="@+id/klaviyo_carousel_thumbnail"
+        android:layout_width="@dimen/klaviyo_carousel_thumbnail_size"
+        android:layout_height="@dimen/klaviyo_carousel_thumbnail_size"
+        android:layout_marginStart="@dimen/klaviyo_carousel_spacing"
+        android:scaleType="centerCrop"
+        android:background="@drawable/klaviyo_carousel_thumbnail_background"
+        android:clipToOutline="true"
+        android:contentDescription="@null"
+        tools:targetApi="s" />
+</LinearLayout>
