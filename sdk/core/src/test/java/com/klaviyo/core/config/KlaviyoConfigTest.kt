@@ -112,7 +112,7 @@ internal class KlaviyoConfigTest : BaseTest() {
 
         assertEquals(API_KEY, KlaviyoConfig.apiKey)
         assertEquals(100, KlaviyoConfig.debounceInterval)
-        assertEquals(10_000, KlaviyoConfig.networkTimeout)
+        assertEquals(30_000, KlaviyoConfig.networkTimeout)
         assertEquals(2_000, KlaviyoConfig.uxNetworkTimeout)
         assertEquals(
             10_000L,
@@ -148,7 +148,7 @@ internal class KlaviyoConfigTest : BaseTest() {
             .build()
 
         assertEquals(100, KlaviyoConfig.debounceInterval)
-        assertEquals(10_000, KlaviyoConfig.networkTimeout)
+        assertEquals(30_000, KlaviyoConfig.networkTimeout)
         assertEquals(2_000, KlaviyoConfig.uxNetworkTimeout)
         assertEquals(
             10_000L,

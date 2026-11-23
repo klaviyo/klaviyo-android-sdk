@@ -14,7 +14,8 @@ import java.io.Serializable
  */
 internal class ProfileApiRequest(
     queuedTime: Long? = null,
-    uuid: String? = null
+    uuid: String? = null,
+    savedQuery: Map<String, String>? = null
 ) : KlaviyoApiRequest(PATH, RequestMethod.POST, queuedTime, uuid) {
 
     companion object {
@@ -62,7 +63,7 @@ internal class ProfileApiRequest(
 
     override var type: String = "Identify Profile"
 
-    override var query: Map<String, String> = mapOf(
+    override var query: Map<String, String> = savedQuery ?: mapOf(
         COMPANY_ID to Registry.config.apiKey
     )
 
