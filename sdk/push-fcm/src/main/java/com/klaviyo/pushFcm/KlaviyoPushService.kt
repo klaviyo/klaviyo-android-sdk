@@ -82,7 +82,7 @@ open class KlaviyoPushService : FirebaseMessagingService() {
             }
             if (message.hasKlaviyoKeyValuePairs) {
                 onKlaviyoCustomDataMessageReceived(
-                    customData = message.keyValuePairs ?: emptyMap(),
+                    customData = message.keyValuePairs?.minus(Constants.FORMS_PREVIEW_KEY) ?: emptyMap(),
                     message = message
                 )
             }

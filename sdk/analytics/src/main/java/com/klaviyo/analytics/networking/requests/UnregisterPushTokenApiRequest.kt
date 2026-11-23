@@ -9,14 +9,11 @@ import com.klaviyo.core.Registry
  *
  * @constructor
  */
-internal class UnregisterPushTokenApiRequest : KlaviyoApiRequest {
-
-    constructor(queuedTime: Long? = null, uuid: String? = null) : super(
-        PATH,
-        RequestMethod.POST,
-        queuedTime,
-        uuid
-    )
+internal class UnregisterPushTokenApiRequest(
+    queuedTime: Long? = null,
+    uuid: String? = null,
+    savedQuery: Map<String, String>? = null
+) : KlaviyoApiRequest(PATH, RequestMethod.POST, queuedTime, uuid) {
 
     constructor(apiKey: String, token: String, profile: Profile) : this() {
         body = jsonMapOf(
@@ -49,7 +46,7 @@ internal class UnregisterPushTokenApiRequest : KlaviyoApiRequest {
     /**
      * HTTP request query params
      */
-    override var query: Map<String, String> = mapOf(
+    override var query: Map<String, String> = savedQuery ?: mapOf(
         COMPANY_ID to Registry.config.apiKey
     )
 
