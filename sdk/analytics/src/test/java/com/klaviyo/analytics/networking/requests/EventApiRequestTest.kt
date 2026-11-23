@@ -15,6 +15,7 @@ import io.mockk.unmockkStatic
 import java.util.UUID
 import org.json.JSONObject
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Before
@@ -53,9 +54,6 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
 
     @Test
     fun `Builds body request without properties`() {
-        // Note: Including $value and $event_id was an oversight when we first migrated to V3 APIs.
-        // Now we need to leave it in for backwards compatibility (the APIs may be updated in the
-        // future to filter out all reserved keys, but we'll leave it in the SDKs for now).
         val expectJson = """
             {
               "data": {
@@ -92,9 +90,7 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
                     "App Build": "Mock Version Code",
                     "App ID": "Mock App ID",
                     "App Name": "Mock Application Label",
-                    "Push Token": "$PUSH_TOKEN",
-                    "${EventKey.VALUE}": 12.34,
-                    "${EventKey.EVENT_ID}": "uuid"
+                    "Push Token": "$PUSH_TOKEN"
                   },
                   "time": "$ISO_TIME",
                   "value": 12.34,
@@ -150,8 +146,7 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
                     "App Build": "Mock Version Code",
                     "App ID": "Mock App ID",
                     "App Name": "Mock Application Label",
-                    "Push Token": "$PUSH_TOKEN",
-                    "${EventKey.VALUE}": 12.34,
+                    "Push Token": "$PUSH_TOKEN"
                   },
                   "time": "$ISO_TIME",
                   "value": 12.34,
@@ -211,9 +206,7 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
                     "App Build": "Mock Version Code",
                     "App ID": "Mock App ID",
                     "App Name": "Mock Application Label",
-                    "Push Token": "$PUSH_TOKEN",
-                    "${EventKey.VALUE}": 12.34,
-                    "${EventKey.EVENT_ID}": "uuid"
+                    "Push Token": "$PUSH_TOKEN"
                   },
                   "time": "$ISO_TIME",
                   "value": 12.34,
@@ -275,10 +268,7 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
                     "App Build": "Mock Version Code",
                     "App ID": "Mock App ID",
                     "App Name": "Mock Application Label",
-                    "Push Token": "$PUSH_TOKEN",
-                    "${EventKey.VALUE}": 12.34,
-                    "${EventKey.VALUE_CURRENCY}": "USD",
-                    "${EventKey.EVENT_ID}": "uuid"
+                    "Push Token": "$PUSH_TOKEN"
                   },
                   "time": "$ISO_TIME",
                   "value": 12.34,
@@ -302,6 +292,27 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
         assertNull(stubEvent.valueCurrency)
         assertFalse(attributes.has("value_currency"))
         assertFalse(attributes.getJSONObject("properties").has(EventKey.VALUE_CURRENCY.name))
+    }
+
+    @Test
+    fun `Sends reserved keys as top-level attributes only`() {
+        val event = stubEvent.copy().setValueCurrency("USD")
+        val attributes = JSONObject(EventApiRequest(event, stubProfile).requestBody!!)
+            .getJSONObject("data")
+            .getJSONObject("attributes")
+        val properties = attributes.getJSONObject("properties")
+
+        assertEquals(12.34, attributes.getDouble("value"), 0.0)
+        assertEquals("USD", attributes.getString("value_currency"))
+        assertEquals("uuid", attributes.getString("unique_id"))
+        assertFalse(properties.has(EventKey.VALUE.name))
+        assertFalse(properties.has(EventKey.VALUE_CURRENCY.name))
+        assertFalse(properties.has(EventKey.EVENT_ID.name))
+
+        // The caller's event still carries the reserved keys
+        assertEquals(12.34, event.value)
+        assertEquals("USD", event.valueCurrency)
+        assertEquals("uuid", event.uniqueId)
     }
 
     @Test
