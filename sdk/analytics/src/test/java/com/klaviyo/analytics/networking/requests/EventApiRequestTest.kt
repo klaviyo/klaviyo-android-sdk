@@ -15,6 +15,7 @@ import io.mockk.unmockkStatic
 import java.util.UUID
 import org.json.JSONObject
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Before
@@ -302,6 +303,50 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
         assertNull(stubEvent.valueCurrency)
         assertFalse(attributes.has("value_currency"))
         assertFalse(attributes.getJSONObject("properties").has(EventKey.VALUE_CURRENCY.name))
+    }
+
+    private fun metricAttributes(request: EventApiRequest): JSONObject =
+        JSONObject(request.requestBody!!)
+            .getJSONObject("data")
+            .getJSONObject("attributes")
+            .getJSONObject("metric")
+            .getJSONObject("data")
+            .getJSONObject("attributes")
+
+    @Test
+    fun `Omits the metric service for an ordinary event`() {
+        val attributes = metricAttributes(EventApiRequest(stubEvent, stubProfile))
+
+        assertEquals("Test Event", attributes.getString("name"))
+        assertFalse(attributes.has("service"))
+    }
+
+    @Test
+    fun `Sends the metric service when the metric is branded`() {
+        val brandedMetric = object : EventMetric.CUSTOM("Branded Metric") {
+            override val service = "klaviyo"
+        }
+
+        val attributes = metricAttributes(EventApiRequest(Event(brandedMetric), stubProfile))
+
+        assertEquals("Branded Metric", attributes.getString("name"))
+        assertEquals("klaviyo", attributes.getString("service"))
+    }
+
+    @Test
+    fun `Does not include the metric service among the event properties`() {
+        val brandedMetric = object : EventMetric.CUSTOM("Branded Metric") {
+            override val service = "klaviyo"
+        }
+
+        val properties = JSONObject(
+            EventApiRequest(Event(brandedMetric), stubProfile).requestBody!!
+        )
+            .getJSONObject("data")
+            .getJSONObject("attributes")
+            .getJSONObject("properties")
+
+        assertFalse(properties.has("service"))
     }
 
     @Test

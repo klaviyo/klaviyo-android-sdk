@@ -46,6 +46,17 @@ object KlaviyoInbox {
         callback: InboxUpdateCallback
     ) = deliver(callback::onResult) { it.updateMessageState(messageId, change) }
 
+    /**
+     * @see MobileInbox.trackMessageClick
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun trackMessageClick(
+        message: InboxMessage,
+        action: InboxAction? = null,
+        element: InboxClickElement? = null
+    ) = Klaviyo.mobileInbox.trackMessageClick(message, action, element)
+
     private fun <T> deliver(
         callback: (InboxResult<T>) -> Unit,
         call: suspend (MobileInbox) -> T

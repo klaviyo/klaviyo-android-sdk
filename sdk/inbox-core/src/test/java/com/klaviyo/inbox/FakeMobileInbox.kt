@@ -26,6 +26,16 @@ class FakeMobileInbox : MobileInbox {
         return failure?.let { throw it } ?: messageExists
     }
 
+    val clicks = mutableListOf<Triple<InboxMessage, InboxAction?, InboxClickElement?>>()
+
+    override fun trackMessageClick(
+        message: InboxMessage,
+        action: InboxAction?,
+        element: InboxClickElement?
+    ) {
+        clicks += Triple(message, action, element)
+    }
+
     fun register() = Registry.register<MobileInboxProvider>(
         object : MobileInboxProvider {
             override val mobileInbox = this@FakeMobileInbox

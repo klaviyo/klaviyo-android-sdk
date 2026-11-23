@@ -33,6 +33,26 @@ interface MobileInbox {
      *  change altered it. False when it doesn't, for example because retention removed it.
      */
     suspend fun updateMessageState(messageId: String, change: InboxStateChange): Boolean
+
+    /**
+     * Record that the user tapped [message], or one of its buttons, as a Clicked App Inbox
+     * Message event for the current profile. The event is queued and delivered with the SDK's
+     * usual retries, whether or not the message is still stored on this device.
+     *
+     * Clicking and message state are independent: this never marks the message read or archived,
+     * and a state change never records a click. The SDK does not open the destination. Navigation
+     * stays with the host.
+     *
+     * @param message The tapped message
+     * @param action The tapped button, or null for a tap on the message itself
+     * @param element Which part was tapped. Defaults to [InboxClickElement.BUTTON] when [action] is
+     *  given, otherwise [InboxClickElement.BODY].
+     */
+    fun trackMessageClick(
+        message: InboxMessage,
+        action: InboxAction? = null,
+        element: InboxClickElement? = null
+    )
 }
 
 /**

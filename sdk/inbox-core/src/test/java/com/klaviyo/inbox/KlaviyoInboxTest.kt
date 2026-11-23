@@ -69,6 +69,58 @@ class KlaviyoInboxTest : BaseTest() {
     }
 
     @Test
+    fun `trackMessageClick forwards the message, action and element`() {
+        val message = InboxMessage(
+            "tm-1", null, null, InboxDestination(InboxDestinationType.OPEN_APP, null), null, null,
+            emptyMap(), emptyList(), null, null, null, null, false, false, InboxMessageSource.CAPTURED
+        )
+        val action = InboxAction(
+            "a",
+            "Shop",
+            InboxDestination(InboxDestinationType.DEEP_LINK, "myapp://shop")
+        )
+
+        KlaviyoInbox.trackMessageClick(message, action, InboxClickElement.BUTTON)
+
+        assertEquals(listOf(Triple(message, action, InboxClickElement.BUTTON)), inbox.clicks)
+    }
+
+    @Test
+    fun `trackMessageClick without an action or element defaults both to null`() {
+        val message = InboxMessage(
+            "tm-1", null, null, InboxDestination(InboxDestinationType.OPEN_APP, null), null, null,
+            emptyMap(), emptyList(), null, null, null, null, false, false, InboxMessageSource.CAPTURED
+        )
+
+        KlaviyoInbox.trackMessageClick(message)
+
+        assertEquals(listOf(Triple(message, null, null)), inbox.clicks)
+    }
+
+    @Test
+    fun `trackMessageClick does not change message state`() {
+        val message = InboxMessage(
+            "tm-1", null, null, InboxDestination(InboxDestinationType.OPEN_APP, null), null, null,
+            emptyMap(), emptyList(), null, null, null, null, false, false, InboxMessageSource.CAPTURED
+        )
+
+        KlaviyoInbox.trackMessageClick(message)
+
+        assertEquals(emptyList<Pair<String, InboxStateChange>>(), inbox.stateChanges)
+    }
+
+    @Test
+    fun `the Java entry point throws when the inbox module is absent for a click`() {
+        inbox.unregister()
+        val message = InboxMessage(
+            "tm-1", null, null, InboxDestination(InboxDestinationType.OPEN_APP, null), null, null,
+            emptyMap(), emptyList(), null, null, null, null, false, false, InboxMessageSource.CAPTURED
+        )
+
+        assertThrows(MissingKlaviyoModule::class.java) { KlaviyoInbox.trackMessageClick(message) }
+    }
+
+    @Test
     fun `fetchPage without a query asks for the first page`() {
         KlaviyoInbox.fetchPage { }
 

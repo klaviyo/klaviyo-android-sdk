@@ -1,5 +1,6 @@
 package com.klaviyo.inbox
 
+import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
 
 /**
@@ -17,6 +18,16 @@ internal class KlaviyoMobileInboxProvider : MobileInboxProvider {
             messageId: String,
             change: InboxStateChange
         ): Boolean = repository.updateMessageState(messageId, change)
+
+        // Deliberately independent of the repository: a click is reported whether or not the
+        // message is still stored, and never touches local message state.
+        override fun trackMessageClick(
+            message: InboxMessage,
+            action: InboxAction?,
+            element: InboxClickElement?
+        ) {
+            buildInboxClickEvent(message, action, element)?.let { Klaviyo.createEvent(it) }
+        }
     }
 
     private val repository: InboxRepository get() = Registry.get()

@@ -34,6 +34,21 @@ public class MobileInboxJavaApiTest {
     }
 
     @Test
+    public void clickTrackingIsCallableWithOverloads() {
+        // Compiles only if the Java entry points expose the defaulted overloads
+        Runnable unused = () -> {
+            InboxMessage message = null;
+            InboxAction action = null;
+            KlaviyoInbox.trackMessageClick(message);
+            KlaviyoInbox.trackMessageClick(message, action);
+            KlaviyoInbox.trackMessageClick(message, action, InboxClickElement.BUTTON);
+        };
+        assertEquals("button", InboxClickElement.BUTTON.getRawValue());
+        assertEquals("body", InboxClickElement.BODY.getRawValue());
+        assertEquals("image", InboxClickElement.IMAGE.getRawValue());
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     public void resultsAreInspectableWithoutKotlin() {
         InboxResult<Integer> success = new InboxResult.Success<>(3);
