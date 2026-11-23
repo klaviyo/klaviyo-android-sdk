@@ -8,7 +8,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 internal class InboxClickEventTest : BaseTest() {
@@ -33,13 +32,8 @@ internal class InboxClickEventTest : BaseTest() {
     fun `the metric is branded under the klaviyo service`() {
         val event = buildInboxClickEvent(message, null, null)!!
 
-        assertEquals("\$clicked_app_inbox_message", event.metric.name)
+        assertEquals("Clicked App Inbox Message", event.metric.name)
         assertEquals("klaviyo", event.metric.service)
-    }
-
-    @Test
-    fun `the metric key is dollar-prefixed so it takes the priority queue path`() {
-        assertTrue(InboxClickMetric.name.startsWith("$"))
     }
 
     @Test

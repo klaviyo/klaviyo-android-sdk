@@ -54,7 +54,7 @@ internal class KlaviyoMobileInboxProviderTest : BaseTest() {
 
         KlaviyoMobileInboxProvider().mobileInbox.trackMessageClick(message)
 
-        assertEquals("\$clicked_app_inbox_message", captured.captured.metric.name)
+        assertEquals("Clicked App Inbox Message", captured.captured.metric.name)
         assertEquals("klaviyo", captured.captured.metric.service)
         confirmVerified(repository)
     }
