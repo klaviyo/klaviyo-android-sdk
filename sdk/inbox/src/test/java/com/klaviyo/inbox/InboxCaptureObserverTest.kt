@@ -58,6 +58,8 @@ internal class InboxCaptureObserverTest : BaseTest() {
 
         override suspend fun clearByCompanyId(companyId: String) = Unit
 
+        override suspend fun clearCurrentCompany(): Int = 0
+
         override suspend fun clearAll() = Unit
     }
 

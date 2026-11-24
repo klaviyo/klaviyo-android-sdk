@@ -27,11 +27,17 @@ internal class KlaviyoInboxRepository(
         }
     }
 
-    override suspend fun clearByCompanyId(companyId: String) = guarded(
-        "clear messages for a company",
-        Unit
-    ) {
-        dataSource.clearByCompanyId(companyId)
+    override suspend fun clearByCompanyId(companyId: String) {
+        guarded("clear messages for a company", Unit) {
+            dataSource.clearByCompanyId(companyId)
+        }
+    }
+
+    override suspend fun clearCurrentCompany(): Int {
+        val companyId = currentCompanyId() ?: return 0
+        return storeCall("clear the current company's messages") {
+            dataSource.clearByCompanyId(companyId)
+        }
     }
 
     override suspend fun clearAll() = guarded("clear all messages", Unit) {

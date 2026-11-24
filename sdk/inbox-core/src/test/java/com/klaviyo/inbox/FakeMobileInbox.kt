@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.flow
  */
 class FakeMobileInbox : MobileInbox {
     var unreadCount = 0
+    var clearedCount = 0
+    var clearAllCalls = 0
     var page = InboxPage(emptyList(), nextCursor = null)
     var failure: Exception? = null
     var messageExists = true
@@ -44,6 +46,11 @@ class FakeMobileInbox : MobileInbox {
     override suspend fun updateMessageState(messageId: String, change: InboxStateChange): Boolean {
         stateChanges += messageId to change
         return failure?.let { throw it } ?: messageExists
+    }
+
+    override suspend fun clearAll(): Int {
+        clearAllCalls++
+        return failure?.let { throw it } ?: clearedCount
     }
 
     fun register() = Registry.register<MobileInboxProvider>(

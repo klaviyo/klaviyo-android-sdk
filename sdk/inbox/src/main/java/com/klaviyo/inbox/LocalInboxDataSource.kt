@@ -51,7 +51,12 @@ internal interface LocalInboxDataSource {
         updatedAt: Long
     ): Boolean
 
-    suspend fun clearByCompanyId(companyId: String)
+    /**
+     * Remove every one of [companyId]'s messages and emit once when it removed any.
+     *
+     * @return How many messages were removed
+     */
+    suspend fun clearByCompanyId(companyId: String): Int
 
     suspend fun clearAll()
 }

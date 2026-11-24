@@ -82,6 +82,55 @@ class InboxProviderInstrumentedTest {
         assertEquals(0, Klaviyo.mobileInbox.fetchUnreadCount())
     }
 
+    @Test
+    fun clearAllRemovesOnlyTheCurrentCompanysMessagesAndReportsHowMany() = runBlocking {
+        seed()
+
+        assertEquals(3, Klaviyo.mobileInbox.clearAll())
+        assertTrue(
+            Klaviyo.mobileInbox
+                .fetchPage(InboxQuery(archiveFilter = InboxArchiveFilter.ALL))
+                .messages.isEmpty()
+        )
+
+        configure(OTHER_COMPANY)
+        assertEquals(
+            listOf("b3", "b2", "b1"),
+            Klaviyo.mobileInbox
+                .fetchPage(InboxQuery(archiveFilter = InboxArchiveFilter.ALL))
+                .messages.map { it.id }
+        )
+    }
+
+    @Test
+    fun clearAllWithNoMessagesForTheCurrentCompanyReportsZero() = runBlocking {
+        seed()
+        configure(EMPTY_COMPANY)
+
+        assertEquals(0, Klaviyo.mobileInbox.clearAll())
+        configure(COMPANY)
+        assertEquals(2, Klaviyo.mobileInbox.fetchUnreadCount())
+    }
+
+    @Test
+    fun clearAllIsZeroBeforeTheSdkIsInitialized() = runBlocking {
+        seed()
+        Registry.unregister<Config>()
+
+        assertEquals(0, Klaviyo.mobileInbox.clearAll())
+        configure(COMPANY)
+        assertEquals(2, Klaviyo.mobileInbox.fetchUnreadCount())
+    }
+
+    @Test
+    fun clearAllEmitsOneChangeWhenItRemovedMessagesAndNoneOtherwise() = runBlocking {
+        val source = dataSource
+        seed()
+
+        assertEquals(1, source.emissionsDuring { Klaviyo.mobileInbox.clearAll() })
+        assertEquals(0, source.emissionsDuring { Klaviyo.mobileInbox.clearAll() })
+    }
+
     private fun seedNumbered(count: Int) = runBlocking {
         (1..count).forEach {
             dataSource.insert(
@@ -174,9 +223,33 @@ class InboxProviderInstrumentedTest {
         assertEquals(2, success?.value)
     }
 
+    @Test
+    fun javaCallbackReceivesTheClearCountOnTheMainThread() {
+        seed()
+        val delivered = CountDownLatch(1)
+        var result: InboxResult<Int>? = null
+        var onMainThread = false
+
+        KlaviyoInbox.clearAll {
+            onMainThread = Looper.myLooper() == Looper.getMainLooper()
+            result = it
+            delivered.countDown()
+        }
+
+        assertTrue(
+            "callback was not called",
+            delivered.await(CALLBACK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        )
+        assertTrue("callback was not on the main thread", onMainThread)
+        val success = result as? InboxResult.Success<Int>
+        assertEquals(3, success?.value)
+        assertEquals(3, runBlocking { dataSource.countUnread(OTHER_COMPANY) })
+    }
+
     private companion object {
         const val COMPANY = "company"
         const val OTHER_COMPANY = "other-company"
+        const val EMPTY_COMPANY = "empty-company"
         const val LIMIT = 100
         const val CALLBACK_TIMEOUT_SECONDS = 5L
     }

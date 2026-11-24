@@ -113,6 +113,57 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
     }
 
     @Test
+    fun `clearing the current company deletes only its messages and returns the count`() =
+        runBlocking {
+            coEvery { dataSource.clearByCompanyId(any()) } returns 2
+
+            assertEquals(2, repository.clearCurrentCompany())
+            coVerify { dataSource.clearByCompanyId(API_KEY) }
+            coVerify(exactly = 0) { dataSource.clearAll() }
+        }
+
+    @Test
+    fun `clearing the current company with no messages returns zero`() = runBlocking {
+        coEvery { dataSource.clearByCompanyId(any()) } returns 0
+
+        assertEquals(0, repository.clearCurrentCompany())
+    }
+
+    @Test
+    fun `clearing the current company before the SDK is initialized reports zero without a delete`() =
+        runBlocking {
+            every { mockConfig.apiKey } throws MissingAPIKey()
+
+            assertEquals(0, repository.clearCurrentCompany())
+            coVerify(exactly = 0) { dataSource.clearByCompanyId(any()) }
+            verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+        }
+
+    @Test
+    fun `a failed clear of the current company is logged and reported as a storage failure`() {
+        val cause = IllegalStateException("disk full")
+        coEvery { dataSource.clearByCompanyId(any()) } throws cause
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.clearCurrentCompany() }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        assertSame(cause, error.cause)
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `cancellation is not reported as a failed clear of the current company`() {
+        coEvery { dataSource.clearByCompanyId(any()) } throws CancellationException("cancelled")
+
+        assertThrows(CancellationException::class.java) {
+            runBlocking { repository.clearCurrentCompany() }
+        }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
     fun `a state change is applied to the current company's message with the current time`() =
         runBlocking {
             coEvery { dataSource.updateState(any(), any(), any(), any()) } returns true

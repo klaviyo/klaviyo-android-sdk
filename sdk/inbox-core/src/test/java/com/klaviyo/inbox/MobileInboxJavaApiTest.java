@@ -28,6 +28,7 @@ public class MobileInboxJavaApiTest {
         InboxPageCallback page = result -> { };
         InboxCountCallback count = result -> { };
         InboxUpdateCallback update = result -> { };
+        InboxClearCallback clear = result -> { };
         InboxChangeListener listener = () -> { };
 
         // Compiles only if the Java entry points accept these types
@@ -36,6 +37,7 @@ public class MobileInboxJavaApiTest {
             KlaviyoInbox.fetchPage(new InboxQuery(), page);
             KlaviyoInbox.fetchUnreadCount(count);
             KlaviyoInbox.updateMessageState("tm-1", InboxStateChange.MARK_READ, update);
+            KlaviyoInbox.clearAll(clear);
             KlaviyoInbox.addChangeListener(listener);
             KlaviyoInbox.removeChangeListener(listener);
         };

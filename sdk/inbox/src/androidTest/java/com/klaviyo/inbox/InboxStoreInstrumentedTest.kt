@@ -10,7 +10,6 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -190,6 +189,19 @@ class InboxStoreInstrumentedTest {
 
         assertTrue(dao.transmissionIdsByCompanyId("A").isEmpty())
         assertEquals(listOf("b1"), dao.transmissionIdsByCompanyId("B"))
+    }
+
+    @Test
+    fun clearByCompanyIdReportsHowManyItRemoved() = runBlocking {
+        val source = openSource()
+        source.seed(
+            message("a1", companyId = "A"),
+            message("a2", companyId = "A"),
+            message("b1", companyId = "B")
+        )
+
+        assertEquals(2, source.clearByCompanyId("A"))
+        assertEquals(0, source.clearByCompanyId("A"))
     }
 
     @Test
@@ -449,21 +461,6 @@ class InboxStoreInstrumentedTest {
     private suspend fun RoomInboxDataSource.seed(vararg messages: InboxMessageEntity) =
         messages.forEach { insert(it, LIMIT) }
 
-    /**
-     * How many times [RoomInboxDataSource.changes] emitted while [block] ran
-     */
-    private suspend fun RoomInboxDataSource.emissionsDuring(block: suspend () -> Unit): Int =
-        coroutineScope {
-            var emissions = 0
-            val collector = launch(Dispatchers.Unconfined, CoroutineStart.UNDISPATCHED) {
-                changes.collect { emissions++ }
-            }
-            block()
-            delay(SETTLE_MS)
-            collector.cancel()
-            emissions
-        }
-
     @Test
     fun storingAPushEmitsOnceAndADuplicateDoesNot() = runBlocking {
         val source = openSource()
@@ -543,7 +540,7 @@ class InboxStoreInstrumentedTest {
 
         source.seed(message("a"), message("b"), message("c"))
         release.complete(Unit)
-        delay(SETTLE_MS)
+        delay(EMISSIONS_SETTLE_MS)
         collector.cancel()
 
         // The first is taken, the next two merge into one
@@ -809,7 +806,6 @@ class InboxStoreInstrumentedTest {
         const val COMPANY = "company"
         const val LIMIT = 100
         const val CONCURRENT_INSERTS = 20
-        const val SETTLE_MS = 100L
         const val EXPIRES_AT = 90_000L
         const val UPDATED_AT = 5_000L
         const val SENT_AT = 4_000L
