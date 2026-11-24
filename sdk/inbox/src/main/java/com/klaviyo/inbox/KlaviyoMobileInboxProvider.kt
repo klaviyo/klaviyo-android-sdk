@@ -28,6 +28,8 @@ internal class KlaviyoMobileInboxProvider : MobileInboxProvider {
             change: InboxStateChange,
             filter: InboxFilter
         ): Int = repository.updateMessageState(change, filter)
+
+        override suspend fun clearAll(): Int = repository.clearCurrentCompany()
     }
 
     private val repository: InboxRepository get() = Registry.get()

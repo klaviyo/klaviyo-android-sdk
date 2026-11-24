@@ -61,6 +61,16 @@ interface MobileInbox {
      *  counted. 0 before the SDK is initialized.
      */
     suspend fun updateMessageState(change: InboxStateChange, filter: InboxFilter): Int
+
+    /**
+     * Remove every message the current company has captured on this device, read and archived
+     * alike, and leave every other company's messages in place.
+     *
+     * @return How many messages were removed. Zero before the SDK is initialized, or when the
+     *  current company has none.
+     * @throws InboxException.StorageFailure when the on-device store fails
+     */
+    suspend fun clearAll(): Int
 }
 
 /**

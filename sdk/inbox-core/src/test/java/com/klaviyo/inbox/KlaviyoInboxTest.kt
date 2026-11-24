@@ -7,6 +7,7 @@ import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -187,6 +188,52 @@ class KlaviyoInboxTest : BaseTest() {
         assertThrows(MissingKlaviyoModule::class.java) {
             KlaviyoInbox.updateMessageState("tm-1", InboxStateChange.MARK_READ) { }
         }
+    }
+
+    @Test
+    fun `clearAll removes the current company's messages and reports how many`() {
+        inbox.clearedCount = 2
+        var result: InboxResult<Int>? = null
+
+        KlaviyoInbox.clearAll { result = it }
+
+        assertEquals(2, assertIs<InboxResult.Success<Int>>(result).value)
+        assertEquals(1, inbox.clearAllCalls)
+    }
+
+    @Test
+    fun `the Kotlin entry point clears through the registered inbox`() = runBlocking {
+        inbox.clearedCount = 3
+
+        assertEquals(3, Klaviyo.mobileInbox.clearAll())
+        assertEquals(1, inbox.clearAllCalls)
+    }
+
+    @Test
+    fun `clearAll reports nothing removed`() {
+        var result: InboxResult<Int>? = null
+
+        KlaviyoInbox.clearAll { result = it }
+
+        assertEquals(0, assertIs<InboxResult.Success<Int>>(result).value)
+    }
+
+    @Test
+    fun `a failed clearAll reaches the callback as a failure`() {
+        val failure = InboxException.StorageFailure("store failed")
+        inbox.failure = failure
+        var result: InboxResult<Int>? = null
+
+        KlaviyoInbox.clearAll { result = it }
+
+        assertSame(failure, assertIs<InboxResult.Failure>(result).exception)
+    }
+
+    @Test
+    fun `the Java entry point for clearAll throws when the inbox module is absent`() {
+        inbox.unregister()
+
+        assertThrows(MissingKlaviyoModule::class.java) { KlaviyoInbox.clearAll { } }
     }
 
     @Test

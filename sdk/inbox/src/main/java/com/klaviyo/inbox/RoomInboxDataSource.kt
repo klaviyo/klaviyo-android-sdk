@@ -112,8 +112,10 @@ internal class RoomInboxDataSource(
             .also { if (it > 0) changeSignal.tryEmit(Unit) }
     }
 
-    override suspend fun clearByCompanyId(companyId: String) {
-        if (dao().deleteByCompanyId(companyId) > 0) changeSignal.tryEmit(Unit)
+    override suspend fun clearByCompanyId(companyId: String): Int {
+        val removed = dao().deleteByCompanyId(companyId)
+        if (removed > 0) changeSignal.tryEmit(Unit)
+        return removed
     }
 
     override suspend fun clearAll() {
