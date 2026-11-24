@@ -47,6 +47,7 @@ public class MobileInboxJavaApiTest {
             KlaviyoInbox.fetchPage(new InboxQuery(), page);
             KlaviyoInbox.fetchUnreadCount(count);
             KlaviyoInbox.updateMessageState("tm-1", InboxStateChange.MARK_READ, update);
+            KlaviyoInbox.updateMessageState(InboxStateChange.MARK_READ, InboxFilter.ALL_MESSAGES, count);
             KlaviyoInbox.addChangeListener(listener);
             KlaviyoInbox.removeChangeListener(listener);
         };
