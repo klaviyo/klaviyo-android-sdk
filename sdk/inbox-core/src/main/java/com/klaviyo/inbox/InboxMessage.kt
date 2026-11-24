@@ -106,7 +106,8 @@ constructor(
  * @property mediaUrl The host downloads and caches the media. Only the URL is stored.
  * @property sentAt Server send time in epoch milliseconds, from the push's `_k.timestamp`. Always
  *  present: a push without a valid timestamp is not added to the inbox.
- * @property receivedAt When this device captured the push, in epoch milliseconds
+ * @property receivedAt When this device first stored the message, in epoch milliseconds. Set once
+ *  and never changed by a later read or archive.
  * @property badge The push's app-icon badge count. The inbox's own unread count is
  *  [MobileInbox.fetchUnreadCount].
  */
@@ -122,7 +123,7 @@ constructor(
     val customData: Map<String, String>,
     val actions: List<InboxAction>,
     val sentAt: Long,
-    val receivedAt: Long?,
+    val receivedAt: Long,
     val collapseId: String?,
     val badge: Int?,
     val isRead: Boolean,
