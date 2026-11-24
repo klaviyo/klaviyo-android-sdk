@@ -48,6 +48,21 @@ interface MobileInbox {
     suspend fun updateMessageState(messageId: String, change: InboxStateChange): Boolean
 
     /**
+     * Apply [change] to every one of the current company's messages that matches [filter], for
+     * example to mark every unread message as read. A message already in the state [change] asks
+     * for is left as it is, so repeating the call changes nothing and returns 0.
+     *
+     * [InboxStateChange.UNARCHIVE] only matches archived messages, so a [filter] that leaves them
+     * out, such as one with [InboxArchiveFilter.ACTIVE], matches nothing and returns 0. To unarchive,
+     * ask for archived messages with `InboxFilter.where(InboxReadFilter.ALL, InboxArchiveFilter.ARCHIVED)`
+     * or [InboxFilter.ALL_MESSAGES].
+     *
+     * @return How many messages the call changed. Messages already in the requested state are not
+     *  counted. 0 before the SDK is initialized.
+     */
+    suspend fun updateMessageState(change: InboxStateChange, filter: InboxFilter): Int
+
+    /**
      * Remove every message the current company has captured on this device, read and archived
      * alike, and leave every other company's messages in place.
      *

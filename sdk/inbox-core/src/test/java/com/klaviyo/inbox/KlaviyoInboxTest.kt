@@ -125,6 +125,52 @@ class KlaviyoInboxTest : BaseTest() {
     }
 
     @Test
+    fun `bulk updateMessageState delivers the changed count for the filter`() {
+        inbox.bulkChangedCount = 3
+        var result: InboxResult<Int>? = null
+        val filter = InboxFilter.where(InboxReadFilter.UNREAD, InboxArchiveFilter.ACTIVE)
+
+        KlaviyoInbox.updateMessageState(InboxStateChange.MARK_READ, filter) { result = it }
+
+        assertEquals(3, assertIs<InboxResult.Success<Int>>(result).value)
+        assertEquals(listOf(InboxStateChange.MARK_READ to filter), inbox.bulkStateChanges)
+    }
+
+    @Test
+    fun `a failed bulk state update reaches the callback as a failure`() {
+        val failure = InboxException.StorageFailure("store failed")
+        inbox.failure = failure
+        var result: InboxResult<Int>? = null
+
+        KlaviyoInbox.updateMessageState(InboxStateChange.ARCHIVE, InboxFilter.ALL_MESSAGES) {
+            result = it
+        }
+
+        assertSame(failure, assertIs<InboxResult.Failure>(result).exception)
+    }
+
+    @Test
+    fun `an unexpected bulk update failure is wrapped as a storage failure`() {
+        inbox.failure = IllegalStateException("boom")
+        var result: InboxResult<Int>? = null
+
+        KlaviyoInbox.updateMessageState(InboxStateChange.ARCHIVE, InboxFilter.ALL_MESSAGES) {
+            result = it
+        }
+
+        assertIs<InboxException.StorageFailure>(assertIs<InboxResult.Failure>(result).exception)
+    }
+
+    @Test
+    fun `bulk updateMessageState throws when the inbox module is absent`() {
+        inbox.unregister()
+
+        assertThrows(MissingKlaviyoModule::class.java) {
+            KlaviyoInbox.updateMessageState(InboxStateChange.MARK_READ, InboxFilter.ALL_MESSAGES) { }
+        }
+    }
+
+    @Test
     fun `a failed state update reaches the callback as a failure`() {
         val failure = InboxException.StorageFailure("store failed")
         inbox.failure = failure

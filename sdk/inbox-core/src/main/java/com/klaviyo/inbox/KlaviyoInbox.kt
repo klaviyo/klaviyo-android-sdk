@@ -66,6 +66,18 @@ object KlaviyoInbox {
     ) = deliver(callback::onResult) { it.updateMessageState(messageId, change) }
 
     /**
+     * Delivers how many messages changed.
+     *
+     * @see MobileInbox.updateMessageState
+     */
+    @JvmStatic
+    fun updateMessageState(
+        change: InboxStateChange,
+        filter: InboxFilter,
+        callback: InboxCountCallback
+    ) = deliver(callback::onResult) { it.updateMessageState(change, filter) }
+
+    /**
      * @see MobileInbox.clearAll
      */
     @JvmStatic

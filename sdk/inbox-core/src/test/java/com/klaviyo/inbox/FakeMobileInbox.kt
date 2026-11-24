@@ -20,6 +20,8 @@ class FakeMobileInbox : MobileInbox {
     var messageExists = true
     val queries = mutableListOf<InboxQuery>()
     val stateChanges = mutableListOf<Pair<String, InboxStateChange>>()
+    var bulkChangedCount = 0
+    val bulkStateChanges = mutableListOf<Pair<InboxStateChange, InboxFilter>>()
     private val changeSignal = MutableSharedFlow<Unit>(
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -46,6 +48,11 @@ class FakeMobileInbox : MobileInbox {
     override suspend fun updateMessageState(messageId: String, change: InboxStateChange): Boolean {
         stateChanges += messageId to change
         return failure?.let { throw it } ?: messageExists
+    }
+
+    override suspend fun updateMessageState(change: InboxStateChange, filter: InboxFilter): Int {
+        bulkStateChanges += change to filter
+        return failure?.let { throw it } ?: bulkChangedCount
     }
 
     override suspend fun clearAll(): Int {
