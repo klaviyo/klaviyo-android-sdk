@@ -14,8 +14,8 @@ import androidx.room.PrimaryKey
  * @property transmissionId The push's `tm`
  * @property companyId The company that sent the push, from `_k.c`
  * @property receivedAt When this device captured the push, in epoch milliseconds
- * @property sentAt Server send time from `_k.timestamp`, in epoch milliseconds. Falls back to
- *  [receivedAt] when the push carried no valid timestamp, so it is also the sort key.
+ * @property sentAt Server send time from `_k.timestamp`, in epoch milliseconds. Always present:
+ *  a push without a valid timestamp is not captured. It is the sort key.
  * @property badge The push's app-icon badge count, when the payload sets one
  * @property attributionJson The full `_k` tracking object with the device push token removed
  * @property expiresAt When the server expires the message, in epoch milliseconds. Null when the
