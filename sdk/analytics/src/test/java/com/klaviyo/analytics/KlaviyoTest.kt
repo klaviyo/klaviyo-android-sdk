@@ -19,6 +19,8 @@ import com.klaviyo.analytics.state.KlaviyoState
 import com.klaviyo.analytics.state.ProfileEventObserver
 import com.klaviyo.analytics.state.State
 import com.klaviyo.analytics.state.StateChange
+import com.klaviyo.analytics.state.StateChangeObserver
+import com.klaviyo.analytics.state.StateChangeObservers
 import com.klaviyo.analytics.state.StateSideEffects
 import com.klaviyo.core.Constants
 import com.klaviyo.core.DeviceProperties
@@ -181,6 +183,7 @@ internal class KlaviyoTest : BaseTest() {
         Registry.unregister<DeepLinkHandler>()
         Registry.unregister<Config>()
         Registry.unregister<State>()
+        Registry.unregister<StateChangeObservers>()
         Registry.unregister<StateSideEffects>()
         Registry.unregister<ApiClient>()
         Registry.unregister<PushTokenFetcher>()
@@ -537,6 +540,29 @@ internal class KlaviyoTest : BaseTest() {
 
         // Resetting profile flushes the queue immediately
         verify(exactly = 1) { mockApiClient.enqueueProfile(any()) }
+    }
+
+    @Test
+    fun `a throwing module observer does not prevent another from seeing the explicit reset`() {
+        Klaviyo.setEmail(EMAIL)
+        val throwingObserver: StateChangeObserver = { throw IllegalStateException("observer failed") }
+        val changes = mutableListOf<StateChange>()
+        val recordingObserver: StateChangeObserver = { changes += it }
+
+        Registry.register<StateChangeObservers>(
+            StateChangeObservers().apply {
+                add(throwingObserver)
+                add(recordingObserver)
+            }
+        )
+
+        Klaviyo.resetProfile()
+
+        val reset = changes.filterIsInstance<StateChange.ProfileReset>().single()
+        assertTrue(reset.explicit)
+        assertEquals(EMAIL, reset.oldValue.email)
+        assertNull(Registry.get<State>().email)
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
     }
 
     @Test
