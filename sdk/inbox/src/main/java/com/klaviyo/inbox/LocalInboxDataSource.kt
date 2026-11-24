@@ -84,9 +84,9 @@ internal enum class InboxInsertResult {
 }
 
 /**
- * Where a page starts: just after the message with this sort time and ID
+ * Where a page starts: just after the message with this send time and ID
  */
-internal data class InboxRecordPosition(val sortTime: Long, val transmissionId: String)
+internal data class InboxRecordPosition(val sentAt: Long, val transmissionId: String)
 
 /**
  * @property after Null for the first page

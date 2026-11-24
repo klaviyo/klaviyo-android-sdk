@@ -51,7 +51,7 @@ internal object InboxPushNormalizer {
             mediaType = data[IMAGE_TYPE_KEY]?.takeIf { it.isNotBlank() },
             customData = keyValuePairs.orEmpty(),
             actions = actionButtons.orEmpty().map { it.toRecordAction() },
-            sentAt = Registry.clock.parseRfc3339(tracking.optNonBlankString(TIMESTAMP_KEY)),
+            sentAt = Registry.clock.parseRfc3339(tracking.optNonBlankString(TIMESTAMP_KEY)) ?: receivedAt,
             collapseId = notificationTag,
             badge = data[BADGE_KEY]?.trim()?.toIntOrNull(),
             receivedAt = receivedAt,

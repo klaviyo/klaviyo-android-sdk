@@ -74,7 +74,7 @@ internal class RoomInboxDataSource(
         // One extra row tells whether another page follows
         val rows = dao().pageNewestFirst(
             companyId,
-            query.after?.sortTime,
+            query.after?.sentAt,
             query.after?.transmissionId,
             query.isRead,
             query.isArchived,

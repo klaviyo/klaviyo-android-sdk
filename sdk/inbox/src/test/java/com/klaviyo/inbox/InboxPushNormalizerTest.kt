@@ -80,19 +80,17 @@ internal class InboxPushNormalizerTest : BaseTest() {
             collapseId = "sale-tag",
             badge = 3,
             receivedAt = receivedAt,
-            attributionJson = null,
-            sortTime = SENT_AT_MILLIS
+            attributionJson = null
         )
 
         assertEquals(expected, normalize()?.copy(attributionJson = null))
     }
 
     @Test
-    fun `a push without a send time sorts by its receive time`() {
+    fun `a push without a send time uses its receive time as the send time`() {
         val entity = normalize(canonicalWith("_k" to tracking("timestamp" to null)))
 
-        assertNull(entity?.sentAt)
-        assertEquals(receivedAt, entity?.sortTime)
+        assertEquals(receivedAt, entity?.sentAt)
     }
 
     @Test
@@ -226,13 +224,17 @@ internal class InboxPushNormalizerTest : BaseTest() {
     }
 
     @Test
-    fun `an unparseable timestamp leaves the send time empty`() {
-        assertNull(normalize(canonicalWith("_k" to tracking("timestamp" to "yesterday")))?.sentAt)
+    fun `an unparseable timestamp falls back to the receive time`() {
+        val entity = normalize(canonicalWith("_k" to tracking("timestamp" to "yesterday")))
+
+        assertEquals(receivedAt, entity?.sentAt)
     }
 
     @Test
-    fun `a missing timestamp leaves the send time empty`() {
-        assertNull(normalize(canonicalWith("_k" to tracking("timestamp" to null)))?.sentAt)
+    fun `a missing timestamp falls back to the receive time`() {
+        val entity = normalize(canonicalWith("_k" to tracking("timestamp" to null)))
+
+        assertEquals(receivedAt, entity?.sentAt)
     }
 
     @Test
