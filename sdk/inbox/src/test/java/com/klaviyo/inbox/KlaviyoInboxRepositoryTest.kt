@@ -324,7 +324,7 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
 
     @Test
     fun `a page maps rows to public messages and a cursor when more follow`() = runBlocking {
-        val second = message.copy(transmissionId = "tm-2", sortTime = TIME - 1)
+        val second = message.copy(transmissionId = "tm-2", sentAt = TIME - 1)
         coEvery { dataSource.fetchPage(any(), any()) } returns
             InboxRecordPage(listOf(message, second), hasMore = true)
 
@@ -333,7 +333,7 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
         assertEquals(listOf("tm-1", "tm-2"), page.messages.map { it.id })
         assertEquals(InboxMessageSource.CAPTURED, page.messages.first().source)
         assertEquals(
-            InboxRecordPosition(second.sortTime, "tm-2"),
+            InboxRecordPosition(second.sentAt, "tm-2"),
             InboxCursorCodec.decode(InboxQuery(cursor = page.nextCursor), API_KEY)
         )
     }
@@ -358,7 +358,7 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
                 API_KEY,
                 InboxRecordQuery(
                     5,
-                    InboxRecordPosition(message.sortTime, "tm-1"),
+                    InboxRecordPosition(message.sentAt, "tm-1"),
                     isRead = null,
                     isArchived = false
                 )
@@ -399,7 +399,7 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
         val page = runBlocking { repository.fetchPage(query) }
 
         assertEquals(
-            InboxRecordPosition(message.sortTime, "tm-1"),
+            InboxRecordPosition(message.sentAt, "tm-1"),
             InboxCursorCodec.decode(
                 InboxQuery(cursor = page.nextCursor, readFilter = InboxReadFilter.UNREAD),
                 API_KEY

@@ -135,7 +135,7 @@ class InboxProviderInstrumentedTest {
     private fun seedNumbered(count: Int) = runBlocking {
         (1..count).forEach {
             dataSource.insert(
-                message("m$it", COMPANY).copy(sentAt = it * 100L, sortTime = it * 100L),
+                message("m$it", COMPANY).copy(sentAt = it * 100L),
                 LIMIT
             )
         }

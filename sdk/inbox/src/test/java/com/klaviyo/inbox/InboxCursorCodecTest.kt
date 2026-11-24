@@ -46,8 +46,8 @@ internal class InboxCursorCodecTest : BaseTest() {
     }
 
     @Test
-    fun `a cursor uses the sort time, which falls back to the received time`() {
-        val unsent = last.copy(sentAt = null, sortTime = last.receivedAt)
+    fun `a cursor uses the send time, which equals the received time for a push without one`() {
+        val unsent = last.copy(sentAt = last.receivedAt)
 
         assertEquals(
             InboxRecordPosition(6_000L, "tm-9"),

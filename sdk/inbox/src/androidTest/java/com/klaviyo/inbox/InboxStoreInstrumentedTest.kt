@@ -61,8 +61,8 @@ class InboxStoreInstrumentedTest {
     private fun message(
         transmissionId: String,
         companyId: String = COMPANY,
-        sentAt: Long? = null,
-        receivedAt: Long = 1_000L
+        receivedAt: Long = 1_000L,
+        sentAt: Long = receivedAt
     ) = inboxMessageEntity(
         transmissionId = transmissionId,
         companyId = companyId,
@@ -135,20 +135,20 @@ class InboxStoreInstrumentedTest {
     }
 
     @Test
-    fun retentionKeepsTheNewestBySortTime() = runBlocking {
+    fun retentionKeepsTheNewestBySentAt() = runBlocking {
         val dao = dao
-        // Inserted out of order; sort time is sentAt, falling back to receivedAt
+        // Inserted out of order; a push with no send time is stored with sentAt = receivedAt
         dao.insertAndTrim(message("old", sentAt = 100L), 3)
         dao.insertAndTrim(message("new", sentAt = 500L), 3)
         dao.insertAndTrim(message("mid", sentAt = 300L), 3)
-        dao.insertAndTrim(message("unsent", sentAt = null, receivedAt = 400L), 3)
+        dao.insertAndTrim(message("unsent", receivedAt = 400L), 3)
         dao.insertAndTrim(message("newest", sentAt = 600L), 3)
 
         assertEquals(listOf("newest", "new", "unsent"), dao.transmissionIdsByCompanyId(COMPANY))
     }
 
     @Test
-    fun retentionBreaksSortTimeTiesByID() = runBlocking {
+    fun retentionBreaksSentAtTiesByID() = runBlocking {
         val dao = dao
         dao.insertAndTrim(message("a", sentAt = 100L), 2)
         dao.insertAndTrim(message("b", sentAt = 100L), 2)
@@ -763,11 +763,11 @@ class InboxStoreInstrumentedTest {
         .messages.map { it.transmissionId }
 
     @Test
-    fun pagesRunNewestFirstBySortTime() = runBlocking {
+    fun pagesRunNewestFirstBySentAt() = runBlocking {
         val source = openSource()
         source.seed(
             message("old", sentAt = 100L),
-            message("unsent", sentAt = null, receivedAt = 400L),
+            message("unsent", receivedAt = 400L),
             message("new", sentAt = 500L),
             message("mid", sentAt = 300L)
         )
@@ -810,7 +810,7 @@ class InboxStoreInstrumentedTest {
     }
 
     @Test
-    fun messagesSharingASortTimeAreOrderedAndPagedByID() = runBlocking {
+    fun messagesSharingASentAtAreOrderedAndPagedByID() = runBlocking {
         val source = openSource()
         source.seed(
             message("a", sentAt = 100L),
@@ -998,7 +998,7 @@ class InboxStoreInstrumentedTest {
         )
     }
 
-    private fun InboxMessageEntity.position() = InboxRecordPosition(sortTime, transmissionId)
+    private fun InboxMessageEntity.position() = InboxRecordPosition(sentAt, transmissionId)
 
     @Test
     fun exportedVersionOneSchemaMatchesTheEntity() {

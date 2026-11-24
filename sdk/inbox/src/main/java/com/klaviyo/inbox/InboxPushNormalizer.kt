@@ -32,7 +32,8 @@ internal object InboxPushNormalizer {
 
     /**
      * @return The entity, or null when the message isn't a Klaviyo notification or its tracking
-     *  data has no `tm` to use as the message ID or no `c` to use as the company ID
+     *  data has no `tm` to use as the message ID, no `c` to use as the company ID, or no valid `timestamp`
+     *  to sort by
      */
     fun RemoteMessage.toInboxMessageEntity(receivedAt: Long): InboxMessageEntity? {
         if (!isKlaviyoNotification) return null
@@ -40,6 +41,13 @@ internal object InboxPushNormalizer {
         val tracking = parseTracking(data[Constants.TRACKING_PARAMETER])
         val transmissionId = tracking?.optNonBlankString(TRANSMISSION_ID_KEY) ?: return null
         val companyId = tracking.optNonBlankString(COMPANY_ID_KEY) ?: return null
+        val sentAt = Registry.clock.parseRfc3339(tracking.optNonBlankString(TIMESTAMP_KEY))
+        if (sentAt == null) {
+            Registry.log.warning(
+                "Skipping inbox capture of push $transmissionId: missing or invalid timestamp"
+            )
+            return null
+        }
 
         return InboxMessageEntity(
             transmissionId = transmissionId,
@@ -51,7 +59,7 @@ internal object InboxPushNormalizer {
             mediaType = data[IMAGE_TYPE_KEY]?.takeIf { it.isNotBlank() },
             customData = keyValuePairs.orEmpty(),
             actions = actionButtons.orEmpty().map { it.toRecordAction() },
-            sentAt = Registry.clock.parseRfc3339(tracking.optNonBlankString(TIMESTAMP_KEY)),
+            sentAt = sentAt,
             collapseId = notificationTag,
             badge = data[BADGE_KEY]?.trim()?.toIntOrNull(),
             receivedAt = receivedAt,
