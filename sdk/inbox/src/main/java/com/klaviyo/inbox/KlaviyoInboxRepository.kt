@@ -90,6 +90,19 @@ internal class KlaviyoInboxRepository(
         }
     }
 
+    override suspend fun updateMessageState(change: InboxStateChange, filter: InboxFilter): Int {
+        val companyId = currentCompanyId() ?: return 0
+        return storeCall("update the state of matching messages") {
+            dataSource.updateStateWhere(
+                companyId,
+                change,
+                isRead = filter.readFilter.toState(),
+                isArchived = filter.archiveFilter.toState(),
+                updatedAt = Registry.clock.currentTimeMillis()
+            )
+        }
+    }
+
     /**
      * Runs a store call, logging a failure with its cause and reporting it as [InboxException].
      * Cancellation passes through.

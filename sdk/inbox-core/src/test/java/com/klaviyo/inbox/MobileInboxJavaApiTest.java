@@ -24,6 +24,17 @@ public class MobileInboxJavaApiTest {
     }
 
     @Test
+    public void filterIsBuiltWithFactoryAndConstant() {
+        InboxFilter unreadActive = InboxFilter.where(InboxReadFilter.UNREAD, InboxArchiveFilter.ACTIVE);
+        assertEquals(InboxReadFilter.UNREAD, unreadActive.getReadFilter());
+        assertEquals(InboxArchiveFilter.ACTIVE, unreadActive.getArchiveFilter());
+        assertEquals(unreadActive, InboxFilter.where(InboxReadFilter.UNREAD, InboxArchiveFilter.ACTIVE));
+
+        assertEquals(InboxReadFilter.ALL, InboxFilter.ALL_MESSAGES.getReadFilter());
+        assertEquals(InboxArchiveFilter.ALL, InboxFilter.ALL_MESSAGES.getArchiveFilter());
+    }
+
+    @Test
     public void callbacksAreLambdaCompatible() {
         InboxPageCallback page = result -> { };
         InboxCountCallback count = result -> { };
@@ -36,6 +47,7 @@ public class MobileInboxJavaApiTest {
             KlaviyoInbox.fetchPage(new InboxQuery(), page);
             KlaviyoInbox.fetchUnreadCount(count);
             KlaviyoInbox.updateMessageState("tm-1", InboxStateChange.MARK_READ, update);
+            KlaviyoInbox.updateMessageState(InboxStateChange.MARK_READ, InboxFilter.ALL_MESSAGES, count);
             KlaviyoInbox.addChangeListener(listener);
             KlaviyoInbox.removeChangeListener(listener);
         };
