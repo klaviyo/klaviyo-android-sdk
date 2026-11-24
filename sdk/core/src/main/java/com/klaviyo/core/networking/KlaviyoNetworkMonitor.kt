@@ -128,20 +128,27 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     /**
      * Check what type of network connection is currently servicing the device
      *
+     * Classification is based on whether the network is metered, not only its transport:
+     * - No network, or one lacking [NetworkCapabilities.NET_CAPABILITY_INTERNET], maps to
+     *   [NetworkMonitor.NetworkType.Offline], regardless of transport or metering
+     * - Cellular transport, or any network lacking [NetworkCapabilities.NET_CAPABILITY_NOT_METERED]
+     *   (e.g. a Wi-Fi hotspot or a user-flagged metered Wi-Fi) maps to [NetworkMonitor.NetworkType.Cell]
+     * - Any other unmetered network (Wi-Fi, ethernet, VPN over an unmetered network) maps to
+     *   [NetworkMonitor.NetworkType.Wifi], i.e. the unmetered cadence
+     *
      * @return The current network type
      */
     override fun getNetworkType(): NetworkMonitor.NetworkType =
         networkTypeOf(activeNetworkCapabilities())
 
     private fun networkTypeOf(net: NetworkCapabilities?): NetworkMonitor.NetworkType {
-        return if (net?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
-            NetworkMonitor.NetworkType.Wifi
-        } else if (net?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true ||
-            net?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-        ) {
-            NetworkMonitor.NetworkType.Cell
-        } else {
-            NetworkMonitor.NetworkType.Offline
+        return when {
+            net == null || !net.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ->
+                NetworkMonitor.NetworkType.Offline
+            net.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                !net.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) ->
+                NetworkMonitor.NetworkType.Cell
+            else -> NetworkMonitor.NetworkType.Wifi
         }
     }
 

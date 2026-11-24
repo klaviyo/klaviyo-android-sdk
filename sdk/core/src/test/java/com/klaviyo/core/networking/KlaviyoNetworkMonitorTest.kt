@@ -48,6 +48,7 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns capabilitiesMock
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns true
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) } returns true
         every { capabilitiesMock.hasTransport(any()) } returns false
 
         mockkConstructor(NetworkRequest.Builder::class)
@@ -96,22 +97,76 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         assert(KlaviyoNetworkMonitor.isNetworkConnected())
     }
 
-    @Test
-    fun `Maps transport capabilities to network types correctly`() {
-        // No network capabilities = offline
-        every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns null
-        every { capabilitiesMock.hasTransport(any()) } returns false
-        assertEquals(NetworkMonitor.NetworkType.Offline, KlaviyoNetworkMonitor.getNetworkType())
-
-        // We'll treat internet without a particular transport method as cell
+    private fun mockNetwork(
+        cellular: Boolean = false,
+        wifi: Boolean = false,
+        ethernet: Boolean = false,
+        vpn: Boolean = false,
+        internet: Boolean = true,
+        notMetered: Boolean = true
+    ) {
         every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns capabilitiesMock
-        assertEquals(NetworkMonitor.NetworkType.Cell, KlaviyoNetworkMonitor.getNetworkType())
+        every { capabilitiesMock.hasTransport(any()) } returns false
+        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) } returns cellular
+        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) } returns wifi
+        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) } returns ethernet
+        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_VPN) } returns vpn
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns internet
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) } returns notMetered
+    }
 
-        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) } returns true
-        assertEquals(NetworkMonitor.NetworkType.Cell, KlaviyoNetworkMonitor.getNetworkType())
+    @Test
+    fun `No network capabilities maps to offline`() {
+        every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns null
+        assertEquals(NetworkMonitor.NetworkType.Offline, KlaviyoNetworkMonitor.getNetworkType())
+    }
 
-        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) } returns true
-        assertEquals(NetworkMonitor.NetworkType.Wifi, KlaviyoNetworkMonitor.getNetworkType())
+    @Test
+    fun `Maps network capabilities to network types correctly`() {
+        data class Case(
+            val name: String,
+            val expected: NetworkMonitor.NetworkType,
+            val cellular: Boolean = false,
+            val wifi: Boolean = false,
+            val ethernet: Boolean = false,
+            val vpn: Boolean = false,
+            val internet: Boolean = true,
+            val notMetered: Boolean = true
+        )
+
+        val wifiType = NetworkMonitor.NetworkType.Wifi
+        val cellType = NetworkMonitor.NetworkType.Cell
+        val offType = NetworkMonitor.NetworkType.Offline
+
+        listOf(
+            Case("unmetered wifi", wifiType, wifi = true),
+            Case("metered wifi (hotspot)", cellType, wifi = true, notMetered = false),
+            Case("cellular", cellType, cellular = true, notMetered = false),
+            Case("cellular flagged unmetered", cellType, cellular = true),
+            Case("ethernet", wifiType, ethernet = true),
+            Case("vpn over unmetered", wifiType, vpn = true),
+            Case("vpn over metered", cellType, vpn = true, notMetered = false),
+            Case("unknown transport, unmetered", wifiType),
+            Case("unknown transport, metered", cellType, notMetered = false),
+            Case("unmetered without internet", offType, wifi = true, internet = false),
+            Case(
+                "cellular without internet",
+                offType,
+                cellular = true,
+                internet = false,
+                notMetered = false
+            ),
+            Case(
+                "metered without internet",
+                offType,
+                wifi = true,
+                internet = false,
+                notMetered = false
+            )
+        ).forEach {
+            mockNetwork(it.cellular, it.wifi, it.ethernet, it.vpn, it.internet, it.notMetered)
+            assertEquals(it.name, it.expected, KlaviyoNetworkMonitor.getNetworkType())
+        }
     }
 
     @Test
@@ -262,12 +317,13 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
     @Test
     fun `Network type change with same connectivity is broadcast`() {
         var callCount = 0
+        mockNetwork(cellular = true)
         KlaviyoNetworkMonitor.onNetworkChange { callCount++ }
 
         netCallbackSlot.captured.onAvailable(mockk())
         assertEquals(1, callCount)
 
-        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) } returns true
+        mockNetwork(wifi = true)
         netCallbackSlot.captured.onCapabilitiesChanged(mockk(), mockk())
         assertEquals(2, callCount)
     }
