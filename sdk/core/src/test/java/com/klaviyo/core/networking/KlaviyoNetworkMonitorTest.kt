@@ -148,7 +148,21 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
             Case("vpn over metered", cellType, vpn = true, notMetered = false),
             Case("unknown transport, unmetered", wifiType),
             Case("unknown transport, metered", cellType, notMetered = false),
-            Case("unmetered without internet", offType, wifi = true, internet = false)
+            Case("unmetered without internet", offType, wifi = true, internet = false),
+            Case(
+                "cellular without internet",
+                offType,
+                cellular = true,
+                internet = false,
+                notMetered = false
+            ),
+            Case(
+                "metered without internet",
+                offType,
+                wifi = true,
+                internet = false,
+                notMetered = false
+            )
         ).forEach {
             mockNetwork(it.cellular, it.wifi, it.ethernet, it.vpn, it.internet, it.notMetered)
             assertEquals(it.name, it.expected, KlaviyoNetworkMonitor.getNetworkType())
