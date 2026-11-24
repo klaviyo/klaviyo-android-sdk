@@ -85,8 +85,9 @@ class InboxProviderInstrumentedTest {
     @Test
     fun clearAllRemovesOnlyTheCurrentCompanysMessagesAndReportsHowMany() = runBlocking {
         seed()
+        dataSource.insert(message("a4", COMPANY).copy(isArchived = true), LIMIT)
 
-        assertEquals(3, Klaviyo.mobileInbox.clearAll())
+        assertEquals(4, Klaviyo.mobileInbox.clearAll())
         assertTrue(
             Klaviyo.mobileInbox
                 .fetchPage(InboxQuery(archiveFilter = InboxArchiveFilter.ALL))
