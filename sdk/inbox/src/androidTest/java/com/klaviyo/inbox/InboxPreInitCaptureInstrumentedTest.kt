@@ -32,7 +32,7 @@ class InboxPreInitCaptureInstrumentedTest {
     fun setup() {
         context.deleteDatabase(databaseName)
         grantNotificationPermission()
-        Registry.register<InboxRepository>(KlaviyoInboxRepository(dataSource))
+        Registry.register<InboxRepository>(gatedRepository(dataSource))
     }
 
     @After

@@ -182,7 +182,7 @@ class InboxRecoveryInstrumentedTest {
     @Test
     fun aStoreThatCannotBeOpenedForWritingReportsFailedKeepsItsMessagesAndRecoversWhenAccessReturns() {
         seed(SEEDED)
-        val repository = KlaviyoInboxRepository(dataSource())
+        val repository = gatedRepository(dataSource())
         val directory = databaseFile.parentFile ?: error("database directory missing")
         // Read-only files and directory: opening for write fails the way a full or locked disk does
         val files = directory.listFiles { file -> file.name.startsWith(databaseName) }.orEmpty()
@@ -215,7 +215,7 @@ class InboxRecoveryInstrumentedTest {
     fun aWriteThatFailsOnAnOpenStoreReportsFailedAndTheMessagesSurviveARestart() {
         seed(SEEDED)
         val source = dataSource()
-        val repository = KlaviyoInboxRepository(source)
+        val repository = gatedRepository(source)
         assertEquals(
             InboxCaptureResult.CAPTURED,
             runBlocking { repository.capture(message("opened")) }
@@ -234,7 +234,7 @@ class InboxRecoveryInstrumentedTest {
             runBlocking { repository.capture(message("still-failing")) }
         )
 
-        val restarted = KlaviyoInboxRepository(dataSource())
+        val restarted = gatedRepository(dataSource())
         assertEquals(
             InboxCaptureResult.CAPTURED,
             runBlocking { restarted.capture(message("after-restart")) }

@@ -234,7 +234,7 @@ class InboxStoreInstrumentedTest {
      * Each capture is checked, so a failed write cannot let a clear test pass on an empty store.
      */
     private fun repositoryWithTwoCompanies(dataSource: RoomInboxDataSource): KlaviyoInboxRepository =
-        KlaviyoInboxRepository(dataSource).also { repository ->
+        gatedRepository(dataSource).also { repository ->
             runBlocking {
                 assertEquals(
                     InboxCaptureResult.CAPTURED,
