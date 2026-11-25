@@ -293,9 +293,15 @@ Or individually with additive fluent setters:
 Either way, the SDK will group and batch API calls to improve performance.
 
 ### Reset Profile
-To start a _new_ profile (e.g. if a user logs out), either call `Klaviyo.resetProfile()`
-to clear the currently tracked profile identifiers, or use `Klaviyo.setProfile(profile)`
-to overwrite it with a new profile object.
+Call `Klaviyo.resetProfile()` when a user logs out or before switching users on a shared
+device. It clears the tracked profile identifiers and, when Mobile Inbox is installed,
+clears on-device Inbox messages for every company.
+
+`Klaviyo.setProfile(profile)` updates or replaces the tracked identifiers. It does not sign
+the user out or clear the Inbox. After resetting, use it with the incoming user's identifiers
+when they log in.
+
+If your app provides JWTs for personalized In-App Forms, resetting or replacing the profile invalidates the cached JWT. The SDK requests a fresh token when needed for an identified profile.
 
 <details open>
    <summary>Kotlin</summary>

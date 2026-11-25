@@ -18,6 +18,11 @@ class InMemoryDataStore : DataStore {
         store[key] = value
     }
 
+    override fun commit(key: String, value: String?): Boolean {
+        if (value == null) clear(key) else store(key, value)
+        return true
+    }
+
     override fun clear(key: String) {
         store.remove(key)
     }

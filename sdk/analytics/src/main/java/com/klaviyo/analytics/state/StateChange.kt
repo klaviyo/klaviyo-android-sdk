@@ -37,10 +37,13 @@ sealed interface StateChange {
     }
 
     /**
-     * Emitted on profile reset
+     * Emitted after an explicit reset or a profile replacement.
+     *
+     * @property explicit True when emitted by `State.reset()`, false for a replacement.
      */
-    data class ProfileReset(
-        override val oldValue: ImmutableProfile
+    data class ProfileReset @JvmOverloads constructor(
+        override val oldValue: ImmutableProfile,
+        val explicit: Boolean = false
     ) : StateChange {
         override val key: Keyword? = null
     }

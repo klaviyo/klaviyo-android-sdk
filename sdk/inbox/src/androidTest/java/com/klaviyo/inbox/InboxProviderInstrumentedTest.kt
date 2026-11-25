@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Looper
 import androidx.test.platform.app.InstrumentationRegistry
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.analytics.state.StateChangeObservers
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
 import java.util.UUID
@@ -31,7 +32,10 @@ class InboxProviderInstrumentedTest {
     fun setup() {
         context.deleteDatabase(databaseName)
         configure(COMPANY)
-        Registry.register<InboxRepository>(KlaviyoInboxRepository(dataSource))
+        Registry.register<InboxResetGate>(inboxResetGate(dataSource))
+        Registry.register<InboxRepository>(
+            gatedRepository(dataSource, gate = { Registry.get<InboxResetGate>() })
+        )
         // The system attaches a context to a provider before calling onCreate
         InboxInitProvider().attachInfo(context, null)
     }
@@ -39,7 +43,11 @@ class InboxProviderInstrumentedTest {
     @After
     fun cleanup() {
         Registry.unregister<MobileInboxProvider>()
+        Registry.getOrNull<InboxResetGate>()?.let { gate ->
+            Registry.getOrNull<StateChangeObservers>()?.remove(gate::onStateChange)
+        }
         Registry.unregister<InboxRepository>()
+        Registry.unregister<InboxResetGate>()
         Registry.unregister<Config>()
         dataSource.close()
         context.deleteDatabase(databaseName)
