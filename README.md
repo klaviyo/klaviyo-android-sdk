@@ -390,10 +390,10 @@ If your app should never create a profile in Klaviyo until the user is known (em
 Things to keep in mind:
 
 - **Requests are tagged with identity when they are queued.** Calling `setEmail` later does not change requests that were already queued, and queued requests persist across app launches.
-- **Logout and switching users.** Call `Klaviyo.resetProfile()` on logout or before switching users on a shared device. When Mobile Inbox is installed, it clears on-device Inbox messages for every company.
-  - On logout, stop making the calls listed above. Call `Klaviyo.unregisterFromInAppForms()` and `Klaviyo.unregisterGeofencing()` if you use those features.
-  - The SDK retains an existing push token after reset and can queue its re-registration with an anonymous profile.
-  - On the next login, call `Klaviyo.setProfile(...)` with all of the incoming user's identifiers. This updates or replaces the tracked identifiers. It does not sign the previous user out or clear the Inbox.
+- **Logout and switching users.** `resetProfile()` keeps the push token, and the next profile update after a reset registers it to a new anonymous profile, so don't call it on logout. Instead:
+  - On logout, stop making the calls listed above, and call `Klaviyo.unregisterFromInAppForms()` and `Klaviyo.unregisterGeofencing()`.
+  - On the next login, call `Klaviyo.setProfile(...)` with all of the new user's identifiers. When the identifiers differ, the SDK starts a fresh profile and sends the stored push token with the new identifiers in a single request. Calling `setEmail` on its own keeps the previous user's other identifiers.
+  - Until someone logs in again, the previous user's profile keeps this device's push token and can still receive pushes on it.
 - **Existing installs.** If an earlier version of your app already created anonymous profiles, those profiles stay in Klaviyo. A user who later logs in on the same device is merged into their identified profile; users who never log in remain anonymous and must be cleaned up in Klaviyo. Requests queued by the earlier version still send after the update, and users who do not update keep the old behavior.
 
 ## Event Tracking
