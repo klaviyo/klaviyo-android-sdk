@@ -130,14 +130,12 @@ constructor(
 }
 
 /**
- * An opaque position in the inbox. Hosts only pass back the one a page returned.
+ * An opaque position in the inbox.
+ *
+ * @property token Save this value unchanged to reconstruct a cursor returned by
+ *  [InboxPage.nextCursor]. [MobileInbox.fetchPage] validates the token when passed back.
  */
-class InboxCursor
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-constructor(
-    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-    val token: String
-) {
+class InboxCursor(val token: String) {
     override fun equals(other: Any?): Boolean = other is InboxCursor && token == other.token
 
     override fun hashCode(): Int = token.hashCode()

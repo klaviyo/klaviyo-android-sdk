@@ -405,16 +405,17 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
         val query = InboxQuery(readFilter = InboxReadFilter.UNREAD)
 
         val page = runBlocking { repository.fetchPage(query) }
+        val restoredCursor = InboxCursor(checkNotNull(page.nextCursor).token)
 
         assertEquals(
             InboxRecordPosition(message.sentAt, "tm-1"),
             InboxCursorCodec.decode(
-                InboxQuery(cursor = page.nextCursor, readFilter = InboxReadFilter.UNREAD),
+                InboxQuery(cursor = restoredCursor, readFilter = InboxReadFilter.UNREAD),
                 API_KEY
             )
         )
         assertThrows(InboxException.InvalidCursor::class.java) {
-            runBlocking { repository.fetchPage(InboxQuery(cursor = page.nextCursor)) }
+            runBlocking { repository.fetchPage(InboxQuery(cursor = restoredCursor)) }
         }
     }
 
