@@ -4,16 +4,25 @@ import android.content.Context
 import android.database.DatabaseErrorHandler
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteException
+import android.os.Build
+import android.util.Xml
 import androidx.test.platform.app.InstrumentationRegistry
+import com.klaviyo.core.Registry
 import java.io.File
 import java.util.UUID
+import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.xmlpull.v1.XmlPullParser
 
 /**
  * A store that cannot be opened or read must not stop capture. SQLite and Room delete a database
@@ -246,6 +255,73 @@ class InboxRecoveryInstrumentedTest {
         )
     }
 
+    @Test
+    fun aNewGateClearsAndAcknowledgesAResetPersistedInSharedPreferences() = runBlocking {
+        val preferences = context.getSharedPreferences(SDK_PREFERENCES, Context.MODE_PRIVATE)
+        val markerKey = PreferencesResetMarkerStore.KEY
+        val originalValues = listOf(markerKey, CHECKED_COMMIT_REVISION_KEY).associateWith {
+            preferences.getString(it, null)
+        }
+        val scheduled = mutableListOf<Pair<Job, Runnable>>()
+        val pausedDispatcher = object : CoroutineDispatcher() {
+            override fun dispatch(context: CoroutineContext, block: Runnable) {
+                scheduled += checkNotNull(context[Job]) to block
+            }
+        }
+
+        try {
+            assertTrue(preferences.edit().remove(markerKey).commit())
+            val firstSource = dataSource()
+            val inserted = firstSource.insert(message("before-reset"), LIMIT)
+            assertEquals(InboxInsertResult.INSERTED, inserted)
+            val firstMarkerStore = PreferencesResetMarkerStore(Registry.dataStore(context))
+            InboxResetGate(firstSource, firstMarkerStore, pausedDispatcher).requestReset()
+
+            assertEquals(1, scheduled.size)
+            assertEquals("1", persistedPreference(markerKey))
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.N_MR1) {
+                val revision = checkNotNull(persistedPreference(CHECKED_COMMIT_REVISION_KEY))
+                assertNotEquals(originalValues[CHECKED_COMMIT_REVISION_KEY], revision)
+            }
+            assertEquals(1, firstSource.countUnread(COMPANY))
+
+            val reopenedSource = dataSource()
+            val reopenedMarkerStore = PreferencesResetMarkerStore(Registry.dataStore(context))
+            val reopenedGate = InboxResetGate(reopenedSource, reopenedMarkerStore)
+            assertEquals(1L, reopenedMarkerStore.load())
+
+            assertEquals(0, reopenedGate.withCurrentInbox { reopenedSource.countUnread(COMPANY) })
+            assertNull(reopenedMarkerStore.load())
+            assertNull(persistedPreference(markerKey))
+        } finally {
+            scheduled.forEach { (job, block) ->
+                job.cancel()
+                block.run()
+            }
+            val editor = preferences.edit()
+            originalValues.forEach { (key, value) ->
+                if (value == null) editor.remove(key) else editor.putString(key, value)
+            }
+            assertTrue(editor.commit())
+        }
+    }
+
+    private fun persistedPreference(key: String): String? {
+        val file = File(context.applicationInfo.dataDir, "shared_prefs/$SDK_PREFERENCES.xml")
+        return file.inputStream().use { input ->
+            val parser = Xml.newPullParser()
+            parser.setInput(input, null)
+            while (parser.next() != XmlPullParser.END_DOCUMENT) {
+                if (parser.eventType == XmlPullParser.START_TAG && parser.name == "string" &&
+                    parser.getAttributeValue(null, "name") == key
+                ) {
+                    return@use parser.nextText()
+                }
+            }
+            null
+        }
+    }
+
     /**
      * Marks the database as written by a newer SDK, the state left after a host app rolls back to
      * an older release
@@ -256,6 +332,8 @@ class InboxRecoveryInstrumentedTest {
     }
 
     private companion object {
+        const val SDK_PREFERENCES = "KlaviyoSDKPreferences"
+        const val CHECKED_COMMIT_REVISION_KEY = "__klaviyo_checked_commit_revision"
         const val COMPANY = "company"
         const val LIMIT = 100
         const val SEEDED = 40
