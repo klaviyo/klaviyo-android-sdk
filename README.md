@@ -301,7 +301,7 @@ clears on-device Inbox messages for every company.
 the user out or clear the Inbox. After resetting, use it with the incoming user's identifiers
 when they log in.
 
-If your app implements a JWT provider for authentication (e.g. for personalized In-App Forms) a reset or identifier change will invalidate and request an updated JWT.
+If your app provides JWTs for personalized In-App Forms, resetting or replacing the profile invalidates the cached JWT. The SDK requests a fresh token when needed for an identified profile.
 
 <details open>
    <summary>Kotlin</summary>
