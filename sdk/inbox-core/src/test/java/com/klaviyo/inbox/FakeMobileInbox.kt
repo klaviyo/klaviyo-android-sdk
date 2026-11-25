@@ -13,11 +13,15 @@ import kotlinx.coroutines.flow.flow
  */
 class FakeMobileInbox : MobileInbox {
     var unreadCount = 0
+    var clearedCount = 0
+    var clearAllCalls = 0
     var page = InboxPage(emptyList(), nextCursor = null)
     var failure: Exception? = null
     var messageExists = true
     val queries = mutableListOf<InboxQuery>()
     val stateChanges = mutableListOf<Pair<String, InboxStateChange>>()
+    var bulkChangedCount = 0
+    val bulkStateChanges = mutableListOf<Pair<InboxStateChange, InboxFilter>>()
     private val changeSignal = MutableSharedFlow<Unit>(
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -54,6 +58,16 @@ class FakeMobileInbox : MobileInbox {
         element: InboxClickElement?
     ) {
         clicks += Triple(message, action, element)
+    }
+
+    override suspend fun updateMessageState(change: InboxStateChange, filter: InboxFilter): Int {
+        bulkStateChanges += change to filter
+        return failure?.let { throw it } ?: bulkChangedCount
+    }
+
+    override suspend fun clearAll(): Int {
+        clearAllCalls++
+        return failure?.let { throw it } ?: clearedCount
     }
 
     fun register() = Registry.register<MobileInboxProvider>(

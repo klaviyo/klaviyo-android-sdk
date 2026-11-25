@@ -53,6 +53,14 @@ fun interface InboxUpdateCallback {
 }
 
 /**
+ * Receives the result of [KlaviyoInbox.clearAll] on the main thread. The value is how many
+ * messages were removed.
+ */
+fun interface InboxClearCallback {
+    fun onResult(result: InboxResult<Int>)
+}
+
+/**
  * Notified on the main thread when the inbox's messages change. See
  * [KlaviyoInbox.addChangeListener].
  */

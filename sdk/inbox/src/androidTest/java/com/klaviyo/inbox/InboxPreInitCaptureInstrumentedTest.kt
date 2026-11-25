@@ -59,6 +59,7 @@ class InboxPreInitCaptureInstrumentedTest {
                 "body" to "Everything is 20% off",
                 "_k" to JSONObject().apply {
                     put("tm", TRANSMISSION_ID)
+                    put("timestamp", "2026-10-06T19:00:00+00:00")
                     company?.let { put("c", it) }
                 }.toString()
             )

@@ -16,7 +16,7 @@ internal abstract class InboxMessageDao {
     abstract suspend fun insert(message: InboxMessageEntity): Long
 
     /**
-     * Removes the company's messages beyond the newest [limit], by sort time
+     * Removes the company's messages beyond the newest [limit], by send time
      */
     @Query(
         """
@@ -24,7 +24,7 @@ internal abstract class InboxMessageDao {
         WHERE companyId = :companyId AND transmissionId NOT IN (
             SELECT transmissionId FROM ${InboxMessageEntity.TABLE_NAME}
             WHERE companyId = :companyId
-            ORDER BY sortTime DESC, transmissionId DESC
+            ORDER BY sentAt DESC, transmissionId DESC
             LIMIT :limit
         )
         """
@@ -47,22 +47,22 @@ internal abstract class InboxMessageDao {
     abstract suspend fun get(transmissionId: String): InboxMessageEntity?
 
     /**
-     * The company's transmission IDs, newest first by sort time
+     * The company's transmission IDs, newest first by send time
      */
     @Query(
         """
         SELECT transmissionId FROM ${InboxMessageEntity.TABLE_NAME}
         WHERE companyId = :companyId
-        ORDER BY sortTime DESC, transmissionId DESC
+        ORDER BY sentAt DESC, transmissionId DESC
         """
     )
     abstract suspend fun transmissionIdsByCompanyId(companyId: String): List<String>
 
     /**
-     * One page of the company's messages, newest first by sort time. A null [afterSortTime]
+     * One page of the company's messages, newest first by send time. A null [afterSentAt]
      * starts at the newest message. A null [isRead] or [isArchived] matches either state.
      *
-     * Pages by keyset on (sortTime, transmissionId), the order the index and retention use, so a
+     * Pages by keyset on (sentAt, transmissionId), the order the index and retention use, so a
      * message captured or removed between pages never shifts the page boundary.
      */
     @Query(
@@ -70,18 +70,18 @@ internal abstract class InboxMessageDao {
         SELECT * FROM ${InboxMessageEntity.TABLE_NAME}
         WHERE companyId = :companyId
             AND (
-                :afterSortTime IS NULL OR sortTime < :afterSortTime
-                OR (sortTime = :afterSortTime AND transmissionId < :afterId)
+                :afterSentAt IS NULL OR sentAt < :afterSentAt
+                OR (sentAt = :afterSentAt AND transmissionId < :afterId)
             )
             AND (:isRead IS NULL OR isRead = :isRead)
             AND (:isArchived IS NULL OR isArchived = :isArchived)
-        ORDER BY sortTime DESC, transmissionId DESC
+        ORDER BY sentAt DESC, transmissionId DESC
         LIMIT :limit
         """
     )
     abstract suspend fun pageNewestFirst(
         companyId: String,
-        afterSortTime: Long?,
+        afterSentAt: Long?,
         afterId: String?,
         isRead: Boolean?,
         isArchived: Boolean?,
@@ -128,6 +128,54 @@ internal abstract class InboxMessageDao {
         updatedAt: Long
     ): Int
 
+    /**
+     * Sets the company's messages that match [matchRead] and [matchArchived] to [isRead], stamping
+     * [updatedAt] on the ones that change. A null [matchRead] or [matchArchived] matches either
+     * state. A message already at [isRead] is not matched, so it keeps its timestamp.
+     *
+     * @return How many messages changed
+     */
+    @Query(
+        """
+        UPDATE ${InboxMessageEntity.TABLE_NAME}
+        SET isRead = :isRead, updatedAt = :updatedAt
+        WHERE companyId = :companyId AND isRead != :isRead
+            AND (:matchRead IS NULL OR isRead = :matchRead)
+            AND (:matchArchived IS NULL OR isArchived = :matchArchived)
+        """
+    )
+    abstract suspend fun setReadWhere(
+        companyId: String,
+        isRead: Boolean,
+        matchRead: Boolean?,
+        matchArchived: Boolean?,
+        updatedAt: Long
+    ): Int
+
+    /**
+     * Sets the company's messages that match [matchRead] and [matchArchived] to [isArchived],
+     * stamping [updatedAt] on the ones that change. A null [matchRead] or [matchArchived] matches
+     * either state. A message already at [isArchived] is not matched, so it keeps its timestamp.
+     *
+     * @return How many messages changed
+     */
+    @Query(
+        """
+        UPDATE ${InboxMessageEntity.TABLE_NAME}
+        SET isArchived = :isArchived, updatedAt = :updatedAt
+        WHERE companyId = :companyId AND isArchived != :isArchived
+            AND (:matchRead IS NULL OR isRead = :matchRead)
+            AND (:matchArchived IS NULL OR isArchived = :matchArchived)
+        """
+    )
+    abstract suspend fun setArchivedWhere(
+        companyId: String,
+        isArchived: Boolean,
+        matchRead: Boolean?,
+        matchArchived: Boolean?,
+        updatedAt: Long
+    ): Int
+
     @Query(
         """
         SELECT COUNT(*) FROM ${InboxMessageEntity.TABLE_NAME}
@@ -162,6 +210,29 @@ internal abstract class InboxMessageDao {
             count(companyId, transmissionId) > 0 -> InboxStateUpdate.UNCHANGED
             else -> InboxStateUpdate.NOT_FOUND
         }
+    }
+
+    /**
+     * Applies [change] to every company message that matches [matchRead] and [matchArchived], as
+     * [updateState] does for one, in a single statement.
+     *
+     * @return How many messages the change altered
+     */
+    open suspend fun updateStateWhere(
+        companyId: String,
+        change: InboxStateChange,
+        matchRead: Boolean?,
+        matchArchived: Boolean?,
+        updatedAt: Long
+    ): Int = when (change) {
+        InboxStateChange.MARK_READ ->
+            setReadWhere(companyId, true, matchRead, matchArchived, updatedAt)
+        InboxStateChange.MARK_UNREAD ->
+            setReadWhere(companyId, false, matchRead, matchArchived, updatedAt)
+        InboxStateChange.ARCHIVE ->
+            setArchivedWhere(companyId, true, matchRead, matchArchived, updatedAt)
+        InboxStateChange.UNARCHIVE ->
+            setArchivedWhere(companyId, false, matchRead, matchArchived, updatedAt)
     }
 
     @Query("DELETE FROM ${InboxMessageEntity.TABLE_NAME} WHERE companyId = :companyId")

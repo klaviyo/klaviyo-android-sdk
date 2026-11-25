@@ -74,7 +74,7 @@ internal class RoomInboxDataSource(
         // One extra row tells whether another page follows
         val rows = dao().pageNewestFirst(
             companyId,
-            query.after?.sortTime,
+            query.after?.sentAt,
             query.after?.transmissionId,
             query.isRead,
             query.isArchived,
@@ -100,8 +100,22 @@ internal class RoomInboxDataSource(
         }
     }
 
-    override suspend fun clearByCompanyId(companyId: String) {
-        if (dao().deleteByCompanyId(companyId) > 0) changeSignal.tryEmit(Unit)
+    override suspend fun updateStateWhere(
+        companyId: String,
+        change: InboxStateChange,
+        isRead: Boolean?,
+        isArchived: Boolean?,
+        updatedAt: Long
+    ): Int {
+        if (!storeExists()) return 0
+        return dao().updateStateWhere(companyId, change, isRead, isArchived, updatedAt)
+            .also { if (it > 0) changeSignal.tryEmit(Unit) }
+    }
+
+    override suspend fun clearByCompanyId(companyId: String): Int {
+        val removed = dao().deleteByCompanyId(companyId)
+        if (removed > 0) changeSignal.tryEmit(Unit)
+        return removed
     }
 
     override suspend fun clearAll() {

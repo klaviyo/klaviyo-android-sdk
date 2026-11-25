@@ -77,6 +77,24 @@ object KlaviyoInbox {
     ) = Klaviyo.mobileInbox.trackMessageClick(message, action, element)
 
     /**
+     * Delivers how many messages changed.
+     *
+     * @see MobileInbox.updateMessageState
+     */
+    @JvmStatic
+    fun updateMessageState(
+        change: InboxStateChange,
+        filter: InboxFilter,
+        callback: InboxCountCallback
+    ) = deliver(callback::onResult) { it.updateMessageState(change, filter) }
+
+    /**
+     * @see MobileInbox.clearAll
+     */
+    @JvmStatic
+    fun clearAll(callback: InboxClearCallback) = deliver(callback::onResult) { it.clearAll() }
+
+    /**
      * Calls [listener] on the main thread whenever the inbox's messages change, until it is
      * removed, or until listening fails, which is logged and frees the listener to be added again.
      * Adding a listener that is already added does nothing. Hold the listener and remove

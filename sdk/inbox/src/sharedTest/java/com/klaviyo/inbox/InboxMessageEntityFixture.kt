@@ -14,14 +14,13 @@ internal fun inboxMessageEntity(
     mediaType: String? = null,
     customData: Map<String, String> = emptyMap(),
     actions: List<InboxRecordAction> = emptyList(),
-    sentAt: Long? = null,
+    receivedAt: Long = 1_000L,
+    sentAt: Long = receivedAt,
     collapseId: String? = null,
     badge: Int? = null,
-    receivedAt: Long = 1_000L,
     attributionJson: String? = null,
     isRead: Boolean = false,
     isArchived: Boolean = false,
-    sortTime: Long = sentAt ?: receivedAt,
     expiresAt: Long? = null,
     updatedAt: Long? = null
 ) = InboxMessageEntity(
@@ -41,7 +40,6 @@ internal fun inboxMessageEntity(
     attributionJson = attributionJson,
     isRead = isRead,
     isArchived = isArchived,
-    sortTime = sortTime,
     expiresAt = expiresAt,
     updatedAt = updatedAt
 )

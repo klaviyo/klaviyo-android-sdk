@@ -113,6 +113,57 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
     }
 
     @Test
+    fun `clearing the current company deletes only its messages and returns the count`() =
+        runBlocking {
+            coEvery { dataSource.clearByCompanyId(any()) } returns 2
+
+            assertEquals(2, repository.clearCurrentCompany())
+            coVerify { dataSource.clearByCompanyId(API_KEY) }
+            coVerify(exactly = 0) { dataSource.clearAll() }
+        }
+
+    @Test
+    fun `clearing the current company with no messages returns zero`() = runBlocking {
+        coEvery { dataSource.clearByCompanyId(any()) } returns 0
+
+        assertEquals(0, repository.clearCurrentCompany())
+    }
+
+    @Test
+    fun `clearing the current company before the SDK is initialized reports zero without a delete`() =
+        runBlocking {
+            every { mockConfig.apiKey } throws MissingAPIKey()
+
+            assertEquals(0, repository.clearCurrentCompany())
+            coVerify(exactly = 0) { dataSource.clearByCompanyId(any()) }
+            verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+        }
+
+    @Test
+    fun `a failed clear of the current company is logged and reported as a storage failure`() {
+        val cause = IllegalStateException("disk full")
+        coEvery { dataSource.clearByCompanyId(any()) } throws cause
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.clearCurrentCompany() }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        assertSame(cause, error.cause)
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `cancellation is not reported as a failed clear of the current company`() {
+        coEvery { dataSource.clearByCompanyId(any()) } throws CancellationException("cancelled")
+
+        assertThrows(CancellationException::class.java) {
+            runBlocking { repository.clearCurrentCompany() }
+        }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
     fun `a state change is applied to the current company's message with the current time`() =
         runBlocking {
             coEvery { dataSource.updateState(any(), any(), any(), any()) } returns true
@@ -155,8 +206,125 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
     }
 
     @Test
+    fun `a bulk change reports the count the store changed and stamps the current time`() =
+        runBlocking {
+            coEvery { dataSource.updateStateWhere(any(), any(), any(), any(), any()) } returns 3
+
+            val changed = repository.updateMessageState(
+                InboxStateChange.MARK_READ,
+                InboxFilter.where(InboxReadFilter.UNREAD, InboxArchiveFilter.ACTIVE)
+            )
+
+            assertEquals(3, changed)
+            coVerify(exactly = 1) {
+                dataSource.updateStateWhere(
+                    API_KEY,
+                    InboxStateChange.MARK_READ,
+                    isRead = false,
+                    isArchived = false,
+                    updatedAt = TIME
+                )
+            }
+        }
+
+    @Test
+    fun `every read and archive filter maps to the matching store states`() = runBlocking {
+        coEvery { dataSource.updateStateWhere(any(), any(), any(), any(), any()) } returns 0
+        val readStates = mapOf(
+            InboxReadFilter.ALL to null,
+            InboxReadFilter.UNREAD to false,
+            InboxReadFilter.READ to true
+        )
+        val archiveStates = mapOf(
+            InboxArchiveFilter.ALL to null,
+            InboxArchiveFilter.ACTIVE to false,
+            InboxArchiveFilter.ARCHIVED to true
+        )
+
+        readStates.forEach { (read, isRead) ->
+            archiveStates.forEach { (archive, isArchived) ->
+                repository.updateMessageState(
+                    InboxStateChange.ARCHIVE,
+                    InboxFilter.where(read, archive)
+                )
+                coVerify {
+                    dataSource.updateStateWhere(
+                        API_KEY,
+                        InboxStateChange.ARCHIVE,
+                        isRead,
+                        isArchived,
+                        TIME
+                    )
+                }
+            }
+        }
+        coVerify(exactly = 9) {
+            dataSource.updateStateWhere(any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `all messages matches both states`() = runBlocking {
+        coEvery { dataSource.updateStateWhere(any(), any(), any(), any(), any()) } returns 2
+
+        assertEquals(
+            2,
+            repository.updateMessageState(InboxStateChange.UNARCHIVE, InboxFilter.ALL_MESSAGES)
+        )
+        coVerify {
+            dataSource.updateStateWhere(API_KEY, InboxStateChange.UNARCHIVE, null, null, TIME)
+        }
+    }
+
+    @Test
+    fun `a bulk change before the SDK is initialized reports zero without touching the store`() =
+        runBlocking {
+            every { mockConfig.apiKey } throws MissingAPIKey()
+
+            assertEquals(
+                0,
+                repository.updateMessageState(InboxStateChange.MARK_READ, InboxFilter.ALL_MESSAGES)
+            )
+            coVerify(exactly = 0) {
+                dataSource.updateStateWhere(any(), any(), any(), any(), any())
+            }
+        }
+
+    @Test
+    fun `a failed bulk change is logged and reported as a storage failure`() {
+        val cause = IllegalStateException("disk full")
+        coEvery {
+            dataSource.updateStateWhere(any(), any(), any(), any(), any())
+        } throws cause
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking {
+                repository.updateMessageState(InboxStateChange.MARK_READ, InboxFilter.ALL_MESSAGES)
+            }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        assertSame(cause, error.cause)
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `cancellation during a bulk change is not reported as a storage failure`() {
+        coEvery {
+            dataSource.updateStateWhere(any(), any(), any(), any(), any())
+        } throws CancellationException("cancelled")
+
+        assertThrows(CancellationException::class.java) {
+            runBlocking {
+                repository.updateMessageState(InboxStateChange.MARK_READ, InboxFilter.ALL_MESSAGES)
+            }
+        }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
     fun `a page maps rows to public messages and a cursor when more follow`() = runBlocking {
-        val second = message.copy(transmissionId = "tm-2", sortTime = TIME - 1)
+        val second = message.copy(transmissionId = "tm-2", sentAt = TIME - 1)
         coEvery { dataSource.fetchPage(any(), any()) } returns
             InboxRecordPage(listOf(message, second), hasMore = true)
 
@@ -165,7 +333,7 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
         assertEquals(listOf("tm-1", "tm-2"), page.messages.map { it.id })
         assertEquals(InboxMessageSource.CAPTURED, page.messages.first().source)
         assertEquals(
-            InboxRecordPosition(second.sortTime, "tm-2"),
+            InboxRecordPosition(second.sentAt, "tm-2"),
             InboxCursorCodec.decode(InboxQuery(cursor = page.nextCursor), API_KEY)
         )
     }
@@ -190,7 +358,7 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
                 API_KEY,
                 InboxRecordQuery(
                     5,
-                    InboxRecordPosition(message.sortTime, "tm-1"),
+                    InboxRecordPosition(message.sentAt, "tm-1"),
                     isRead = null,
                     isArchived = false
                 )
@@ -231,7 +399,7 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
         val page = runBlocking { repository.fetchPage(query) }
 
         assertEquals(
-            InboxRecordPosition(message.sortTime, "tm-1"),
+            InboxRecordPosition(message.sentAt, "tm-1"),
             InboxCursorCodec.decode(
                 InboxQuery(cursor = page.nextCursor, readFilter = InboxReadFilter.UNREAD),
                 API_KEY

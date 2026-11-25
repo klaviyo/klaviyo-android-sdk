@@ -56,7 +56,14 @@ internal class InboxCaptureObserverTest : BaseTest() {
             change: InboxStateChange
         ): Boolean = error("not used by capture")
 
+        override suspend fun updateMessageState(
+            change: InboxStateChange,
+            filter: InboxFilter
+        ): Int = error("not used by capture")
+
         override suspend fun clearByCompanyId(companyId: String) = Unit
+
+        override suspend fun clearCurrentCompany(): Int = 0
 
         override suspend fun clearAll() = Unit
     }

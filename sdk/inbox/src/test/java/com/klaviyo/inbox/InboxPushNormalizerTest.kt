@@ -11,6 +11,7 @@ import com.klaviyo.inbox.InboxPushFixtures.canonicalPayload
 import com.klaviyo.inbox.InboxPushFixtures.remoteMessage
 import com.klaviyo.inbox.InboxPushFixtures.tracking
 import com.klaviyo.inbox.InboxPushNormalizer.toInboxMessageEntity
+import io.mockk.clearMocks
 import io.mockk.verify
 import org.json.JSONObject
 import org.junit.After
@@ -80,19 +81,10 @@ internal class InboxPushNormalizerTest : BaseTest() {
             collapseId = "sale-tag",
             badge = 3,
             receivedAt = receivedAt,
-            attributionJson = null,
-            sortTime = SENT_AT_MILLIS
+            attributionJson = null
         )
 
         assertEquals(expected, normalize()?.copy(attributionJson = null))
-    }
-
-    @Test
-    fun `a push without a send time sorts by its receive time`() {
-        val entity = normalize(canonicalWith("_k" to tracking("timestamp" to null)))
-
-        assertNull(entity?.sentAt)
-        assertEquals(receivedAt, entity?.sortTime)
     }
 
     @Test
@@ -226,13 +218,12 @@ internal class InboxPushNormalizerTest : BaseTest() {
     }
 
     @Test
-    fun `an unparseable timestamp leaves the send time empty`() {
-        assertNull(normalize(canonicalWith("_k" to tracking("timestamp" to "yesterday")))?.sentAt)
-    }
-
-    @Test
-    fun `a missing timestamp leaves the send time empty`() {
-        assertNull(normalize(canonicalWith("_k" to tracking("timestamp" to null)))?.sentAt)
+    fun `a push without a valid timestamp is not captured and logs a warning`() {
+        listOf("yesterday", "", null).forEach { timestamp ->
+            clearMocks(spyLog, answers = false)
+            assertNull(normalize(canonicalWith("_k" to tracking("timestamp" to timestamp))))
+            verify { spyLog.warning(any(), null) }
+        }
     }
 
     @Test

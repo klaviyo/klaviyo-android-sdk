@@ -86,7 +86,7 @@ internal class InboxMessageMapperTest {
         assertNull(message.body)
         assertNull(message.mediaUrl)
         assertNull(message.mediaType)
-        assertNull(message.sentAt)
+        assertEquals(1_000L, message.sentAt)
         assertNull(message.collapseId)
         assertNull(message.badge)
         assertEquals(emptyList<InboxAction>(), message.actions)

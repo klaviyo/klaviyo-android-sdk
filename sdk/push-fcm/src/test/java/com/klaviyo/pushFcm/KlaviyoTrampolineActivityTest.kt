@@ -12,8 +12,10 @@ import com.klaviyo.core.Constants
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.core.MissingConfig
+import com.klaviyo.core.PushTapDestination
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.Config
+import com.klaviyo.core.utils.AdvancedAPI
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.mockk
@@ -63,10 +65,12 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         every { mockLaunchIntent.resolveActivity(any()) } returns mockk()
     }
 
+    @OptIn(AdvancedAPI::class)
     @After
     override fun cleanup() {
         Registry.unregister<State>()
         Registry.unregister<Config>()
+        Registry.unregister<PushTapDispatcher>()
         unmockkStatic(Uri::class)
         unmockkObject(DeepLinking)
         unmockkObject(Klaviyo)
@@ -358,5 +362,105 @@ class KlaviyoTrampolineActivityTest : BaseTest() {
         verify { Klaviyo.handlePush(intent) }
         verify { mockTrampolineContext.startActivity(mockBrowserIntent) }
         verify { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @OptIn(AdvancedAPI::class)
+    private fun observePushTaps(): PushTapObserver =
+        mockk<PushTapObserver>(relaxed = true).also { observer ->
+            KlaviyoPushTapDispatcher().also {
+                Registry.register<PushTapDispatcher>(it)
+                it.onPushTap(observer)
+            }
+        }
+
+    @OptIn(AdvancedAPI::class)
+    @Test
+    fun `handleTrampolineIntent dispatches an external tap before opening the browser`() {
+        val observer = observePushTaps()
+        val intent = klaviyoIntent()
+        every { intent.getStringExtra(Constants.BROWSER_URL_EXTRA) } returns "https://example.com"
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verifyOrder {
+            Klaviyo.handlePush(intent)
+            observer.onPushTap(intent, PushTapDestination.External("https://example.com"))
+            mockTrampolineContext.startActivity(mockBrowserIntent)
+        }
+    }
+
+    @OptIn(AdvancedAPI::class)
+    @Test
+    fun `handleTrampolineIntent dispatches a deep link tap before launching the host`() {
+        val observer = observePushTaps()
+        val deepLink = mockk<Uri>(relaxed = true)
+        val intent = klaviyoIntent()
+        every { intent.data } returns deepLink
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verifyOrder {
+            Klaviyo.handlePush(intent)
+            observer.onPushTap(intent, PushTapDestination.DeepLink(deepLink))
+            mockTrampolineContext.startActivity(mockDeepLinkIntent)
+        }
+    }
+
+    @OptIn(AdvancedAPI::class)
+    @Test
+    fun `handleTrampolineIntent dispatches an open app tap before launching the host`() {
+        val observer = observePushTaps()
+        val intent = klaviyoIntent()
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verifyOrder {
+            Klaviyo.handlePush(intent)
+            observer.onPushTap(intent, PushTapDestination.OpenApp)
+            mockTrampolineContext.startActivity(mockLaunchIntent)
+        }
+    }
+
+    @OptIn(AdvancedAPI::class)
+    @Test
+    fun `handleTrampolineIntent does not dispatch a non-Klaviyo intent`() {
+        val observer = observePushTaps()
+        val intent = mockk<Intent>(relaxed = true)
+        every { intent.getStringExtra(any()) } returns null
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verify(exactly = 0) { observer.onPushTap(any(), any()) }
+    }
+
+    @OptIn(AdvancedAPI::class)
+    @Test
+    fun `handleTrampolineIntent still dispatches the destination when an observer throws`() {
+        val observer = observePushTaps()
+        every { observer.onPushTap(any(), any()) } throws IllegalStateException("boom")
+        val intent = klaviyoIntent()
+        every { intent.getStringExtra(Constants.BROWSER_URL_EXTRA) } returns "https://example.com"
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(intent, mockTrampolineContext)
+
+        verify { mockTrampolineContext.startActivity(mockBrowserIntent) }
+        verify { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @OptIn(AdvancedAPI::class)
+    @Test
+    fun `handleTrampolineIntent dispatches nothing without a push-fcm dispatcher`() {
+        val observer = mockk<PushTapObserver>(relaxed = true)
+        Registry.register<PushTapDispatcher>(
+            object : PushTapDispatcher {
+                override fun onPushTap(observer: PushTapObserver) = Unit
+                override fun offPushTap(observer: PushTapObserver) = Unit
+            }.also { it.onPushTap(observer) }
+        )
+
+        KlaviyoTrampolineActivity.handleTrampolineIntent(klaviyoIntent(), mockTrampolineContext)
+
+        verify(exactly = 0) { observer.onPushTap(any(), any()) }
+        verify { mockTrampolineContext.startActivity(mockLaunchIntent) }
     }
 }

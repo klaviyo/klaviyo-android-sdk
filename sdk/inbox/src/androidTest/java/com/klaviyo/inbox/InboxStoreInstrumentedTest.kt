@@ -10,7 +10,6 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -62,8 +61,8 @@ class InboxStoreInstrumentedTest {
     private fun message(
         transmissionId: String,
         companyId: String = COMPANY,
-        sentAt: Long? = null,
-        receivedAt: Long = 1_000L
+        receivedAt: Long = 1_000L,
+        sentAt: Long = receivedAt
     ) = inboxMessageEntity(
         transmissionId = transmissionId,
         companyId = companyId,
@@ -136,20 +135,20 @@ class InboxStoreInstrumentedTest {
     }
 
     @Test
-    fun retentionKeepsTheNewestBySortTime() = runBlocking {
+    fun retentionKeepsTheNewestBySentAt() = runBlocking {
         val dao = dao
-        // Inserted out of order; sort time is sentAt, falling back to receivedAt
+        // Inserted out of order; a push with no send time is stored with sentAt = receivedAt
         dao.insertAndTrim(message("old", sentAt = 100L), 3)
         dao.insertAndTrim(message("new", sentAt = 500L), 3)
         dao.insertAndTrim(message("mid", sentAt = 300L), 3)
-        dao.insertAndTrim(message("unsent", sentAt = null, receivedAt = 400L), 3)
+        dao.insertAndTrim(message("unsent", receivedAt = 400L), 3)
         dao.insertAndTrim(message("newest", sentAt = 600L), 3)
 
         assertEquals(listOf("newest", "new", "unsent"), dao.transmissionIdsByCompanyId(COMPANY))
     }
 
     @Test
-    fun retentionBreaksSortTimeTiesByID() = runBlocking {
+    fun retentionBreaksSentAtTiesByID() = runBlocking {
         val dao = dao
         dao.insertAndTrim(message("a", sentAt = 100L), 2)
         dao.insertAndTrim(message("b", sentAt = 100L), 2)
@@ -190,6 +189,19 @@ class InboxStoreInstrumentedTest {
 
         assertTrue(dao.transmissionIdsByCompanyId("A").isEmpty())
         assertEquals(listOf("b1"), dao.transmissionIdsByCompanyId("B"))
+    }
+
+    @Test
+    fun clearByCompanyIdReportsHowManyItRemoved() = runBlocking {
+        val source = openSource()
+        source.seed(
+            message("a1", companyId = "A"),
+            message("a2", companyId = "A"),
+            message("b1", companyId = "B")
+        )
+
+        assertEquals(2, source.clearByCompanyId("A"))
+        assertEquals(0, source.clearByCompanyId("A"))
     }
 
     @Test
@@ -446,23 +458,213 @@ class InboxStoreInstrumentedTest {
         assertFalse(context.getDatabasePath(databaseName).exists())
     }
 
+    private suspend fun RoomInboxDataSource.bulk(
+        change: InboxStateChange,
+        read: InboxReadFilter,
+        archive: InboxArchiveFilter,
+        updatedAt: Long = 9_000L,
+        companyId: String = COMPANY
+    ) = updateStateWhere(
+        companyId,
+        change,
+        isRead = when (read) {
+            InboxReadFilter.ALL -> null
+            InboxReadFilter.UNREAD -> false
+            InboxReadFilter.READ -> true
+        },
+        isArchived = when (archive) {
+            InboxArchiveFilter.ALL -> null
+            InboxArchiveFilter.ACTIVE -> false
+            InboxArchiveFilter.ARCHIVED -> true
+        },
+        updatedAt = updatedAt
+    )
+
+    private suspend fun RoomInboxDataSource.updatedIds() = fetchPage(
+        COMPANY,
+        InboxRecordQuery(LIMIT, null)
+    ).messages.filter { it.updatedAt != null }.map { it.transmissionId }.toSet()
+
+    @Test
+    fun bulkMarkReadChangesOnlyMatchingMessagesAndCountsThem() = runBlocking {
+        val source = openSource()
+        source.seedEveryState()
+
+        val changed = source.bulk(
+            InboxStateChange.MARK_READ,
+            InboxReadFilter.ALL,
+            InboxArchiveFilter.ACTIVE
+        )
+
+        // read-active already read, and the archived ones are outside the filter
+        assertEquals(1, changed)
+        assertTrue(source.stored("unread").isRead)
+        assertFalse(source.stored("archived-unread").isRead)
+        assertEquals(setOf("unread"), source.updatedIds())
+        assertEquals(9_000L, source.stored("unread").updatedAt)
+    }
+
+    @Test
+    fun bulkChangeKeepsTheTimestampOfMessagesAlreadyInTheTargetState() = runBlocking {
+        val source = openSource()
+        source.seed(
+            message("done").copy(isRead = true, updatedAt = 1_234L),
+            message("todo")
+        )
+
+        assertEquals(
+            1,
+            source.bulk(InboxStateChange.MARK_READ, InboxReadFilter.ALL, InboxArchiveFilter.ALL)
+        )
+
+        assertEquals(1_234L, source.stored("done").updatedAt)
+        assertEquals(9_000L, source.stored("todo").updatedAt)
+    }
+
+    @Test
+    fun bulkChangeLeavesOtherCompaniesAlone() = runBlocking {
+        val source = openSource()
+        source.seed(message("mine"), message("theirs", companyId = "B"))
+
+        assertEquals(
+            1,
+            source.bulk(InboxStateChange.MARK_READ, InboxReadFilter.ALL, InboxArchiveFilter.ALL)
+        )
+
+        assertTrue(source.stored("mine").isRead)
+        assertFalse(source.stored("theirs", "B").isRead)
+        assertNull(source.stored("theirs", "B").updatedAt)
+    }
+
+    @Test
+    fun everyReadAndArchiveFilterMatchesExactlyItsMessages() = runBlocking {
+        val expected = mapOf(
+            (InboxReadFilter.ALL to InboxArchiveFilter.ALL) to
+                setOf("unread", "read", "archived-unread", "archived-read"),
+            (InboxReadFilter.ALL to InboxArchiveFilter.ACTIVE) to setOf("unread", "read"),
+            (InboxReadFilter.ALL to InboxArchiveFilter.ARCHIVED) to
+                setOf("archived-unread", "archived-read"),
+            (InboxReadFilter.UNREAD to InboxArchiveFilter.ALL) to
+                setOf("unread", "archived-unread"),
+            (InboxReadFilter.UNREAD to InboxArchiveFilter.ACTIVE) to setOf("unread"),
+            (InboxReadFilter.UNREAD to InboxArchiveFilter.ARCHIVED) to setOf("archived-unread"),
+            (InboxReadFilter.READ to InboxArchiveFilter.ALL) to setOf("read", "archived-read"),
+            (InboxReadFilter.READ to InboxArchiveFilter.ACTIVE) to setOf("read"),
+            (InboxReadFilter.READ to InboxArchiveFilter.ARCHIVED) to setOf("archived-read")
+        )
+        assertEquals(9, expected.size)
+
+        // MARK_READ can only change the matches that are unread, MARK_UNREAD the ones that are read
+        val cases = expected.flatMap { (filter, ids) ->
+            listOf(
+                Triple(filter, InboxStateChange.MARK_READ, ids.filter { it.endsWith("unread") }),
+                Triple(
+                    filter,
+                    InboxStateChange.MARK_UNREAD,
+                    ids.filter { !it.endsWith("unread") }
+                )
+            )
+        }
+
+        cases.forEachIndexed { index, (filter, change, changing) ->
+            val name = "$databaseName-$index"
+            val source = RoomInboxDataSource(context, name).also { openSources += it }
+            source.seedEveryState()
+
+            val changed = source.bulk(change, filter.first, filter.second)
+
+            assertEquals("$filter $change", changing.size, changed)
+            assertEquals("$filter $change", changing.toSet(), source.updatedIds())
+            source.close()
+            context.deleteDatabase(name)
+        }
+    }
+
+    @Test
+    fun bulkUnarchiveWithTheActiveFilterMatchesNothing() = runBlocking {
+        val source = openSource()
+        source.seedEveryState()
+
+        assertEquals(
+            0,
+            source.bulk(InboxStateChange.UNARCHIVE, InboxReadFilter.ALL, InboxArchiveFilter.ACTIVE)
+        )
+        assertTrue(source.stored("archived-unread").isArchived)
+        assertTrue(source.updatedIds().isEmpty())
+    }
+
+    @Test
+    fun bulkUnarchiveRestoresArchivedMessagesWithTheArchivedFilterOrAllMessages() = runBlocking {
+        val archived = openSource()
+        archived.seedEveryState()
+        assertEquals(
+            2,
+            archived.bulk(
+                InboxStateChange.UNARCHIVE,
+                InboxReadFilter.ALL,
+                InboxArchiveFilter.ARCHIVED
+            )
+        )
+        assertFalse(archived.stored("archived-unread").isArchived)
+        assertFalse(archived.stored("archived-read").isArchived)
+
+        val everything = RoomInboxDataSource(context, "$databaseName-all").also { openSources += it }
+        everything.seedEveryState()
+        assertEquals(
+            2,
+            everything.bulk(InboxStateChange.UNARCHIVE, InboxReadFilter.ALL, InboxArchiveFilter.ALL)
+        )
+        everything.close()
+        context.deleteDatabase("$databaseName-all")
+        Unit
+    }
+
+    @Test
+    fun bulkChangeReadsBackThroughTheUnreadCountAndPages() = runBlocking {
+        val source = openSource()
+        source.seedEveryState()
+        assertEquals(1, source.countUnread(COMPANY))
+
+        source.bulk(InboxStateChange.ARCHIVE, InboxReadFilter.UNREAD, InboxArchiveFilter.ACTIVE)
+
+        assertEquals(0, source.countUnread(COMPANY))
+        val active = source.fetchPage(COMPANY, InboxRecordQuery(LIMIT, null, isArchived = false))
+        assertEquals(listOf("read"), active.messages.map { it.transmissionId })
+    }
+
+    @Test
+    fun bulkChangeEmitsOnceAndNothingWhenNothingChanged() = runBlocking {
+        val source = openSource()
+        source.seedEveryState()
+
+        assertEquals(
+            1,
+            source.emissionsDuring {
+                source.bulk(InboxStateChange.MARK_READ, InboxReadFilter.ALL, InboxArchiveFilter.ALL)
+            }
+        )
+        assertEquals(
+            0,
+            source.emissionsDuring {
+                source.bulk(InboxStateChange.MARK_READ, InboxReadFilter.ALL, InboxArchiveFilter.ALL)
+            }
+        )
+    }
+
+    @Test
+    fun bulkChangeDoesNotCreateTheDatabase() = runBlocking {
+        val source = RoomInboxDataSource(context, databaseName)
+
+        assertEquals(
+            0,
+            source.bulk(InboxStateChange.MARK_READ, InboxReadFilter.ALL, InboxArchiveFilter.ALL)
+        )
+
+        assertFalse(context.getDatabasePath(databaseName).exists())
+    }
+
     private suspend fun RoomInboxDataSource.seed(vararg messages: InboxMessageEntity) =
         messages.forEach { insert(it, LIMIT) }
-
-    /**
-     * How many times [RoomInboxDataSource.changes] emitted while [block] ran
-     */
-    private suspend fun RoomInboxDataSource.emissionsDuring(block: suspend () -> Unit): Int =
-        coroutineScope {
-            var emissions = 0
-            val collector = launch(Dispatchers.Unconfined, CoroutineStart.UNDISPATCHED) {
-                changes.collect { emissions++ }
-            }
-            block()
-            delay(SETTLE_MS)
-            collector.cancel()
-            emissions
-        }
 
     @Test
     fun storingAPushEmitsOnceAndADuplicateDoesNot() = runBlocking {
@@ -543,7 +745,7 @@ class InboxStoreInstrumentedTest {
 
         source.seed(message("a"), message("b"), message("c"))
         release.complete(Unit)
-        delay(SETTLE_MS)
+        delay(EMISSIONS_SETTLE_MS)
         collector.cancel()
 
         // The first is taken, the next two merge into one
@@ -561,11 +763,11 @@ class InboxStoreInstrumentedTest {
         .messages.map { it.transmissionId }
 
     @Test
-    fun pagesRunNewestFirstBySortTime() = runBlocking {
+    fun pagesRunNewestFirstBySentAt() = runBlocking {
         val source = openSource()
         source.seed(
             message("old", sentAt = 100L),
-            message("unsent", sentAt = null, receivedAt = 400L),
+            message("unsent", receivedAt = 400L),
             message("new", sentAt = 500L),
             message("mid", sentAt = 300L)
         )
@@ -608,7 +810,7 @@ class InboxStoreInstrumentedTest {
     }
 
     @Test
-    fun messagesSharingASortTimeAreOrderedAndPagedByID() = runBlocking {
+    fun messagesSharingASentAtAreOrderedAndPagedByID() = runBlocking {
         val source = openSource()
         source.seed(
             message("a", sentAt = 100L),
@@ -796,7 +998,7 @@ class InboxStoreInstrumentedTest {
         )
     }
 
-    private fun InboxMessageEntity.position() = InboxRecordPosition(sortTime, transmissionId)
+    private fun InboxMessageEntity.position() = InboxRecordPosition(sentAt, transmissionId)
 
     @Test
     fun exportedVersionOneSchemaMatchesTheEntity() {
@@ -809,7 +1011,6 @@ class InboxStoreInstrumentedTest {
         const val COMPANY = "company"
         const val LIMIT = 100
         const val CONCURRENT_INSERTS = 20
-        const val SETTLE_MS = 100L
         const val EXPIRES_AT = 90_000L
         const val UPDATED_AT = 5_000L
         const val SENT_AT = 4_000L

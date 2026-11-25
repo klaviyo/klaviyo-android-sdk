@@ -7,6 +7,7 @@ import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -72,7 +73,7 @@ class KlaviyoInboxTest : BaseTest() {
     fun `trackMessageClick forwards the message, action and element`() {
         val message = InboxMessage(
             "tm-1", null, null, InboxDestination(InboxDestinationType.OPEN_APP, null), null, null,
-            emptyMap(), emptyList(), null, null, null, null, false, false, InboxMessageSource.CAPTURED
+            emptyMap(), emptyList(), 0L, 0L, null, null, false, false, InboxMessageSource.CAPTURED
         )
         val action = InboxAction(
             "a",
@@ -89,7 +90,7 @@ class KlaviyoInboxTest : BaseTest() {
     fun `trackMessageClick without an action or element defaults both to null`() {
         val message = InboxMessage(
             "tm-1", null, null, InboxDestination(InboxDestinationType.OPEN_APP, null), null, null,
-            emptyMap(), emptyList(), null, null, null, null, false, false, InboxMessageSource.CAPTURED
+            emptyMap(), emptyList(), 0L, 0L, null, null, false, false, InboxMessageSource.CAPTURED
         )
 
         KlaviyoInbox.trackMessageClick(message)
@@ -101,7 +102,7 @@ class KlaviyoInboxTest : BaseTest() {
     fun `trackMessageClick does not change message state`() {
         val message = InboxMessage(
             "tm-1", null, null, InboxDestination(InboxDestinationType.OPEN_APP, null), null, null,
-            emptyMap(), emptyList(), null, null, null, null, false, false, InboxMessageSource.CAPTURED
+            emptyMap(), emptyList(), 0L, 0L, null, null, false, false, InboxMessageSource.CAPTURED
         )
 
         KlaviyoInbox.trackMessageClick(message)
@@ -114,7 +115,7 @@ class KlaviyoInboxTest : BaseTest() {
         inbox.unregister()
         val message = InboxMessage(
             "tm-1", null, null, InboxDestination(InboxDestinationType.OPEN_APP, null), null, null,
-            emptyMap(), emptyList(), null, null, null, null, false, false, InboxMessageSource.CAPTURED
+            emptyMap(), emptyList(), 0L, 0L, null, null, false, false, InboxMessageSource.CAPTURED
         )
 
         assertThrows(MissingKlaviyoModule::class.java) { KlaviyoInbox.trackMessageClick(message) }
@@ -176,6 +177,52 @@ class KlaviyoInboxTest : BaseTest() {
     }
 
     @Test
+    fun `bulk updateMessageState delivers the changed count for the filter`() {
+        inbox.bulkChangedCount = 3
+        var result: InboxResult<Int>? = null
+        val filter = InboxFilter.where(InboxReadFilter.UNREAD, InboxArchiveFilter.ACTIVE)
+
+        KlaviyoInbox.updateMessageState(InboxStateChange.MARK_READ, filter) { result = it }
+
+        assertEquals(3, assertIs<InboxResult.Success<Int>>(result).value)
+        assertEquals(listOf(InboxStateChange.MARK_READ to filter), inbox.bulkStateChanges)
+    }
+
+    @Test
+    fun `a failed bulk state update reaches the callback as a failure`() {
+        val failure = InboxException.StorageFailure("store failed")
+        inbox.failure = failure
+        var result: InboxResult<Int>? = null
+
+        KlaviyoInbox.updateMessageState(InboxStateChange.ARCHIVE, InboxFilter.ALL_MESSAGES) {
+            result = it
+        }
+
+        assertSame(failure, assertIs<InboxResult.Failure>(result).exception)
+    }
+
+    @Test
+    fun `an unexpected bulk update failure is wrapped as a storage failure`() {
+        inbox.failure = IllegalStateException("boom")
+        var result: InboxResult<Int>? = null
+
+        KlaviyoInbox.updateMessageState(InboxStateChange.ARCHIVE, InboxFilter.ALL_MESSAGES) {
+            result = it
+        }
+
+        assertIs<InboxException.StorageFailure>(assertIs<InboxResult.Failure>(result).exception)
+    }
+
+    @Test
+    fun `bulk updateMessageState throws when the inbox module is absent`() {
+        inbox.unregister()
+
+        assertThrows(MissingKlaviyoModule::class.java) {
+            KlaviyoInbox.updateMessageState(InboxStateChange.MARK_READ, InboxFilter.ALL_MESSAGES) { }
+        }
+    }
+
+    @Test
     fun `a failed state update reaches the callback as a failure`() {
         val failure = InboxException.StorageFailure("store failed")
         inbox.failure = failure
@@ -193,6 +240,52 @@ class KlaviyoInboxTest : BaseTest() {
         assertThrows(MissingKlaviyoModule::class.java) {
             KlaviyoInbox.updateMessageState("tm-1", InboxStateChange.MARK_READ) { }
         }
+    }
+
+    @Test
+    fun `clearAll removes the current company's messages and reports how many`() {
+        inbox.clearedCount = 2
+        var result: InboxResult<Int>? = null
+
+        KlaviyoInbox.clearAll { result = it }
+
+        assertEquals(2, assertIs<InboxResult.Success<Int>>(result).value)
+        assertEquals(1, inbox.clearAllCalls)
+    }
+
+    @Test
+    fun `the Kotlin entry point clears through the registered inbox`() = runBlocking {
+        inbox.clearedCount = 3
+
+        assertEquals(3, Klaviyo.mobileInbox.clearAll())
+        assertEquals(1, inbox.clearAllCalls)
+    }
+
+    @Test
+    fun `clearAll reports nothing removed`() {
+        var result: InboxResult<Int>? = null
+
+        KlaviyoInbox.clearAll { result = it }
+
+        assertEquals(0, assertIs<InboxResult.Success<Int>>(result).value)
+    }
+
+    @Test
+    fun `a failed clearAll reaches the callback as a failure`() {
+        val failure = InboxException.StorageFailure("store failed")
+        inbox.failure = failure
+        var result: InboxResult<Int>? = null
+
+        KlaviyoInbox.clearAll { result = it }
+
+        assertSame(failure, assertIs<InboxResult.Failure>(result).exception)
+    }
+
+    @Test
+    fun `the Java entry point for clearAll throws when the inbox module is absent`() {
+        inbox.unregister()
+
+        assertThrows(MissingKlaviyoModule::class.java) { KlaviyoInbox.clearAll { } }
     }
 
     @Test

@@ -34,6 +34,13 @@ internal class KlaviyoMobileInboxProvider : MobileInboxProvider {
         ) {
             buildInboxClickEvent(message, action, element)?.let { Klaviyo.createEvent(it) }
         }
+
+        override suspend fun updateMessageState(
+            change: InboxStateChange,
+            filter: InboxFilter
+        ): Int = repository.updateMessageState(change, filter)
+
+        override suspend fun clearAll(): Int = repository.clearCurrentCompany()
     }
 
     private val repository: InboxRepository get() = Registry.get()

@@ -27,11 +27,17 @@ internal class KlaviyoInboxRepository(
         }
     }
 
-    override suspend fun clearByCompanyId(companyId: String) = guarded(
-        "clear messages for a company",
-        Unit
-    ) {
-        dataSource.clearByCompanyId(companyId)
+    override suspend fun clearByCompanyId(companyId: String) {
+        guarded("clear messages for a company", Unit) {
+            dataSource.clearByCompanyId(companyId)
+        }
+    }
+
+    override suspend fun clearCurrentCompany(): Int {
+        val companyId = currentCompanyId() ?: return 0
+        return storeCall("clear the current company's messages") {
+            dataSource.clearByCompanyId(companyId)
+        }
     }
 
     override suspend fun clearAll() = guarded("clear all messages", Unit) {
@@ -87,6 +93,19 @@ internal class KlaviyoInboxRepository(
         val companyId = currentCompanyId() ?: return false
         return storeCall("update a message's state") {
             dataSource.updateState(companyId, messageId, change, Registry.clock.currentTimeMillis())
+        }
+    }
+
+    override suspend fun updateMessageState(change: InboxStateChange, filter: InboxFilter): Int {
+        val companyId = currentCompanyId() ?: return 0
+        return storeCall("update the state of matching messages") {
+            dataSource.updateStateWhere(
+                companyId,
+                change,
+                isRead = filter.readFilter.toState(),
+                isArchived = filter.archiveFilter.toState(),
+                updatedAt = Registry.clock.currentTimeMillis()
+            )
         }
     }
 

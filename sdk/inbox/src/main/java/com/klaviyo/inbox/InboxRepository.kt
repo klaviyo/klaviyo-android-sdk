@@ -40,7 +40,26 @@ internal interface InboxRepository {
     suspend fun updateMessageState(messageId: String, change: InboxStateChange): Boolean
 
     /**
-     * Remove every stored message captured under [companyId]
+     * Apply [change] to every one of the current company's messages that matches [filter]. Zero
+     * before the SDK is initialized.
+     *
+     * @return How many messages changed
+     * @throws InboxException when the store fails
+     */
+    suspend fun updateMessageState(change: InboxStateChange, filter: InboxFilter): Int
+
+    /**
+     * Remove every message the current company captured on this device, read and archived alike.
+     * Zero before the SDK is initialized.
+     *
+     * @return How many messages were removed
+     * @throws InboxException.StorageFailure when the store fails
+     */
+    suspend fun clearCurrentCompany(): Int
+
+    /**
+     * Remove every stored message captured under [companyId]. Best-effort: a store failure is
+     * logged and does not throw, and no count is reported.
      */
     suspend fun clearByCompanyId(companyId: String)
 

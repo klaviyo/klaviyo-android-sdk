@@ -82,6 +82,14 @@ internal class KlaviyoMobileInboxProviderTest : BaseTest() {
     }
 
     @Test
+    fun `clearAll is zero before the SDK is initialized`() = runBlocking {
+        every { Registry.config } throws MissingConfig()
+        inboxInitProvider().onCreate()
+
+        assertEquals(0, KlaviyoMobileInboxProvider().mobileInbox.clearAll())
+    }
+
+    @Test
     fun `changes come from the repository registered when they are collected`() = runBlocking {
         val repositoryChanges = MutableSharedFlow<Unit>(replay = 1)
         val repository = mockk<InboxRepository> {
