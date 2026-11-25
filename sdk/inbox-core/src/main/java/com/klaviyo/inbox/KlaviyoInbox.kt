@@ -78,6 +78,20 @@ object KlaviyoInbox {
     ) = Klaviyo.mobileInbox.trackMessageClick(message, action, properties)
 
     /**
+     * Delivers true when the click was queued.
+     *
+     * @see MobileInbox.trackMessageClick
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun trackMessageClick(
+        messageId: String,
+        actionId: String? = null,
+        properties: Map<String, Serializable?> = emptyMap(),
+        callback: InboxUpdateCallback
+    ) = deliver(callback::onResult) { it.trackMessageClick(messageId, actionId, properties) }
+
+    /**
      * Delivers how many messages changed.
      *
      * @see MobileInbox.updateMessageState

@@ -115,6 +115,21 @@ class KlaviyoInboxTest : BaseTest() {
     }
 
     @Test
+    fun `trackMessageClick by ID forwards the IDs and properties and delivers whether it was queued`() {
+        var delivered: InboxResult<Boolean>? = null
+
+        KlaviyoInbox.trackMessageClick("tm-1", "a", mapOf("screen" to "inbox")) { delivered = it }
+
+        assertEquals(
+            listOf(
+                Triple("tm-1", "a" as String?, mapOf<String, Serializable?>("screen" to "inbox"))
+            ),
+            inbox.idClicks
+        )
+        assertEquals(true, assertIs<InboxResult.Success<Boolean>>(delivered).value)
+    }
+
+    @Test
     fun `the Java entry point throws when the inbox module is absent for a click`() {
         inbox.unregister()
         val message = InboxMessage(

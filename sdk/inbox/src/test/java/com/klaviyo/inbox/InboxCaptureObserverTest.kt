@@ -49,6 +49,9 @@ internal class InboxCaptureObserverTest : BaseTest() {
 
         override suspend fun fetchPage(query: InboxQuery): InboxPage = error("not used by capture")
 
+        override suspend fun fetchMessage(messageId: String): InboxMessage? =
+            error("not used by capture")
+
         override suspend fun fetchUnreadCount(): Int = error("not used by capture")
 
         override suspend fun updateMessageState(

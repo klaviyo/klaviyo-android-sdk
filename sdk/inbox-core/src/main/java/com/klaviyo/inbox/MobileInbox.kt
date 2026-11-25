@@ -70,6 +70,27 @@ interface MobileInbox {
     )
 
     /**
+     * Record a click on the stored message [messageId], or on one of its buttons, as
+     * [trackMessageClick] does for a message the host already holds. For callers that keep only a
+     * message ID, such as a wrapper SDK.
+     *
+     * Nothing is recorded when the message is no longer stored, since the stored push is what
+     * the event is attributed from, or when [actionId] names no button on the message.
+     *
+     * @param messageId The tapped message's [InboxMessage.id]
+     * @param actionId The tapped button's [InboxAction.id], or null for a tap on the message itself
+     * @param properties Extra properties to record on the event. See the overload above.
+     * @return True when the click was queued. False when the current company has no message with
+     *  [messageId], the message has no button [actionId], or the SDK is not initialized.
+     * @throws InboxException.StorageFailure when the on-device store fails
+     */
+    suspend fun trackMessageClick(
+        messageId: String,
+        actionId: String? = null,
+        properties: Map<String, Serializable?> = emptyMap()
+    ): Boolean
+
+    /**
      * Apply [change] to every one of the current company's messages that matches [filter], for
      * example to mark every unread message as read. A message already in the state [change] asks
      * for is left as it is, so repeating the call changes nothing and returns 0.

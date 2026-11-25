@@ -61,6 +61,17 @@ class FakeMobileInbox : MobileInbox {
         clicks += Triple(message, action, properties)
     }
 
+    val idClicks = mutableListOf<Triple<String, String?, Map<String, Serializable?>>>()
+
+    override suspend fun trackMessageClick(
+        messageId: String,
+        actionId: String?,
+        properties: Map<String, Serializable?>
+    ): Boolean {
+        idClicks += Triple(messageId, actionId, properties)
+        return failure?.let { throw it } ?: messageExists
+    }
+
     override suspend fun updateMessageState(change: InboxStateChange, filter: InboxFilter): Int {
         bulkStateChanges += change to filter
         return failure?.let { throw it } ?: bulkChangedCount

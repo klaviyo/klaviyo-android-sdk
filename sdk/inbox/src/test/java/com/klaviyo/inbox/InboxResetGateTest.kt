@@ -283,6 +283,11 @@ internal class FakeInboxDataSource : LocalInboxDataSource {
         return InboxRecordPage(emptyList(), hasMore = false)
     }
 
+    override suspend fun fetchMessage(companyId: String, messageId: String): InboxMessageEntity? {
+        calls += "fetchMessage"
+        return messages[messageId]?.takeIf { it.companyId == companyId }
+    }
+
     override suspend fun countUnread(companyId: String): Int {
         calls += "countUnread"
         return 0

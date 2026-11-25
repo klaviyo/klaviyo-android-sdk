@@ -83,6 +83,9 @@ internal class RoomInboxDataSource(
         return InboxRecordPage(rows.take(query.pageSize), hasMore = rows.size > query.pageSize)
     }
 
+    override suspend fun fetchMessage(companyId: String, messageId: String): InboxMessageEntity? =
+        if (storeExists()) dao().get(messageId)?.takeIf { it.companyId == companyId } else null
+
     override suspend fun countUnread(companyId: String): Int =
         if (storeExists()) dao().countUnread(companyId) else 0
 

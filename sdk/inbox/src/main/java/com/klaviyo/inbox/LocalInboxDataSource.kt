@@ -32,6 +32,12 @@ internal interface LocalInboxDataSource {
     suspend fun fetchPage(companyId: String, query: InboxRecordQuery): InboxRecordPage
 
     /**
+     * [companyId]'s message with the ID [messageId], or null when the company has no such message
+     * or nothing has ever been stored.
+     */
+    suspend fun fetchMessage(companyId: String, messageId: String): InboxMessageEntity?
+
+    /**
      * The number of [companyId]'s messages that are unread and not archived. Zero when nothing
      * has ever been stored.
      */

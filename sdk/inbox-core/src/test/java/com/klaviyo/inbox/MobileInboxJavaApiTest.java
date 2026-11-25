@@ -64,6 +64,9 @@ public class MobileInboxJavaApiTest {
             KlaviyoInbox.trackMessageClick(message);
             KlaviyoInbox.trackMessageClick(message, action);
             KlaviyoInbox.trackMessageClick(message, action, java.util.Collections.singletonMap("screen", "inbox"));
+            KlaviyoInbox.trackMessageClick("tm-1", result -> { });
+            KlaviyoInbox.trackMessageClick("tm-1", "action-1", result -> { });
+            KlaviyoInbox.trackMessageClick("tm-1", "action-1", java.util.Collections.singletonMap("screen", "inbox"), result -> { });
         };
     }
 

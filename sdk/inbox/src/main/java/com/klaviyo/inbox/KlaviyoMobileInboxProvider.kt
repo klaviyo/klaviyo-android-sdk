@@ -33,7 +33,19 @@ internal class KlaviyoMobileInboxProvider : MobileInboxProvider {
             action: InboxAction?,
             properties: Map<String, Serializable?>
         ) {
-            buildInboxClickEvent(message, action, properties)?.let { Klaviyo.createEvent(it) }
+            queueClick(message, action, properties)
+        }
+
+        override suspend fun trackMessageClick(
+            messageId: String,
+            actionId: String?,
+            properties: Map<String, Serializable?>
+        ): Boolean {
+            val message = repository.fetchMessage(messageId) ?: return false
+            val action = actionId?.let { id ->
+                message.actions.firstOrNull { it.id == id } ?: return false
+            }
+            return queueClick(message, action, properties)
         }
 
         override suspend fun updateMessageState(
@@ -45,4 +57,16 @@ internal class KlaviyoMobileInboxProvider : MobileInboxProvider {
     }
 
     private val repository: InboxRepository get() = Registry.get()
+
+    /**
+     * Queues the click event, which is not built when a value is over its limit
+     *
+     * @return Whether an event was queued
+     */
+    private fun queueClick(
+        message: InboxMessage,
+        action: InboxAction?,
+        properties: Map<String, Serializable?>
+    ): Boolean = buildInboxClickEvent(message, action, properties)
+        ?.also { Klaviyo.createEvent(it) } != null
 }

@@ -25,6 +25,14 @@ internal interface InboxRepository {
     suspend fun fetchPage(query: InboxQuery): InboxPage
 
     /**
+     * The current company's message with the ID [messageId]. Null before the SDK is initialized,
+     * or when the message isn't stored.
+     *
+     * @throws InboxException when the store fails
+     */
+    suspend fun fetchMessage(messageId: String): InboxMessage?
+
+    /**
      * The current company's unread, unarchived message count. Zero before the SDK is initialized.
      *
      * @throws InboxException when the store fails

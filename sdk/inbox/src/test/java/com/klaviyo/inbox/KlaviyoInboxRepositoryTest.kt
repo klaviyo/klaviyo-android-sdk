@@ -172,6 +172,43 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
     }
 
     @Test
+    fun `a stored message is fetched by ID for the current company`() = runBlocking {
+        coEvery { dataSource.fetchMessage(API_KEY, "tm-1") } returns message
+
+        assertEquals(message.toInboxMessage(), repository.fetchMessage("tm-1"))
+    }
+
+    @Test
+    fun `fetching a missing message returns null`() = runBlocking {
+        coEvery { dataSource.fetchMessage(any(), any()) } returns null
+
+        assertNull(repository.fetchMessage("gone"))
+    }
+
+    @Test
+    fun `fetching a message before the SDK is initialized returns null without touching the store`() =
+        runBlocking {
+            every { mockConfig.apiKey } throws MissingAPIKey()
+
+            assertNull(repository.fetchMessage("tm-1"))
+            coVerify(exactly = 0) { dataSource.fetchMessage(any(), any()) }
+        }
+
+    @Test
+    fun `a failed message fetch is logged and reported as a storage failure`() {
+        val cause = IllegalStateException("disk full")
+        coEvery { dataSource.fetchMessage(any(), any()) } throws cause
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.fetchMessage("tm-1") }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        assertSame(cause, error.cause)
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
     fun `a state change is applied to the current company's message with the current time`() =
         runBlocking {
             coEvery { dataSource.updateState(any(), any(), any(), any()) } returns true

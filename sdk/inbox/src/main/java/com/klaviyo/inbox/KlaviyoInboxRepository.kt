@@ -101,6 +101,13 @@ internal class KlaviyoInboxRepository(
         }
     }
 
+    override suspend fun fetchMessage(messageId: String): InboxMessage? {
+        val companyId = currentCompanyId() ?: return null
+        return storeCall("fetch a message") {
+            resetGate().withCurrentInbox { dataSource.fetchMessage(companyId, messageId) }
+        }?.toInboxMessage()
+    }
+
     override suspend fun updateMessageState(
         messageId: String,
         change: InboxStateChange
