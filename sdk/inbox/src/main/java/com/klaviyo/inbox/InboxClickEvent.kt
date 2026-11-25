@@ -13,6 +13,10 @@ import org.json.JSONObject
 /**
  * The metric for a host-reported tap on an inbox message or one of its buttons. Branded under the
  * `klaviyo` service. The key is also the display name, so no backend mapping is needed.
+ *
+ * The key has no `$` prefix, so [com.klaviyo.analytics.model.EventMetric] does not treat it as a
+ * Klaviyo-internal metric. A click is queued at the back and sent on the normal batch interval,
+ * not at the head of the queue with an immediate flush. That is intended for an analytics click.
  */
 internal object InboxClickMetric : EventMetric.CUSTOM("Clicked App Inbox Message") {
     const val SERVICE = "klaviyo"
