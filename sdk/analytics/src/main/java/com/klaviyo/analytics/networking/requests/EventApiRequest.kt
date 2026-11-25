@@ -25,6 +25,7 @@ internal class EventApiRequest(
         const val PATH = "client/events"
         const val METRIC = "metric"
         const val NAME = "name"
+        const val SERVICE = "service"
         const val ATTR_VALUE = "value"
         const val ATTR_VALUE_CURRENCY = "value_currency"
         const val TIME = "time"
@@ -67,7 +68,10 @@ internal class EventApiRequest(
                     METRIC to mapOf(
                         DATA to mapOf(
                             TYPE to METRIC,
-                            ATTRIBUTES to mapOf(NAME to event.metric.name)
+                            ATTRIBUTES to filteredMapOf(
+                                NAME to event.metric.name,
+                                SERVICE to event.metric.service
+                            )
                         )
                     ),
                     UNIQUE_ID to event.uniqueId.let { if (it.isNullOrEmpty()) uuid else it },

@@ -3,6 +3,7 @@ package com.klaviyo.inbox
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.MissingKlaviyoModule
 import com.klaviyo.core.Registry
+import java.io.Serializable
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -46,6 +47,27 @@ interface MobileInbox {
      *  change altered it. False when it doesn't, for example because retention removed it.
      */
     suspend fun updateMessageState(messageId: String, change: InboxStateChange): Boolean
+
+    /**
+     * Record that the user tapped [message], or one of its buttons, as a Clicked App Inbox
+     * Message event for the current profile. The event is queued and delivered with the SDK's
+     * usual retries, whether or not the message is still stored on this device.
+     *
+     * Clicking and message state are independent: this never marks the message read or archived,
+     * and a state change never records a click. The SDK does not open the destination. Navigation
+     * stays with the host.
+     *
+     * @param message The tapped message
+     * @param action The tapped button, or null for a tap on the message itself
+     * @param properties Extra properties to record on the event, such as which UI element the user
+     *  tapped. They are added last, so a key that matches one of the SDK's own properties, such
+     *  as `Action Type`, is ignored in favor of the SDK's value.
+     */
+    fun trackMessageClick(
+        message: InboxMessage,
+        action: InboxAction? = null,
+        properties: Map<String, Serializable?> = emptyMap()
+    )
 
     /**
      * Apply [change] to every one of the current company's messages that matches [filter], for

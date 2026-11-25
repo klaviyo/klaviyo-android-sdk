@@ -6,6 +6,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.verify
+import java.io.Serializable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -67,6 +68,61 @@ class KlaviyoInboxTest : BaseTest() {
 
         assertSame(inbox.page, assertIs<InboxResult.Success<InboxPage>>(result).value)
         assertEquals(listOf(query), inbox.queries)
+    }
+
+    @Test
+    fun `trackMessageClick forwards the message, action and properties`() {
+        val message = InboxMessage(
+            "tm-1", null, null, InboxDestination(InboxDestinationType.OPEN_APP, null), null, null,
+            emptyMap(), emptyList(), 0L, 0L, null, null, false, false, InboxMessageSource.CAPTURED
+        )
+        val action = InboxAction(
+            "a",
+            "Shop",
+            InboxDestination(InboxDestinationType.DEEP_LINK, "myapp://shop")
+        )
+
+        KlaviyoInbox.trackMessageClick(message, action, mapOf("screen" to "inbox"))
+
+        assertEquals(
+            listOf(Triple(message, action, mapOf<String, Serializable?>("screen" to "inbox"))),
+            inbox.clicks
+        )
+    }
+
+    @Test
+    fun `trackMessageClick without an action or properties defaults to none`() {
+        val message = InboxMessage(
+            "tm-1", null, null, InboxDestination(InboxDestinationType.OPEN_APP, null), null, null,
+            emptyMap(), emptyList(), 0L, 0L, null, null, false, false, InboxMessageSource.CAPTURED
+        )
+
+        KlaviyoInbox.trackMessageClick(message)
+
+        assertEquals(listOf(Triple(message, null, emptyMap<String, Serializable?>())), inbox.clicks)
+    }
+
+    @Test
+    fun `trackMessageClick does not change message state`() {
+        val message = InboxMessage(
+            "tm-1", null, null, InboxDestination(InboxDestinationType.OPEN_APP, null), null, null,
+            emptyMap(), emptyList(), 0L, 0L, null, null, false, false, InboxMessageSource.CAPTURED
+        )
+
+        KlaviyoInbox.trackMessageClick(message)
+
+        assertEquals(emptyList<Pair<String, InboxStateChange>>(), inbox.stateChanges)
+    }
+
+    @Test
+    fun `the Java entry point throws when the inbox module is absent for a click`() {
+        inbox.unregister()
+        val message = InboxMessage(
+            "tm-1", null, null, InboxDestination(InboxDestinationType.OPEN_APP, null), null, null,
+            emptyMap(), emptyList(), 0L, 0L, null, null, false, false, InboxMessageSource.CAPTURED
+        )
+
+        assertThrows(MissingKlaviyoModule::class.java) { KlaviyoInbox.trackMessageClick(message) }
     }
 
     @Test

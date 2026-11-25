@@ -294,6 +294,50 @@ internal class EventApiRequestTest : BaseApiRequestTest<EventApiRequest>() {
         assertFalse(attributes.getJSONObject("properties").has(EventKey.VALUE_CURRENCY.name))
     }
 
+    private fun metricAttributes(request: EventApiRequest): JSONObject =
+        JSONObject(request.requestBody!!)
+            .getJSONObject("data")
+            .getJSONObject("attributes")
+            .getJSONObject("metric")
+            .getJSONObject("data")
+            .getJSONObject("attributes")
+
+    @Test
+    fun `Omits the metric service for an ordinary event`() {
+        val attributes = metricAttributes(EventApiRequest(stubEvent, stubProfile))
+
+        assertEquals("Test Event", attributes.getString("name"))
+        assertFalse(attributes.has("service"))
+    }
+
+    @Test
+    fun `Sends the metric service when the metric is branded`() {
+        val brandedMetric = object : EventMetric.CUSTOM("Branded Metric") {
+            override val service = "klaviyo"
+        }
+
+        val attributes = metricAttributes(EventApiRequest(Event(brandedMetric), stubProfile))
+
+        assertEquals("Branded Metric", attributes.getString("name"))
+        assertEquals("klaviyo", attributes.getString("service"))
+    }
+
+    @Test
+    fun `Does not include the metric service among the event properties`() {
+        val brandedMetric = object : EventMetric.CUSTOM("Branded Metric") {
+            override val service = "klaviyo"
+        }
+
+        val properties = JSONObject(
+            EventApiRequest(Event(brandedMetric), stubProfile).requestBody!!
+        )
+            .getJSONObject("data")
+            .getJSONObject("attributes")
+            .getJSONObject("properties")
+
+        assertFalse(properties.has("service"))
+    }
+
     @Test
     fun `Sends reserved keys as top-level attributes only`() {
         val event = stubEvent.copy().setValueCurrency("USD")

@@ -18,7 +18,8 @@ internal fun InboxMessageEntity.toInboxMessage() = InboxMessage(
     badge = badge,
     isRead = isRead,
     isArchived = isArchived,
-    source = InboxMessageSource.CAPTURED
+    source = InboxMessageSource.CAPTURED,
+    attributionJson = attributionJson
 )
 
 private fun InboxRecordDestination.toInboxDestination() =
