@@ -4,10 +4,12 @@ import com.klaviyo.core.config.MissingAPIKey
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -22,8 +24,14 @@ import org.junit.Test
 internal class KlaviyoInboxRepositoryTest : BaseTest() {
 
     private val dataSource = mockk<LocalInboxDataSource>(relaxed = true)
+    private val markers = InMemoryResetMarkerStore()
+    private val gate = InboxResetGate(dataSource, markers, Dispatchers.Unconfined)
     private val sourceChanges = MutableSharedFlow<Unit>(replay = 1)
-    private val repository = KlaviyoInboxRepository(dataSource, retentionLimit = RETENTION_LIMIT)
+    private val repository = KlaviyoInboxRepository(
+        dataSource,
+        gate,
+        retentionLimit = RETENTION_LIMIT
+    )
     private val message = inboxMessageEntity(
         transmissionId = "tm-1",
         companyId = API_KEY,
@@ -500,6 +508,133 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
         sourceChanges.emit(Unit)
 
         assertEquals(Unit, repository.changes.first())
+    }
+
+    @Test
+    fun `a capture drains a pending reset before storing`() = runBlocking {
+        coEvery { dataSource.insert(any(), any()) } returns InboxInsertResult.INSERTED
+        markers.persisted = 3
+
+        repository.capture(message)
+
+        coVerifyOrder {
+            dataSource.clearAll()
+            dataSource.insert(message, RETENTION_LIMIT)
+        }
+        assertNull(markers.persisted)
+    }
+
+    @Test
+    fun `a failed drain blocks a capture without touching the store`() = runBlocking {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+        markers.persisted = 3
+
+        assertEquals(InboxCaptureResult.FAILED, repository.capture(message))
+        coVerify(exactly = 0) { dataSource.insert(any(), any()) }
+        assertEquals(3L, markers.persisted)
+    }
+
+    @Test
+    fun `a failed drain blocks a read`() {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+        markers.persisted = 3
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.fetchPage(InboxQuery()) }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        coVerify(exactly = 0) { dataSource.fetchPage(any(), any()) }
+    }
+
+    @Test
+    fun `a failed drain blocks an unread count`() {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+        markers.persisted = 3
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.fetchUnreadCount() }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        coVerify(exactly = 0) { dataSource.countUnread(any()) }
+    }
+
+    @Test
+    fun `a failed drain blocks a state change`() {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+        markers.persisted = 3
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.updateMessageState("tm-1", InboxStateChange.MARK_READ) }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        coVerify(exactly = 0) { dataSource.updateState(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `a failed drain blocks a bulk state change`() {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+        markers.persisted = 3
+
+        assertThrows(InboxException.StorageFailure::class.java) {
+            runBlocking {
+                repository.updateMessageState(InboxStateChange.MARK_READ, InboxFilter.ALL_MESSAGES)
+            }
+        }
+        coVerify(exactly = 0) { dataSource.updateStateWhere(any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `a failed drain blocks a public clear`() {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+        markers.persisted = 3
+
+        assertThrows(InboxException.StorageFailure::class.java) {
+            runBlocking { repository.clearCurrentCompany() }
+        }
+        coVerify(exactly = 0) { dataSource.clearByCompanyId(any()) }
+    }
+
+    @Test
+    fun `an unrecorded reset blocks every call until it can be recorded`() = runBlocking {
+        coEvery { dataSource.insert(any(), any()) } returns InboxInsertResult.INSERTED
+        markers.commitSucceeds = false
+        gate.requestReset()
+
+        assertEquals(InboxCaptureResult.FAILED, repository.capture(message))
+        coVerify(exactly = 0) { dataSource.insert(any(), any()) }
+
+        markers.commitSucceeds = true
+        assertEquals(InboxCaptureResult.CAPTURED, repository.capture(message))
+        coVerify(exactly = 1) { dataSource.insert(message, RETENTION_LIMIT) }
+    }
+
+    @Test
+    fun `a clear by company drains a pending reset first`() = runBlocking {
+        markers.persisted = 3
+
+        repository.clearByCompanyId(API_KEY)
+
+        coVerifyOrder {
+            dataSource.clearAll()
+            dataSource.clearByCompanyId(API_KEY)
+        }
+        assertNull(markers.persisted)
+    }
+
+    @Test
+    fun `a failed drain blocks both internal clears`() = runBlocking {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+        markers.persisted = 3
+
+        repository.clearAll()
+        repository.clearByCompanyId(API_KEY)
+
+        coVerify(exactly = 0) { dataSource.clearByCompanyId(any()) }
+        verify(exactly = 2) { spyLog.error(any(), any<InboxException>()) }
+        assertEquals(3L, markers.persisted)
     }
 
     private companion object {

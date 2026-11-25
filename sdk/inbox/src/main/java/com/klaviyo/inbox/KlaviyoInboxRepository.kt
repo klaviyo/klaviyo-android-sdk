@@ -7,13 +7,22 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * The SDK's [InboxRepository]. Storage failures are logged with their cause. A capture reports
- * [InboxCaptureResult.FAILED] and a clear returns normally, so a store problem never reaches the
- * push path. Host-facing calls report a store problem as [InboxException].
+ * [InboxCaptureResult.FAILED], and host-facing calls report a store problem as [InboxException].
+ *
+ * Every call runs through the gate [resetGate] returns, so a pending profile reset is cleared
+ * before the call reads or writes the store.
  */
 internal class KlaviyoInboxRepository(
     private val dataSource: LocalInboxDataSource,
+    private val resetGate: () -> InboxResetGate,
     private val retentionLimit: Int = DEFAULT_RETENTION_LIMIT
 ) : InboxRepository {
+
+    constructor(
+        dataSource: LocalInboxDataSource,
+        resetGate: InboxResetGate,
+        retentionLimit: Int = DEFAULT_RETENTION_LIMIT
+    ) : this(dataSource, { resetGate }, retentionLimit)
 
     override val changes: Flow<Unit> get() = dataSource.changes
 
@@ -21,27 +30,29 @@ internal class KlaviyoInboxRepository(
         "store a push",
         InboxCaptureResult.FAILED
     ) {
-        when (dataSource.insert(message, retentionLimit)) {
-            InboxInsertResult.INSERTED -> InboxCaptureResult.CAPTURED
-            InboxInsertResult.DUPLICATE -> InboxCaptureResult.DUPLICATE
+        resetGate().withCurrentInbox {
+            when (dataSource.insert(message, retentionLimit)) {
+                InboxInsertResult.INSERTED -> InboxCaptureResult.CAPTURED
+                InboxInsertResult.DUPLICATE -> InboxCaptureResult.DUPLICATE
+            }
         }
     }
 
     override suspend fun clearByCompanyId(companyId: String) {
         guarded("clear messages for a company", Unit) {
-            dataSource.clearByCompanyId(companyId)
+            resetGate().withCurrentInbox { dataSource.clearByCompanyId(companyId) }
         }
     }
 
     override suspend fun clearCurrentCompany(): Int {
         val companyId = currentCompanyId() ?: return 0
         return storeCall("clear the current company's messages") {
-            dataSource.clearByCompanyId(companyId)
+            resetGate().withCurrentInbox { dataSource.clearByCompanyId(companyId) }
         }
     }
 
     override suspend fun clearAll() = guarded("clear all messages", Unit) {
-        dataSource.clearAll()
+        resetGate().withCurrentInbox { dataSource.clearAll() }
     }
 
     /**
@@ -62,15 +73,17 @@ internal class KlaviyoInboxRepository(
         val after = InboxCursorCodec.decode(query, companyId)
 
         val page = storeCall("fetch a page") {
-            dataSource.fetchPage(
-                companyId,
-                InboxRecordQuery(
-                    query.pageSize,
-                    after,
-                    isRead = query.readFilter.toState(),
-                    isArchived = query.archiveFilter.toState()
+            resetGate().withCurrentInbox {
+                dataSource.fetchPage(
+                    companyId,
+                    InboxRecordQuery(
+                        query.pageSize,
+                        after,
+                        isRead = query.readFilter.toState(),
+                        isArchived = query.archiveFilter.toState()
+                    )
                 )
-            )
+            }
         }
 
         return InboxPage(
@@ -83,7 +96,9 @@ internal class KlaviyoInboxRepository(
 
     override suspend fun fetchUnreadCount(): Int {
         val companyId = currentCompanyId() ?: return 0
-        return storeCall("count unread messages") { dataSource.countUnread(companyId) }
+        return storeCall("count unread messages") {
+            resetGate().withCurrentInbox { dataSource.countUnread(companyId) }
+        }
     }
 
     override suspend fun updateMessageState(
@@ -92,20 +107,29 @@ internal class KlaviyoInboxRepository(
     ): Boolean {
         val companyId = currentCompanyId() ?: return false
         return storeCall("update a message's state") {
-            dataSource.updateState(companyId, messageId, change, Registry.clock.currentTimeMillis())
+            resetGate().withCurrentInbox {
+                dataSource.updateState(
+                    companyId,
+                    messageId,
+                    change,
+                    Registry.clock.currentTimeMillis()
+                )
+            }
         }
     }
 
     override suspend fun updateMessageState(change: InboxStateChange, filter: InboxFilter): Int {
         val companyId = currentCompanyId() ?: return 0
         return storeCall("update the state of matching messages") {
-            dataSource.updateStateWhere(
-                companyId,
-                change,
-                isRead = filter.readFilter.toState(),
-                isArchived = filter.archiveFilter.toState(),
-                updatedAt = Registry.clock.currentTimeMillis()
-            )
+            resetGate().withCurrentInbox {
+                dataSource.updateStateWhere(
+                    companyId,
+                    change,
+                    isRead = filter.readFilter.toState(),
+                    isArchived = filter.archiveFilter.toState(),
+                    updatedAt = Registry.clock.currentTimeMillis()
+                )
+            }
         }
     }
 

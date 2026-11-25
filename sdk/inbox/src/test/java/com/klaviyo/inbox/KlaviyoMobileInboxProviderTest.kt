@@ -3,8 +3,10 @@ package com.klaviyo.inbox
 import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.state.State
+import com.klaviyo.analytics.state.StateChangeObservers
 import com.klaviyo.core.MissingConfig
 import com.klaviyo.core.Registry
+import com.klaviyo.core.model.DataStore
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.confirmVerified
 import io.mockk.every
@@ -33,7 +35,10 @@ internal class KlaviyoMobileInboxProviderTest : BaseTest() {
     override fun cleanup() {
         Registry.unregister<InboxRepository>()
         Registry.unregister<State>()
+        Registry.unregister<InboxResetGate>()
         Registry.unregister<MobileInboxProvider>()
+        Registry.unregister<StateChangeObservers>()
+        Registry.unregister<DataStore>()
         super.cleanup()
     }
 
