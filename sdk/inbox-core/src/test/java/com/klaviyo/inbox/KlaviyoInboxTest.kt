@@ -6,6 +6,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.verify
+import java.io.Serializable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -70,7 +71,7 @@ class KlaviyoInboxTest : BaseTest() {
     }
 
     @Test
-    fun `trackMessageClick forwards the message, action and element`() {
+    fun `trackMessageClick forwards the message, action and properties`() {
         val message = InboxMessage(
             "tm-1", null, null, InboxDestination(InboxDestinationType.OPEN_APP, null), null, null,
             emptyMap(), emptyList(), 0L, 0L, null, null, false, false, InboxMessageSource.CAPTURED
@@ -81,13 +82,16 @@ class KlaviyoInboxTest : BaseTest() {
             InboxDestination(InboxDestinationType.DEEP_LINK, "myapp://shop")
         )
 
-        KlaviyoInbox.trackMessageClick(message, action, InboxClickElement.BUTTON)
+        KlaviyoInbox.trackMessageClick(message, action, mapOf("screen" to "inbox"))
 
-        assertEquals(listOf(Triple(message, action, InboxClickElement.BUTTON)), inbox.clicks)
+        assertEquals(
+            listOf(Triple(message, action, mapOf<String, Serializable?>("screen" to "inbox"))),
+            inbox.clicks
+        )
     }
 
     @Test
-    fun `trackMessageClick without an action or element defaults both to null`() {
+    fun `trackMessageClick without an action or properties defaults to none`() {
         val message = InboxMessage(
             "tm-1", null, null, InboxDestination(InboxDestinationType.OPEN_APP, null), null, null,
             emptyMap(), emptyList(), 0L, 0L, null, null, false, false, InboxMessageSource.CAPTURED
@@ -95,7 +99,7 @@ class KlaviyoInboxTest : BaseTest() {
 
         KlaviyoInbox.trackMessageClick(message)
 
-        assertEquals(listOf(Triple(message, null, null)), inbox.clicks)
+        assertEquals(listOf(Triple(message, null, emptyMap<String, Serializable?>())), inbox.clicks)
     }
 
     @Test

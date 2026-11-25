@@ -2,6 +2,7 @@ package com.klaviyo.inbox
 
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.Registry
+import java.io.Serializable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
@@ -30,9 +31,9 @@ internal class KlaviyoMobileInboxProvider : MobileInboxProvider {
         override fun trackMessageClick(
             message: InboxMessage,
             action: InboxAction?,
-            element: InboxClickElement?
+            properties: Map<String, Serializable?>
         ) {
-            buildInboxClickEvent(message, action, element)?.let { Klaviyo.createEvent(it) }
+            buildInboxClickEvent(message, action, properties)?.let { Klaviyo.createEvent(it) }
         }
 
         override suspend fun updateMessageState(

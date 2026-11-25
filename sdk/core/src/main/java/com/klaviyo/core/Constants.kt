@@ -73,12 +73,6 @@ object Constants {
     const val ACTION_TYPE_OPEN_URL = "open_url"
 
     /**
-     * Payload values for which part of a Mobile Inbox message was tapped
-     */
-    const val CLICK_ELEMENT_BODY = "body"
-    const val CLICK_ELEMENT_BUTTON = "button"
-
-    /**
      * Intent extra key for the notification tag, used to dismiss the notification
      * when an action button is tapped and [handlePush] processes the intent.
      *

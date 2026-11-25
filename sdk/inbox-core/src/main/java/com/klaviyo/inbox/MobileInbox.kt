@@ -3,6 +3,7 @@ package com.klaviyo.inbox
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.MissingKlaviyoModule
 import com.klaviyo.core.Registry
+import java.io.Serializable
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -58,13 +59,14 @@ interface MobileInbox {
      *
      * @param message The tapped message
      * @param action The tapped button, or null for a tap on the message itself
-     * @param element Which part was tapped. Defaults to [InboxClickElement.BUTTON] when [action] is
-     *  given, otherwise [InboxClickElement.BODY].
+     * @param properties Extra properties to record on the event, such as which UI element the user
+     *  tapped. They are added last, so a key that matches one of the SDK's own properties, such
+     *  as `Action Type`, is ignored in favor of the SDK's value.
      */
     fun trackMessageClick(
         message: InboxMessage,
         action: InboxAction? = null,
-        element: InboxClickElement? = null
+        properties: Map<String, Serializable?> = emptyMap()
     )
 
     /**

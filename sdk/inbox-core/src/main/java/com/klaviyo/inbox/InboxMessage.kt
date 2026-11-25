@@ -110,6 +110,8 @@ constructor(
  *  and never changed by a later read or archive.
  * @property badge The push's app-icon badge count. The inbox's own unread count is
  *  [MobileInbox.fetchUnreadCount].
+ * @property attributionJson The push's full `_k` tracking object with the device push token
+ *  removed, which click events draw their attribution fields from. Not part of the public API.
  */
 class InboxMessage
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -128,7 +130,9 @@ constructor(
     val badge: Int?,
     val isRead: Boolean,
     val isArchived: Boolean,
-    val source: InboxMessageSource
+    val source: InboxMessageSource,
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    val attributionJson: String? = null
 ) {
     override fun equals(other: Any?): Boolean = other is InboxMessage &&
         id == other.id &&
@@ -145,11 +149,12 @@ constructor(
         badge == other.badge &&
         isRead == other.isRead &&
         isArchived == other.isArchived &&
-        source == other.source
+        source == other.source &&
+        attributionJson == other.attributionJson
 
     override fun hashCode(): Int = Objects.hash(
         id, title, body, defaultDestination, mediaUrl, mediaType, customData, actions, sentAt,
-        receivedAt, collapseId, badge, isRead, isArchived, source
+        receivedAt, collapseId, badge, isRead, isArchived, source, attributionJson
     )
 
     override fun toString(): String = "InboxMessage(id=$id, title=$title, body=$body, " +

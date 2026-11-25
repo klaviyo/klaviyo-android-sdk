@@ -3,6 +3,7 @@ package com.klaviyo.inbox
 import com.klaviyo.analytics.Klaviyo
 import com.klaviyo.core.MissingKlaviyoModule
 import com.klaviyo.core.Registry
+import java.io.Serializable
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 import kotlin.coroutines.cancellation.CancellationException
@@ -73,8 +74,8 @@ object KlaviyoInbox {
     fun trackMessageClick(
         message: InboxMessage,
         action: InboxAction? = null,
-        element: InboxClickElement? = null
-    ) = Klaviyo.mobileInbox.trackMessageClick(message, action, element)
+        properties: Map<String, Serializable?> = emptyMap()
+    ) = Klaviyo.mobileInbox.trackMessageClick(message, action, properties)
 
     /**
      * Delivers how many messages changed.

@@ -1,6 +1,7 @@
 package com.klaviyo.inbox
 
 import com.klaviyo.core.Registry
+import java.io.Serializable
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -50,14 +51,14 @@ class FakeMobileInbox : MobileInbox {
         return failure?.let { throw it } ?: messageExists
     }
 
-    val clicks = mutableListOf<Triple<InboxMessage, InboxAction?, InboxClickElement?>>()
+    val clicks = mutableListOf<Triple<InboxMessage, InboxAction?, Map<String, Serializable?>>>()
 
     override fun trackMessageClick(
         message: InboxMessage,
         action: InboxAction?,
-        element: InboxClickElement?
+        properties: Map<String, Serializable?>
     ) {
-        clicks += Triple(message, action, element)
+        clicks += Triple(message, action, properties)
     }
 
     override suspend fun updateMessageState(change: InboxStateChange, filter: InboxFilter): Int {
