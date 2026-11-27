@@ -1,0 +1,722 @@
+package com.klaviyo.inbox
+
+import com.klaviyo.core.config.MissingAPIKey
+import com.klaviyo.fixtures.BaseTest
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.coVerifyOrder
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+internal class KlaviyoInboxRepositoryTest : BaseTest() {
+
+    private val dataSource = mockk<LocalInboxDataSource>(relaxed = true)
+    private val markers = InMemoryResetMarkerStore()
+    private val gate = InboxResetGate(dataSource, markers, Dispatchers.Unconfined)
+    private val sourceChanges = MutableSharedFlow<Unit>(replay = 1)
+    private val repository = KlaviyoInboxRepository(
+        dataSource,
+        gate,
+        retentionLimit = RETENTION_LIMIT
+    )
+    private val message = inboxMessageEntity(
+        transmissionId = "tm-1",
+        companyId = API_KEY,
+        title = "Sale today",
+        receivedAt = TIME
+    )
+
+    @Test
+    fun `a stored message is captured with the retention limit`() = runBlocking {
+        coEvery { dataSource.insert(any(), any()) } returns InboxInsertResult.INSERTED
+
+        assertEquals(InboxCaptureResult.CAPTURED, repository.capture(message))
+        coVerify { dataSource.insert(message, RETENTION_LIMIT) }
+    }
+
+    @Test
+    fun `a repeat message is reported as a duplicate`() = runBlocking {
+        coEvery { dataSource.insert(any(), any()) } returns InboxInsertResult.DUPLICATE
+
+        assertEquals(InboxCaptureResult.DUPLICATE, repository.capture(message))
+    }
+
+    @Test
+    fun `a storage failure is logged and reported as failed`() = runBlocking {
+        coEvery { dataSource.insert(any(), any()) } throws IllegalStateException("disk full")
+
+        assertEquals(InboxCaptureResult.FAILED, repository.capture(message))
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `a capture after a failed one still stores the message`() = runBlocking {
+        coEvery { dataSource.insert(any(), any()) } throws IllegalStateException("disk full") andThen
+            InboxInsertResult.INSERTED
+
+        assertEquals(InboxCaptureResult.FAILED, repository.capture(message))
+        assertEquals(InboxCaptureResult.CAPTURED, repository.capture(message))
+    }
+
+    @Test
+    fun `cancellation is not reported as a failed capture`() {
+        coEvery { dataSource.insert(any(), any()) } throws CancellationException("cancelled")
+
+        assertThrows(CancellationException::class.java) {
+            runBlocking { repository.capture(message) }
+        }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `a failed clear by company is logged and does not throw`() = runBlocking {
+        coEvery { dataSource.clearByCompanyId(any()) } throws IllegalStateException("disk full")
+
+        repository.clearByCompanyId(API_KEY)
+
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `a failed clear all is logged and does not throw`() = runBlocking {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+
+        repository.clearAll()
+
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `cancellation is not swallowed by a clear`() {
+        coEvery { dataSource.clearAll() } throws CancellationException("cancelled")
+        coEvery { dataSource.clearByCompanyId(any()) } throws CancellationException("cancelled")
+
+        assertThrows(CancellationException::class.java) { runBlocking { repository.clearAll() } }
+        assertThrows(CancellationException::class.java) {
+            runBlocking { repository.clearByCompanyId(API_KEY) }
+        }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `clears are passed to the data source`() = runBlocking {
+        repository.clearByCompanyId(API_KEY)
+        repository.clearAll()
+
+        coVerify { dataSource.clearByCompanyId(API_KEY) }
+        coVerify { dataSource.clearAll() }
+    }
+
+    @Test
+    fun `clearing the current company deletes only its messages and returns the count`() =
+        runBlocking {
+            coEvery { dataSource.clearByCompanyId(any()) } returns 2
+
+            assertEquals(2, repository.clearCurrentCompany())
+            coVerify { dataSource.clearByCompanyId(API_KEY) }
+            coVerify(exactly = 0) { dataSource.clearAll() }
+        }
+
+    @Test
+    fun `clearing the current company with no messages returns zero`() = runBlocking {
+        coEvery { dataSource.clearByCompanyId(any()) } returns 0
+
+        assertEquals(0, repository.clearCurrentCompany())
+    }
+
+    @Test
+    fun `clearing the current company before the SDK is initialized reports zero without a delete`() =
+        runBlocking {
+            every { mockConfig.apiKey } throws MissingAPIKey()
+
+            assertEquals(0, repository.clearCurrentCompany())
+            coVerify(exactly = 0) { dataSource.clearByCompanyId(any()) }
+            verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+        }
+
+    @Test
+    fun `a failed clear of the current company is logged and reported as a storage failure`() {
+        val cause = IllegalStateException("disk full")
+        coEvery { dataSource.clearByCompanyId(any()) } throws cause
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.clearCurrentCompany() }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        assertSame(cause, error.cause)
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `cancellation is not reported as a failed clear of the current company`() {
+        coEvery { dataSource.clearByCompanyId(any()) } throws CancellationException("cancelled")
+
+        assertThrows(CancellationException::class.java) {
+            runBlocking { repository.clearCurrentCompany() }
+        }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `a state change is applied to the current company's message with the current time`() =
+        runBlocking {
+            coEvery { dataSource.updateState(any(), any(), any(), any()) } returns true
+
+            assertTrue(repository.updateMessageState("tm-1", InboxStateChange.MARK_READ))
+
+            coVerify {
+                dataSource.updateState(API_KEY, "tm-1", InboxStateChange.MARK_READ, TIME)
+            }
+        }
+
+    @Test
+    fun `a state change for a missing message reports false`() = runBlocking {
+        coEvery { dataSource.updateState(any(), any(), any(), any()) } returns false
+
+        assertFalse(repository.updateMessageState("gone", InboxStateChange.ARCHIVE))
+    }
+
+    @Test
+    fun `a state change before the SDK is initialized reports false without touching the store`() =
+        runBlocking {
+            every { mockConfig.apiKey } throws MissingAPIKey()
+
+            assertFalse(repository.updateMessageState("tm-1", InboxStateChange.MARK_READ))
+            coVerify(exactly = 0) { dataSource.updateState(any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `a failed state change is logged and reported as a storage failure`() {
+        val cause = IllegalStateException("disk full")
+        coEvery { dataSource.updateState(any(), any(), any(), any()) } throws cause
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.updateMessageState("tm-1", InboxStateChange.MARK_READ) }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        assertSame(cause, error.cause)
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `a bulk change reports the count the store changed and stamps the current time`() =
+        runBlocking {
+            coEvery { dataSource.updateStateWhere(any(), any(), any(), any(), any()) } returns 3
+
+            val changed = repository.updateMessageState(
+                InboxStateChange.MARK_READ,
+                InboxFilter.where(InboxReadFilter.UNREAD, InboxArchiveFilter.ACTIVE)
+            )
+
+            assertEquals(3, changed)
+            coVerify(exactly = 1) {
+                dataSource.updateStateWhere(
+                    API_KEY,
+                    InboxStateChange.MARK_READ,
+                    isRead = false,
+                    isArchived = false,
+                    updatedAt = TIME
+                )
+            }
+        }
+
+    @Test
+    fun `every read and archive filter maps to the matching store states`() = runBlocking {
+        coEvery { dataSource.updateStateWhere(any(), any(), any(), any(), any()) } returns 0
+        val readStates = mapOf(
+            InboxReadFilter.ALL to null,
+            InboxReadFilter.UNREAD to false,
+            InboxReadFilter.READ to true
+        )
+        val archiveStates = mapOf(
+            InboxArchiveFilter.ALL to null,
+            InboxArchiveFilter.ACTIVE to false,
+            InboxArchiveFilter.ARCHIVED to true
+        )
+
+        readStates.forEach { (read, isRead) ->
+            archiveStates.forEach { (archive, isArchived) ->
+                repository.updateMessageState(
+                    InboxStateChange.ARCHIVE,
+                    InboxFilter.where(read, archive)
+                )
+                coVerify {
+                    dataSource.updateStateWhere(
+                        API_KEY,
+                        InboxStateChange.ARCHIVE,
+                        isRead,
+                        isArchived,
+                        TIME
+                    )
+                }
+            }
+        }
+        coVerify(exactly = 9) {
+            dataSource.updateStateWhere(any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `all messages matches both states`() = runBlocking {
+        coEvery { dataSource.updateStateWhere(any(), any(), any(), any(), any()) } returns 2
+
+        assertEquals(
+            2,
+            repository.updateMessageState(InboxStateChange.UNARCHIVE, InboxFilter.ALL_MESSAGES)
+        )
+        coVerify {
+            dataSource.updateStateWhere(API_KEY, InboxStateChange.UNARCHIVE, null, null, TIME)
+        }
+    }
+
+    @Test
+    fun `a bulk change before the SDK is initialized reports zero without touching the store`() =
+        runBlocking {
+            every { mockConfig.apiKey } throws MissingAPIKey()
+
+            assertEquals(
+                0,
+                repository.updateMessageState(InboxStateChange.MARK_READ, InboxFilter.ALL_MESSAGES)
+            )
+            coVerify(exactly = 0) {
+                dataSource.updateStateWhere(any(), any(), any(), any(), any())
+            }
+        }
+
+    @Test
+    fun `a failed bulk change is logged and reported as a storage failure`() {
+        val cause = IllegalStateException("disk full")
+        coEvery {
+            dataSource.updateStateWhere(any(), any(), any(), any(), any())
+        } throws cause
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking {
+                repository.updateMessageState(InboxStateChange.MARK_READ, InboxFilter.ALL_MESSAGES)
+            }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        assertSame(cause, error.cause)
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `cancellation during a bulk change is not reported as a storage failure`() {
+        coEvery {
+            dataSource.updateStateWhere(any(), any(), any(), any(), any())
+        } throws CancellationException("cancelled")
+
+        assertThrows(CancellationException::class.java) {
+            runBlocking {
+                repository.updateMessageState(InboxStateChange.MARK_READ, InboxFilter.ALL_MESSAGES)
+            }
+        }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `a change by ID reports the count the store changed for the current company`() =
+        runBlocking {
+            coEvery { dataSource.updateStateForIds(any(), any(), any(), any()) } returns 2
+
+            val changed = repository.updateMessageState(
+                InboxStateChange.ARCHIVE,
+                listOf("tm-1", "tm-2")
+            )
+
+            assertEquals(2, changed)
+            coVerify(exactly = 1) {
+                dataSource.updateStateForIds(
+                    API_KEY,
+                    InboxStateChange.ARCHIVE,
+                    listOf("tm-1", "tm-2"),
+                    TIME
+                )
+            }
+        }
+
+    @Test
+    fun `a change by ID before the SDK is initialized reports zero without touching the store`() =
+        runBlocking {
+            every { mockConfig.apiKey } throws MissingAPIKey()
+
+            assertEquals(
+                0,
+                repository.updateMessageState(InboxStateChange.MARK_READ, listOf("tm-1"))
+            )
+            coVerify(exactly = 0) {
+                dataSource.updateStateForIds(any(), any(), any(), any())
+            }
+        }
+
+    @Test
+    fun `a failed change by ID is logged and reported as a storage failure`() {
+        val cause = IllegalStateException("disk full")
+        coEvery { dataSource.updateStateForIds(any(), any(), any(), any()) } throws cause
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking {
+                repository.updateMessageState(InboxStateChange.MARK_READ, listOf("tm-1"))
+            }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        assertSame(cause, error.cause)
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `cancellation during a change by ID is not reported as a storage failure`() {
+        coEvery {
+            dataSource.updateStateForIds(any(), any(), any(), any())
+        } throws CancellationException("cancelled")
+
+        assertThrows(CancellationException::class.java) {
+            runBlocking {
+                repository.updateMessageState(InboxStateChange.MARK_READ, listOf("tm-1"))
+            }
+        }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `a failed drain blocks a change by ID`() {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+        markers.persisted = 3
+
+        assertThrows(InboxException.StorageFailure::class.java) {
+            runBlocking {
+                repository.updateMessageState(InboxStateChange.MARK_READ, listOf("tm-1"))
+            }
+        }
+        coVerify(exactly = 0) { dataSource.updateStateForIds(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `a page maps rows to public messages and a cursor when more follow`() = runBlocking {
+        val second = message.copy(transmissionId = "tm-2", sentAt = TIME - 1)
+        coEvery { dataSource.fetchPage(any(), any()) } returns
+            InboxRecordPage(listOf(message, second), hasMore = true)
+
+        val page = repository.fetchPage(InboxQuery(pageSize = 2))
+
+        assertEquals(listOf("tm-1", "tm-2"), page.messages.map { it.id })
+        assertEquals(InboxMessageSource.CAPTURED, page.messages.first().source)
+        assertEquals(
+            InboxRecordPosition(second.sentAt, "tm-2"),
+            InboxCursorCodec.decode(InboxQuery(cursor = page.nextCursor), API_KEY)
+        )
+    }
+
+    @Test
+    fun `the last page has no cursor`() = runBlocking {
+        coEvery { dataSource.fetchPage(any(), any()) } returns
+            InboxRecordPage(listOf(message), hasMore = false)
+
+        assertNull(repository.fetchPage(InboxQuery()).nextCursor)
+    }
+
+    @Test
+    fun `a page is read for the current company from the query's position`() = runBlocking {
+        coEvery { dataSource.fetchPage(any(), any()) } returns InboxRecordPage(emptyList(), false)
+        val cursor = InboxCursorCodec.encode(message, InboxQuery())
+
+        repository.fetchPage(InboxQuery(pageSize = 5, cursor = cursor))
+
+        coVerify {
+            dataSource.fetchPage(
+                API_KEY,
+                InboxRecordQuery(
+                    5,
+                    InboxRecordPosition(message.sentAt, "tm-1"),
+                    isRead = null,
+                    isArchived = false
+                )
+            )
+        }
+    }
+
+    @Test
+    fun `a page excludes archived messages unless the query asks for them`() = runBlocking {
+        coEvery { dataSource.fetchPage(any(), any()) } returns InboxRecordPage(emptyList(), false)
+
+        repository.fetchPage(InboxQuery())
+        repository.fetchPage(InboxQuery(archiveFilter = InboxArchiveFilter.ARCHIVED))
+        repository.fetchPage(InboxQuery(archiveFilter = InboxArchiveFilter.ALL))
+
+        coVerify { dataSource.fetchPage(API_KEY, InboxRecordQuery(20, null, null, false)) }
+        coVerify { dataSource.fetchPage(API_KEY, InboxRecordQuery(20, null, null, true)) }
+        coVerify { dataSource.fetchPage(API_KEY, InboxRecordQuery(20, null, null, null)) }
+    }
+
+    @Test
+    fun `a page is filtered by read state`() = runBlocking {
+        coEvery { dataSource.fetchPage(any(), any()) } returns InboxRecordPage(emptyList(), false)
+
+        repository.fetchPage(InboxQuery(readFilter = InboxReadFilter.UNREAD))
+        repository.fetchPage(InboxQuery(readFilter = InboxReadFilter.READ))
+
+        coVerify { dataSource.fetchPage(API_KEY, InboxRecordQuery(20, null, false, false)) }
+        coVerify { dataSource.fetchPage(API_KEY, InboxRecordQuery(20, null, true, false)) }
+    }
+
+    @Test
+    fun `a next cursor continues the filtered query it came from`() {
+        coEvery { dataSource.fetchPage(any(), any()) } returns
+            InboxRecordPage(listOf(message), hasMore = true)
+        val query = InboxQuery(readFilter = InboxReadFilter.UNREAD)
+
+        val page = runBlocking { repository.fetchPage(query) }
+        val restoredCursor = InboxCursor(checkNotNull(page.nextCursor).token)
+
+        assertEquals(
+            InboxRecordPosition(message.sentAt, "tm-1"),
+            InboxCursorCodec.decode(
+                InboxQuery(cursor = restoredCursor, readFilter = InboxReadFilter.UNREAD),
+                API_KEY
+            )
+        )
+        assertThrows(InboxException.InvalidCursor::class.java) {
+            runBlocking { repository.fetchPage(InboxQuery(cursor = restoredCursor)) }
+        }
+    }
+
+    @Test
+    fun `an invalid cursor is rejected without reading the store`() {
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.fetchPage(InboxQuery(cursor = InboxCursor("garbage"))) }
+        }
+
+        assertTrue(error is InboxException.InvalidCursor)
+        coVerify(exactly = 0) { dataSource.fetchPage(any(), any()) }
+    }
+
+    @Test
+    fun `a page is empty before the SDK is initialized`() = runBlocking {
+        every { mockConfig.apiKey } throws MissingAPIKey()
+
+        val page = repository.fetchPage(InboxQuery())
+
+        assertTrue(page.messages.isEmpty())
+        assertNull(page.nextCursor)
+        coVerify(exactly = 0) { dataSource.fetchPage(any(), any()) }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `a store failure on a page surfaces as a storage failure`() {
+        coEvery { dataSource.fetchPage(any(), any()) } throws IllegalStateException("corrupt")
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.fetchPage(InboxQuery()) }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        assertTrue(error.cause is IllegalStateException)
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `cancellation is not reported as a page failure`() {
+        coEvery { dataSource.fetchPage(any(), any()) } throws CancellationException("cancelled")
+
+        assertThrows(CancellationException::class.java) {
+            runBlocking { repository.fetchPage(InboxQuery()) }
+        }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `unread count is read for the current company`() = runBlocking {
+        coEvery { dataSource.countUnread(any()) } returns 3
+
+        assertEquals(3, repository.fetchUnreadCount())
+        coVerify { dataSource.countUnread(API_KEY) }
+    }
+
+    @Test
+    fun `unread count is zero before the SDK is initialized`() = runBlocking {
+        every { mockConfig.apiKey } throws MissingAPIKey()
+
+        assertEquals(0, repository.fetchUnreadCount())
+        coVerify(exactly = 0) { dataSource.countUnread(any()) }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `a store failure on read surfaces as a storage failure`() {
+        coEvery { dataSource.countUnread(any()) } throws IllegalStateException("corrupt")
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.fetchUnreadCount() }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        assertTrue(error.cause is IllegalStateException)
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `cancellation is not reported as a storage failure`() {
+        coEvery { dataSource.countUnread(any()) } throws CancellationException("cancelled")
+
+        assertThrows(CancellationException::class.java) {
+            runBlocking { repository.fetchUnreadCount() }
+        }
+    }
+
+    @Test
+    fun `changes are the data source's changes`() = runBlocking {
+        every { dataSource.changes } returns sourceChanges
+        sourceChanges.emit(Unit)
+
+        assertEquals(Unit, repository.changes.first())
+    }
+
+    @Test
+    fun `a capture drains a pending reset before storing`() = runBlocking {
+        coEvery { dataSource.insert(any(), any()) } returns InboxInsertResult.INSERTED
+        markers.persisted = 3
+
+        repository.capture(message)
+
+        coVerifyOrder {
+            dataSource.clearAll()
+            dataSource.insert(message, RETENTION_LIMIT)
+        }
+        assertNull(markers.persisted)
+    }
+
+    @Test
+    fun `a failed drain blocks a capture without touching the store`() = runBlocking {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+        markers.persisted = 3
+
+        assertEquals(InboxCaptureResult.FAILED, repository.capture(message))
+        coVerify(exactly = 0) { dataSource.insert(any(), any()) }
+        assertEquals(3L, markers.persisted)
+    }
+
+    @Test
+    fun `a failed drain blocks a read`() {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+        markers.persisted = 3
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.fetchPage(InboxQuery()) }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        coVerify(exactly = 0) { dataSource.fetchPage(any(), any()) }
+    }
+
+    @Test
+    fun `a failed drain blocks an unread count`() {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+        markers.persisted = 3
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.fetchUnreadCount() }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        coVerify(exactly = 0) { dataSource.countUnread(any()) }
+    }
+
+    @Test
+    fun `a failed drain blocks a state change`() {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+        markers.persisted = 3
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking { repository.updateMessageState("tm-1", InboxStateChange.MARK_READ) }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        coVerify(exactly = 0) { dataSource.updateState(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `a failed drain blocks a bulk state change`() {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+        markers.persisted = 3
+
+        assertThrows(InboxException.StorageFailure::class.java) {
+            runBlocking {
+                repository.updateMessageState(InboxStateChange.MARK_READ, InboxFilter.ALL_MESSAGES)
+            }
+        }
+        coVerify(exactly = 0) { dataSource.updateStateWhere(any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `a failed drain blocks a public clear`() {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+        markers.persisted = 3
+
+        assertThrows(InboxException.StorageFailure::class.java) {
+            runBlocking { repository.clearCurrentCompany() }
+        }
+        coVerify(exactly = 0) { dataSource.clearByCompanyId(any()) }
+    }
+
+    @Test
+    fun `an unrecorded reset blocks every call until it can be recorded`() = runBlocking {
+        coEvery { dataSource.insert(any(), any()) } returns InboxInsertResult.INSERTED
+        markers.commitSucceeds = false
+        gate.requestReset()
+
+        assertEquals(InboxCaptureResult.FAILED, repository.capture(message))
+        coVerify(exactly = 0) { dataSource.insert(any(), any()) }
+
+        markers.commitSucceeds = true
+        assertEquals(InboxCaptureResult.CAPTURED, repository.capture(message))
+        coVerify(exactly = 1) { dataSource.insert(message, RETENTION_LIMIT) }
+    }
+
+    @Test
+    fun `a clear by company drains a pending reset first`() = runBlocking {
+        markers.persisted = 3
+
+        repository.clearByCompanyId(API_KEY)
+
+        coVerifyOrder {
+            dataSource.clearAll()
+            dataSource.clearByCompanyId(API_KEY)
+        }
+        assertNull(markers.persisted)
+    }
+
+    @Test
+    fun `a failed drain blocks both internal clears`() = runBlocking {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+        markers.persisted = 3
+
+        repository.clearAll()
+        repository.clearByCompanyId(API_KEY)
+
+        coVerify(exactly = 0) { dataSource.clearByCompanyId(any()) }
+        verify(exactly = 2) { spyLog.error(any(), any<InboxException>()) }
+        assertEquals(3L, markers.persisted)
+    }
+
+    private companion object {
+        const val RETENTION_LIMIT = 25
+    }
+}

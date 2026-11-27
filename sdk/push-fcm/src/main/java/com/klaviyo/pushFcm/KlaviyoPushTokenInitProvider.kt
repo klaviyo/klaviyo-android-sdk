@@ -13,6 +13,7 @@ import com.klaviyo.core.utils.AdvancedAPI
  * mirroring the forms module's `FormsInitProvider`:
  * - [KlaviyoPushTokenFetcher], so analytics can resolve a push-token fetcher without depending
  *   on `push-fcm` or Firebase
+ * - [KlaviyoPushNotificationDispatcher], so other modules can observe notifications before display
  * - [KlaviyoPushTapDispatcher], so other modules and wrapper SDKs can observe notification taps
  *
  * Its manifest `initOrder` runs it before providers of modules that read these services.
@@ -22,6 +23,7 @@ internal class KlaviyoPushTokenInitProvider : ContentProvider() {
     override fun onCreate(): Boolean {
         Registry.registerOnce<PushTokenFetcher> { KlaviyoPushTokenFetcher() }
         Registry.registerOnce<PushTapDispatcher> { KlaviyoPushTapDispatcher() }
+        Registry.registerOnce<PushNotificationDispatcher> { KlaviyoPushNotificationDispatcher() }
         return true
     }
 
