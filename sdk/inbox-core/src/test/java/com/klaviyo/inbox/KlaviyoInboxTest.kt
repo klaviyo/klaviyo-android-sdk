@@ -7,6 +7,8 @@ import com.klaviyo.fixtures.BaseTest
 import io.mockk.every
 import io.mockk.verify
 import java.io.Serializable
+import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -16,6 +18,25 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+
+/**
+ * Runs work inline like [Dispatchers.Unconfined], or queues it while [queue] is set so a test can
+ * act between a call and its deferred work. [KlaviyoInbox] builds its scope from the dispatcher
+ * once, so one instance serves every test.
+ */
+private object SwitchableDispatcher : CoroutineDispatcher() {
+    var queue: ArrayDeque<Runnable>? = null
+
+    override fun isDispatchNeeded(context: CoroutineContext) = queue != null
+
+    override fun dispatch(context: CoroutineContext, block: Runnable) {
+        queue?.addLast(block) ?: block.run()
+    }
+
+    fun runQueued() {
+        while (true) (queue?.removeFirstOrNull() ?: return).run()
+    }
+}
 
 class KlaviyoInboxTest : BaseTest() {
 
@@ -30,7 +51,7 @@ class KlaviyoInboxTest : BaseTest() {
     override fun setup() {
         super.setup()
         // Run the call inline, and the mock thread helper runs callbacks inline too
-        every { Registry.dispatcher } returns Dispatchers.Unconfined
+        every { Registry.dispatcher } returns SwitchableDispatcher
         inbox.register()
     }
 
@@ -240,6 +261,34 @@ class KlaviyoInboxTest : BaseTest() {
             listOf(InboxStateChange.ARCHIVE to listOf("tm-1", "tm-2")),
             inbox.idStateChanges
         )
+    }
+
+    @Test
+    fun `update by IDs keeps the IDs it was called with when the caller changes its list`() {
+        val cleared = mutableListOf("tm-1")
+        val replaced = mutableListOf("tm-2")
+        var counts = 0
+
+        SwitchableDispatcher.queue = ArrayDeque()
+        try {
+            KlaviyoInbox.updateMessageState(InboxStateChange.ARCHIVE, cleared) { counts++ }
+            KlaviyoInbox.updateMessageState(InboxStateChange.ARCHIVE, replaced) { counts++ }
+            cleared.clear()
+            replaced.apply { clear(); add("tm-unintended") }
+            assertEquals(0, counts)
+            SwitchableDispatcher.runQueued()
+        } finally {
+            SwitchableDispatcher.queue = null
+        }
+
+        assertEquals(
+            listOf(
+                InboxStateChange.ARCHIVE to listOf("tm-1"),
+                InboxStateChange.ARCHIVE to listOf("tm-2")
+            ),
+            inbox.idStateChanges
+        )
+        assertEquals(2, counts)
     }
 
     @Test
