@@ -692,11 +692,11 @@ class InboxStoreInstrumentedTest {
 
         assertEquals(1, source.byIds(InboxStateChange.ARCHIVE, listOf("a", "b")))
         assertTrue(source.stored("a").isArchived)
-        assertEquals(1, source.byIds(InboxStateChange.UNARCHIVE, listOf("a", "b")))
+        assertEquals(2, source.byIds(InboxStateChange.UNARCHIVE, listOf("a", "b")))
         assertFalse(source.stored("a").isArchived)
         assertFalse(source.stored("b").isArchived)
         assertEquals(1, source.byIds(InboxStateChange.MARK_READ, listOf("a", "b")))
-        assertEquals(1, source.byIds(InboxStateChange.MARK_UNREAD, listOf("a", "b")))
+        assertEquals(2, source.byIds(InboxStateChange.MARK_UNREAD, listOf("a", "b")))
         assertFalse(source.stored("b").isRead)
     }
 
