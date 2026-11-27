@@ -28,6 +28,12 @@ interface DataStore {
     fun store(key: String, value: String)
 
     /**
+     * Writes [value], or removes [key] if [value] is null, synchronously.
+     * Returns whether the change reached disk and notifies store observers on success.
+     */
+    fun commit(key: String, value: String?): Boolean
+
+    /**
      * Remove a key from the persistent store
      *
      * @param key

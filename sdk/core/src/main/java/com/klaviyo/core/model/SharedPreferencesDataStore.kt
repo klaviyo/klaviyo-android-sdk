@@ -2,7 +2,9 @@ package com.klaviyo.core.model
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import com.klaviyo.core.Registry
+import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -12,9 +14,14 @@ import java.util.concurrent.CopyOnWriteArrayList
  * JSON-encoding is the simplest way to leverage this store with non-string data,
  * which of course means accessors must implement type safety checks as necessary.
  */
-internal object SharedPreferencesDataStore : DataStore {
+internal class SharedPreferencesDataStore : DataStore {
 
-    internal const val KLAVIYO_PREFS_NAME = "KlaviyoSDKPreferences"
+    @Volatile
+    private var applicationContext: Context? = null
+
+    internal fun bindContext(context: Context) {
+        if (applicationContext == null) applicationContext = context.applicationContext ?: context
+    }
 
     /**
      * List of registered observers
@@ -31,7 +38,13 @@ internal object SharedPreferencesDataStore : DataStore {
 
     private fun broadcastStoreChange(key: String, value: String?) {
         Registry.log.verbose("$key=$value")
-        storeObservers.forEach { it(key, value) }
+        storeObservers.forEach { observer ->
+            try {
+                observer(key, value)
+            } catch (e: Exception) {
+                Registry.log.error("Store change observer failed", e)
+            }
+        }
     }
 
     /**
@@ -40,7 +53,7 @@ internal object SharedPreferencesDataStore : DataStore {
      * @return The Klaviyo SDK's shared preferences opened in private mode
      */
     private fun openSharedPreferences(): SharedPreferences {
-        return Registry.config.applicationContext.getSharedPreferences(
+        return (applicationContext ?: Registry.config.applicationContext).getSharedPreferences(
             KLAVIYO_PREFS_NAME,
             Context.MODE_PRIVATE
         )
@@ -62,6 +75,16 @@ internal object SharedPreferencesDataStore : DataStore {
             .also {
                 broadcastStoreChange(key, value)
             }
+    }
+
+    override fun commit(key: String, value: String?): Boolean {
+        val editor = openSharedPreferences().edit()
+        if (value == null) editor.remove(key) else editor.putString(key, value)
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.N_MR1) {
+            // Android 7.1 and earlier skip disk writes for unchanged preference maps.
+            editor.putString(CHECKED_COMMIT_REVISION_KEY, UUID.randomUUID().toString())
+        }
+        return editor.commit().also { if (it) broadcastStoreChange(key, value) }
     }
 
     /**
@@ -107,5 +130,10 @@ internal object SharedPreferencesDataStore : DataStore {
         editor.apply()
 
         keys.forEach { key -> broadcastStoreChange(key, null) }
+    }
+
+    internal companion object {
+        const val KLAVIYO_PREFS_NAME = "KlaviyoSDKPreferences"
+        private const val CHECKED_COMMIT_REVISION_KEY = "__klaviyo_checked_commit_revision"
     }
 }
