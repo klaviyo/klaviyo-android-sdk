@@ -309,6 +309,16 @@ internal class FakeInboxDataSource : LocalInboxDataSource {
         return 0
     }
 
+    override suspend fun updateStateForIds(
+        companyId: String,
+        change: InboxStateChange,
+        messageIds: List<String>,
+        updatedAt: Long
+    ): Int {
+        calls += "updateStateForIds"
+        return 0
+    }
+
     override suspend fun clearByCompanyId(companyId: String): Int {
         calls += "clearByCompanyId"
         val originalCount = messages.size

@@ -49,6 +49,11 @@ public class MobileInboxJavaApiTest {
             KlaviyoInbox.fetchUnreadCount(count);
             KlaviyoInbox.updateMessageState("tm-1", InboxStateChange.MARK_READ, update);
             KlaviyoInbox.updateMessageState(InboxStateChange.MARK_READ, InboxFilter.ALL_MESSAGES, count);
+            KlaviyoInbox.updateMessageState(
+                InboxStateChange.ARCHIVE,
+                java.util.Arrays.asList("tm-1", "tm-2"),
+                count
+            );
             KlaviyoInbox.clearAll(clear);
             KlaviyoInbox.addChangeListener(listener);
             KlaviyoInbox.removeChangeListener(listener);

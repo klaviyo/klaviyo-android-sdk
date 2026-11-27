@@ -227,6 +227,52 @@ class KlaviyoInboxTest : BaseTest() {
     }
 
     @Test
+    fun `updateMessageState by IDs delivers the changed count`() {
+        inbox.bulkChangedCount = 2
+        var result: InboxResult<Int>? = null
+
+        KlaviyoInbox.updateMessageState(InboxStateChange.ARCHIVE, listOf("tm-1", "tm-2")) {
+            result = it
+        }
+
+        assertEquals(2, assertIs<InboxResult.Success<Int>>(result).value)
+        assertEquals(
+            listOf(InboxStateChange.ARCHIVE to listOf("tm-1", "tm-2")),
+            inbox.idStateChanges
+        )
+    }
+
+    @Test
+    fun `a failed update by IDs reaches the callback as a failure`() {
+        val failure = InboxException.StorageFailure("store failed")
+        inbox.failure = failure
+        var result: InboxResult<Int>? = null
+
+        KlaviyoInbox.updateMessageState(InboxStateChange.ARCHIVE, listOf("tm-1")) { result = it }
+
+        assertSame(failure, assertIs<InboxResult.Failure>(result).exception)
+    }
+
+    @Test
+    fun `an unexpected update by IDs failure is wrapped as a storage failure`() {
+        inbox.failure = IllegalStateException("boom")
+        var result: InboxResult<Int>? = null
+
+        KlaviyoInbox.updateMessageState(InboxStateChange.ARCHIVE, listOf("tm-1")) { result = it }
+
+        assertIs<InboxException.StorageFailure>(assertIs<InboxResult.Failure>(result).exception)
+    }
+
+    @Test
+    fun `updateMessageState by IDs throws when the inbox module is absent`() {
+        inbox.unregister()
+
+        assertThrows(MissingKlaviyoModule::class.java) {
+            KlaviyoInbox.updateMessageState(InboxStateChange.MARK_READ, listOf("tm-1")) { }
+        }
+    }
+
+    @Test
     fun `a failed state update reaches the callback as a failure`() {
         val failure = InboxException.StorageFailure("store failed")
         inbox.failure = failure

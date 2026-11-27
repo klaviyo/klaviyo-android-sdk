@@ -89,6 +89,50 @@ internal abstract class InboxMessageDao {
     ): List<InboxMessageEntity>
 
     /**
+     * Sets the company's messages with the given [transmissionIds] to [isRead], stamping
+     * [updatedAt] on the ones that change. A message already at [isRead] is not matched, so it
+     * keeps its timestamp. Keep [transmissionIds] within [MAX_IDS_PER_STATEMENT].
+     *
+     * @return How many messages changed
+     */
+    @Query(
+        """
+        UPDATE ${InboxMessageEntity.TABLE_NAME}
+        SET isRead = :isRead, updatedAt = :updatedAt
+        WHERE companyId = :companyId AND isRead != :isRead
+            AND transmissionId IN (:transmissionIds)
+        """
+    )
+    protected abstract suspend fun setReadForIds(
+        companyId: String,
+        isRead: Boolean,
+        transmissionIds: List<String>,
+        updatedAt: Long
+    ): Int
+
+    /**
+     * Sets the company's messages with the given [transmissionIds] to [isArchived], stamping
+     * [updatedAt] on the ones that change. A message already at [isArchived] is not matched, so it
+     * keeps its timestamp. Keep [transmissionIds] within [MAX_IDS_PER_STATEMENT].
+     *
+     * @return How many messages changed
+     */
+    @Query(
+        """
+        UPDATE ${InboxMessageEntity.TABLE_NAME}
+        SET isArchived = :isArchived, updatedAt = :updatedAt
+        WHERE companyId = :companyId AND isArchived != :isArchived
+            AND transmissionId IN (:transmissionIds)
+        """
+    )
+    protected abstract suspend fun setArchivedForIds(
+        companyId: String,
+        isArchived: Boolean,
+        transmissionIds: List<String>,
+        updatedAt: Long
+    ): Int
+
+    /**
      * The company's messages that are neither read nor archived
      */
     @Query(
@@ -235,6 +279,29 @@ internal abstract class InboxMessageDao {
             setArchivedWhere(companyId, false, matchRead, matchArchived, updatedAt)
     }
 
+    /**
+     * Applies [change] to the company's messages with the given [transmissionIds], as
+     * [updateState] does for one. Duplicates count once. The IDs go to SQLite in chunks, since it
+     * limits the variables in one statement, and the chunks share one transaction so the call
+     * changes everything or nothing.
+     *
+     * @return How many messages the change altered
+     */
+    @Transaction
+    open suspend fun updateStateForIds(
+        companyId: String,
+        change: InboxStateChange,
+        transmissionIds: List<String>,
+        updatedAt: Long
+    ): Int = transmissionIds.distinct().chunked(MAX_IDS_PER_STATEMENT).sumOf { ids ->
+        when (change) {
+            InboxStateChange.MARK_READ -> setReadForIds(companyId, true, ids, updatedAt)
+            InboxStateChange.MARK_UNREAD -> setReadForIds(companyId, false, ids, updatedAt)
+            InboxStateChange.ARCHIVE -> setArchivedForIds(companyId, true, ids, updatedAt)
+            InboxStateChange.UNARCHIVE -> setArchivedForIds(companyId, false, ids, updatedAt)
+        }
+    }
+
     @Query("DELETE FROM ${InboxMessageEntity.TABLE_NAME} WHERE companyId = :companyId")
     abstract suspend fun deleteByCompanyId(companyId: String): Int
 
@@ -243,6 +310,12 @@ internal abstract class InboxMessageDao {
 
     companion object {
         const val IGNORED_ROW_ID = -1L
+
+        /**
+         * IDs per statement. SQLite allows 999 variables on older Android versions, and each
+         * statement also binds the company, the target state and the timestamp.
+         */
+        const val MAX_IDS_PER_STATEMENT = 900
     }
 }
 

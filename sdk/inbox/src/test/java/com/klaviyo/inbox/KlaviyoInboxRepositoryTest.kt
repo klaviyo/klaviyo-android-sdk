@@ -331,6 +331,84 @@ internal class KlaviyoInboxRepositoryTest : BaseTest() {
     }
 
     @Test
+    fun `a change by ID reports the count the store changed for the current company`() =
+        runBlocking {
+            coEvery { dataSource.updateStateForIds(any(), any(), any(), any()) } returns 2
+
+            val changed = repository.updateMessageState(
+                InboxStateChange.ARCHIVE,
+                listOf("tm-1", "tm-2")
+            )
+
+            assertEquals(2, changed)
+            coVerify(exactly = 1) {
+                dataSource.updateStateForIds(
+                    API_KEY,
+                    InboxStateChange.ARCHIVE,
+                    listOf("tm-1", "tm-2"),
+                    TIME
+                )
+            }
+        }
+
+    @Test
+    fun `a change by ID before the SDK is initialized reports zero without touching the store`() =
+        runBlocking {
+            every { mockConfig.apiKey } throws MissingAPIKey()
+
+            assertEquals(
+                0,
+                repository.updateMessageState(InboxStateChange.MARK_READ, listOf("tm-1"))
+            )
+            coVerify(exactly = 0) {
+                dataSource.updateStateForIds(any(), any(), any(), any())
+            }
+        }
+
+    @Test
+    fun `a failed change by ID is logged and reported as a storage failure`() {
+        val cause = IllegalStateException("disk full")
+        coEvery { dataSource.updateStateForIds(any(), any(), any(), any()) } throws cause
+
+        val error = assertThrows(InboxException::class.java) {
+            runBlocking {
+                repository.updateMessageState(InboxStateChange.MARK_READ, listOf("tm-1"))
+            }
+        }
+
+        assertTrue(error is InboxException.StorageFailure)
+        assertSame(cause, error.cause)
+        verify { spyLog.error(any(), any<IllegalStateException>()) }
+    }
+
+    @Test
+    fun `cancellation during a change by ID is not reported as a storage failure`() {
+        coEvery {
+            dataSource.updateStateForIds(any(), any(), any(), any())
+        } throws CancellationException("cancelled")
+
+        assertThrows(CancellationException::class.java) {
+            runBlocking {
+                repository.updateMessageState(InboxStateChange.MARK_READ, listOf("tm-1"))
+            }
+        }
+        verify(exactly = 0) { spyLog.error(any(), any<Throwable>()) }
+    }
+
+    @Test
+    fun `a failed drain blocks a change by ID`() {
+        coEvery { dataSource.clearAll() } throws IllegalStateException("disk full")
+        markers.persisted = 3
+
+        assertThrows(InboxException.StorageFailure::class.java) {
+            runBlocking {
+                repository.updateMessageState(InboxStateChange.MARK_READ, listOf("tm-1"))
+            }
+        }
+        coVerify(exactly = 0) { dataSource.updateStateForIds(any(), any(), any(), any()) }
+    }
+
+    @Test
     fun `a page maps rows to public messages and a cursor when more follow`() = runBlocking {
         val second = message.copy(transmissionId = "tm-2", sentAt = TIME - 1)
         coEvery { dataSource.fetchPage(any(), any()) } returns
