@@ -133,6 +133,23 @@ internal class KlaviyoInboxRepository(
         }
     }
 
+    override suspend fun updateMessageState(
+        change: InboxStateChange,
+        messageIds: List<String>
+    ): Int {
+        val companyId = currentCompanyId() ?: return 0
+        return storeCall("update the state of messages by ID") {
+            resetGate().withCurrentInbox {
+                dataSource.updateStateForIds(
+                    companyId,
+                    change,
+                    messageIds,
+                    Registry.clock.currentTimeMillis()
+                )
+            }
+        }
+    }
+
     /**
      * Runs a store call, logging a failure with its cause and reporting it as [InboxException].
      * Cancellation passes through.

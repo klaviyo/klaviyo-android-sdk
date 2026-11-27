@@ -41,6 +41,11 @@ internal class KlaviyoMobileInboxProvider : MobileInboxProvider {
             filter: InboxFilter
         ): Int = repository.updateMessageState(change, filter)
 
+        override suspend fun updateMessageState(
+            change: InboxStateChange,
+            messageIds: List<String>
+        ): Int = repository.updateMessageState(change, messageIds)
+
         override suspend fun clearAll(): Int = repository.clearCurrentCompany()
     }
 

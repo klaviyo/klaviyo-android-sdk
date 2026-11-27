@@ -85,6 +85,18 @@ interface MobileInbox {
     suspend fun updateMessageState(change: InboxStateChange, filter: InboxFilter): Int
 
     /**
+     * Apply [change] to the current company's messages with the given [messageIds], for example
+     * to archive the messages a user selected. IDs that match no message of the current company,
+     * including another company's, are ignored. A duplicate ID counts once, and a message already
+     * in the state [change] asks for is left as it is, so repeating the call changes nothing and
+     * returns 0. An empty list returns 0.
+     *
+     * @return How many messages the call changed. Messages already in the requested state are not
+     *  counted. 0 before the SDK is initialized.
+     */
+    suspend fun updateMessageState(change: InboxStateChange, messageIds: List<String>): Int
+
+    /**
      * Remove every message the current company has captured on this device, read and archived
      * alike, and leave every other company's messages in place.
      *

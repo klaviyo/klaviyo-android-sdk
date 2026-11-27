@@ -66,6 +66,16 @@ class FakeMobileInbox : MobileInbox {
         return failure?.let { throw it } ?: bulkChangedCount
     }
 
+    val idStateChanges = mutableListOf<Pair<InboxStateChange, List<String>>>()
+
+    override suspend fun updateMessageState(
+        change: InboxStateChange,
+        messageIds: List<String>
+    ): Int {
+        idStateChanges += change to messageIds
+        return failure?.let { throw it } ?: bulkChangedCount
+    }
+
     override suspend fun clearAll(): Int {
         clearAllCalls++
         return failure?.let { throw it } ?: clearedCount

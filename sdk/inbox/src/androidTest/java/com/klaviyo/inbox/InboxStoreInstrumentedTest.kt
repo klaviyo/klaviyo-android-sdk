@@ -663,6 +663,157 @@ class InboxStoreInstrumentedTest {
         assertFalse(context.getDatabasePath(databaseName).exists())
     }
 
+    private suspend fun RoomInboxDataSource.byIds(
+        change: InboxStateChange,
+        ids: List<String>,
+        updatedAt: Long = 9_000L,
+        companyId: String = COMPANY
+    ) = updateStateForIds(companyId, change, ids, updatedAt)
+
+    @Test
+    fun changeByIdsChangesOnlyTheListedMessagesAndCountsThem() = runBlocking {
+        val source = openSource()
+        source.seed(message("a"), message("b"), message("c"))
+
+        assertEquals(2, source.byIds(InboxStateChange.MARK_READ, listOf("a", "b")))
+
+        assertTrue(source.stored("a").isRead)
+        assertTrue(source.stored("b").isRead)
+        assertFalse(source.stored("c").isRead)
+        assertEquals(setOf("a", "b"), source.updatedIds())
+        assertEquals(9_000L, source.stored("a").updatedAt)
+        assertEquals(9_000L, source.stored("b").updatedAt)
+    }
+
+    @Test
+    fun changeByIdsAppliesEveryStateChange() = runBlocking {
+        val source = openSource()
+        source.seed(message("a"), message("b").copy(isRead = true, isArchived = true))
+
+        assertEquals(1, source.byIds(InboxStateChange.ARCHIVE, listOf("a", "b")))
+        assertTrue(source.stored("a").isArchived)
+        assertEquals(2, source.byIds(InboxStateChange.UNARCHIVE, listOf("a", "b")))
+        assertFalse(source.stored("a").isArchived)
+        assertFalse(source.stored("b").isArchived)
+        assertEquals(1, source.byIds(InboxStateChange.MARK_READ, listOf("a", "b")))
+        assertEquals(2, source.byIds(InboxStateChange.MARK_UNREAD, listOf("a", "b")))
+        assertFalse(source.stored("b").isRead)
+    }
+
+    @Test
+    fun changeByIdsKeepsTheTimestampOfMessagesAlreadyInTheTargetState() = runBlocking {
+        val source = openSource()
+        source.seed(message("done").copy(isRead = true, updatedAt = 1_234L), message("todo"))
+
+        assertEquals(1, source.byIds(InboxStateChange.MARK_READ, listOf("done", "todo")))
+
+        assertEquals(1_234L, source.stored("done").updatedAt)
+        assertEquals(9_000L, source.stored("todo").updatedAt)
+        assertEquals(0, source.byIds(InboxStateChange.MARK_READ, listOf("done", "todo"), 12_000L))
+        assertEquals(9_000L, source.stored("todo").updatedAt)
+    }
+
+    @Test
+    fun changeByIdsIgnoresUnknownIdsOtherCompaniesAndCountsDuplicatesOnce() = runBlocking {
+        val source = openSource()
+        source.seed(message("mine"), message("theirs", companyId = "B"))
+
+        val changed = source.byIds(
+            InboxStateChange.MARK_READ,
+            listOf("mine", "mine", "theirs", "unknown")
+        )
+
+        assertEquals(1, changed)
+        assertTrue(source.stored("mine").isRead)
+        assertFalse(source.stored("theirs", "B").isRead)
+        assertNull(source.stored("theirs", "B").updatedAt)
+    }
+
+    @Test
+    fun changeByAnEmptyListChangesNothingAndDoesNotCreateTheDatabase() = runBlocking {
+        val source = RoomInboxDataSource(context, databaseName)
+
+        assertEquals(0, source.byIds(InboxStateChange.MARK_READ, emptyList()))
+
+        assertFalse(context.getDatabasePath(databaseName).exists())
+    }
+
+    @Test
+    fun changeByIdsOnAMissingDatabaseDoesNotCreateIt() = runBlocking {
+        val source = RoomInboxDataSource(context, databaseName)
+
+        assertEquals(0, source.byIds(InboxStateChange.MARK_READ, listOf("a")))
+
+        assertFalse(context.getDatabasePath(databaseName).exists())
+    }
+
+    @Test
+    fun changeByIdsEmitsOnceAndNothingWhenNothingChanged() = runBlocking {
+        val source = openSource()
+        source.seed(message("a"), message("b"))
+
+        assertEquals(
+            1,
+            source.emissionsDuring { source.byIds(InboxStateChange.MARK_READ, listOf("a", "b")) }
+        )
+        assertEquals(
+            0,
+            source.emissionsDuring { source.byIds(InboxStateChange.MARK_READ, listOf("a", "b")) }
+        )
+        assertEquals(
+            0,
+            source.emissionsDuring { source.byIds(InboxStateChange.MARK_READ, listOf("nope")) }
+        )
+        assertEquals(
+            0,
+            source.emissionsDuring { source.byIds(InboxStateChange.MARK_READ, emptyList()) }
+        )
+    }
+
+    @Test
+    fun changeByMoreIdsThanOneStatementAllowsChangesAllOfThemWithOneEmission() = runBlocking {
+        val source = openSource()
+        val count = 2_500
+        val ids = (1..count).map { "tm-$it" }
+        // Room trims to the retention limit on insert, so seed with a limit above the count
+        ids.forEach { source.insert(message(it), count) }
+
+        // Duplicates and unknown IDs spread across the chunks must not skew the sum
+        val request = ids + ids.take(1_000) + (1..1_000).map { "unknown-$it" }
+        var changed = 0
+        val emissions = source.emissionsDuring {
+            changed = source.byIds(InboxStateChange.MARK_READ, request)
+        }
+
+        assertEquals(count, changed)
+        assertEquals(1, emissions)
+        assertEquals(0, source.countUnread(COMPANY))
+        assertEquals(
+            count,
+            source.fetchPage(COMPANY, InboxRecordQuery(count, null)).messages.count { it.updatedAt == 9_000L }
+        )
+    }
+
+    @Test
+    fun changeByExactlyTheChunkBoundariesCountsEveryMessage() = runBlocking {
+        val max = InboxMessageDao.MAX_IDS_PER_STATEMENT
+        listOf(max - 1, max, max + 1, 999, 1_000).forEach { size ->
+            val name = "inbox-boundary-${UUID.randomUUID()}.db"
+            val source = RoomInboxDataSource(context, name)
+            val ids = (1..size).map { "tm-$it" }
+            ids.forEach { source.insert(message(it), size) }
+
+            assertEquals(
+                "size $size",
+                size,
+                source.updateStateForIds(COMPANY, InboxStateChange.ARCHIVE, ids, 9_000L)
+            )
+
+            source.close()
+            context.deleteDatabase(name)
+        }
+    }
+
     private suspend fun RoomInboxDataSource.seed(vararg messages: InboxMessageEntity) =
         messages.forEach { insert(it, LIMIT) }
 

@@ -49,6 +49,15 @@ internal interface InboxRepository {
     suspend fun updateMessageState(change: InboxStateChange, filter: InboxFilter): Int
 
     /**
+     * Apply [change] to the current company's messages with the given [messageIds]. Zero before
+     * the SDK is initialized, and for an empty list.
+     *
+     * @return How many messages changed
+     * @throws InboxException when the store fails
+     */
+    suspend fun updateMessageState(change: InboxStateChange, messageIds: List<String>): Int
+
+    /**
      * Remove every message the current company captured on this device, read and archived alike.
      * Zero before the SDK is initialized.
      *

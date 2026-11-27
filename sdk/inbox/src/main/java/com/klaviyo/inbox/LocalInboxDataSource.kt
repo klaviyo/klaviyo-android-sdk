@@ -69,6 +69,23 @@ internal interface LocalInboxDataSource {
     ): Int
 
     /**
+     * Apply [change] to the [messageIds] that belong to [companyId]. Unknown IDs and other
+     * companies' messages are ignored, a duplicate ID counts once, and messages already in the
+     * target state are not touched. The rest are stamped with [updatedAt]. Large lists are split
+     * into several statements within one transaction. Emits [changes] once, only when something
+     * changed.
+     *
+     * @return How many messages changed. Zero for an empty list or when nothing has ever been
+     *  stored.
+     */
+    suspend fun updateStateForIds(
+        companyId: String,
+        change: InboxStateChange,
+        messageIds: List<String>,
+        updatedAt: Long
+    ): Int
+
+    /**
      * Remove every one of [companyId]'s messages and emit once when it removed any.
      *
      * @return How many messages were removed

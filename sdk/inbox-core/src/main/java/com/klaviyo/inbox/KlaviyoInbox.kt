@@ -90,6 +90,24 @@ object KlaviyoInbox {
     ) = deliver(callback::onResult) { it.updateMessageState(change, filter) }
 
     /**
+     * Delivers how many messages changed. [messageIds] is copied before this returns, so the
+     * caller may reuse its list.
+     *
+     * @see MobileInbox.updateMessageState
+     */
+    @JvmStatic
+    fun updateMessageState(
+        change: InboxStateChange,
+        messageIds: List<String>,
+        callback: InboxCountCallback
+    ) {
+        // The call runs later on the SDK dispatcher, so keep the IDs as they are now, not as a
+        // Java caller may have changed its list by then
+        val snapshot = messageIds.toList()
+        deliver(callback::onResult) { it.updateMessageState(change, snapshot) }
+    }
+
+    /**
      * @see MobileInbox.clearAll
      */
     @JvmStatic

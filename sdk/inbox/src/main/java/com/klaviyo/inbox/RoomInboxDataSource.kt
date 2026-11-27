@@ -112,6 +112,17 @@ internal class RoomInboxDataSource(
             .also { if (it > 0) changeSignal.tryEmit(Unit) }
     }
 
+    override suspend fun updateStateForIds(
+        companyId: String,
+        change: InboxStateChange,
+        messageIds: List<String>,
+        updatedAt: Long
+    ): Int {
+        if (messageIds.isEmpty() || !storeExists()) return 0
+        return dao().updateStateForIds(companyId, change, messageIds, updatedAt)
+            .also { if (it > 0) changeSignal.tryEmit(Unit) }
+    }
+
     override suspend fun clearByCompanyId(companyId: String): Int {
         val removed = dao().deleteByCompanyId(companyId)
         if (removed > 0) changeSignal.tryEmit(Unit)
