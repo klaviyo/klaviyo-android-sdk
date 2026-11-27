@@ -17,22 +17,11 @@ jobs:
       group: promotion-check-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     steps:
-      - name: Checkout PR head with full history
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-
       - name: Run promotion check
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          BASE_REF: ${{ github.event.pull_request.base.ref }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          SCRIPT="$RUNNER_TEMP/promotion-check.sh"
-          if ! git show "origin/$BASE_REF:.github/scripts/promotion-check.sh" >"$SCRIPT" 2>/dev/null; then
-            cp .github/scripts/promotion-check.sh "$SCRIPT"
-          fi
-          bash "$SCRIPT" "$REPO" "$PR_NUMBER" "origin/$BASE_REF" "$HEAD_SHA"
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/promotion-check@master
+        with:
+          bump-files: |
+            README.md
+            docs/index.html
+            sdk/core/src/main/res/values/strings.xml
+            versions.properties

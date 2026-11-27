@@ -98,7 +98,7 @@ jobs:
         id: commit
         run: echo "short_sha=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Android Build Environment
         uses: ./.github/actions/setup
@@ -159,7 +159,7 @@ jobs:
             echo "Instrumented tests completed"
 
       - name: Upload test reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-reports-api-${{ steps.api-setup.outputs.api_level }}-${{ steps.api-setup.outputs.arch }}
@@ -173,7 +173,7 @@ jobs:
           retention-days: 7
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results-api-${{ steps.api-setup.outputs.api_level }}-${{ steps.api-setup.outputs.arch }}
@@ -191,18 +191,10 @@ jobs:
             echo "timed_out=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Checkout Slack action
-        if: (failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')) && github.event_name == 'push'
-        continue-on-error: true
-        uses: actions/checkout@v4
-        with:
-          sparse-checkout: .github/actions
-          path: _slack
-
       - name: Send Slack notification on push failure
         if: (failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')) && github.event_name == 'push'
         continue-on-error: true
-        uses: ./_slack/.github/actions/notify-slack
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           status: ${{ job.status == 'cancelled' && 'stopped' || 'failure' }}

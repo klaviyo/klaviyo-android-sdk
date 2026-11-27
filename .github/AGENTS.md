@@ -4,16 +4,20 @@ For agents and humans editing workflows and actions here. `CLAUDE.md` in this di
 
 ## Slack
 
-- Use only `.github/actions/notify-slack` for Slack. It wraps slackapi/slack-github-action, so don't call slackapi or curl directly.
+- Use only the shared `notify-slack` action (`klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master`) for Slack. It wraps slackapi/slack-github-action, so don't call slackapi or curl directly.
 - `token: ${{ secrets.SLACK_BOT_TOKEN }}`. An empty token skips, so no presence checks.
 - One message per release or deploy, updated through `ts` (job output or dispatch input). Failure details go in a `thread_ts` reply.
-- Each workflow sets `SLACK_USERNAME` and `SLACK_ICON_EMOJI` in its top-level `env:` ("Android SDK", `:merlin-orb-android:`).
-- `continue-on-error: true` on Slack notify steps and Slack-action checkout steps.
+- Each workflow sets `SLACK_USERNAME` and `SLACK_ICON_EMOJI` in its top-level `env:` ("Android SDK", `:merlin-orb-android:`). Jobs that call a shared callable workflow pass them as `slack-username` and `slack-icon-emoji`.
+- `continue-on-error: true` on Slack notify steps.
 - Report a cancelled job only on timeout: the `Classify cancellation` step in `instrumented-tests.yml` and `jitpack.yml`.
 - `publish-release.yml` passes `slack_thread_ts` to `jitpack.yml` and `doc-bot.yml`, only when the workflow at the tag declares the input. Both announce a `pending` message when they start (a reply in the release thread when `slack_thread_ts` is set, otherwise a new message), edit it with `ts` at stage changes, and end with one final edit: published, failed (naming the failed step), blocked (version mismatch), or stopped. `doc-bot.yml` polls the Pages build API (up to 10 minutes) with the job's `GITHUB_TOKEN` under `pages: read`, and ends with docs live, Pages build failed, or stopped when the run was cancelled.
-- `publish-release.yml`'s `stopped` job reports "approval rejected or expired" when the `publish` job never started. `jitpack.yml` announces only tag builds and posts no success message for push events (failures still post). Jobs on another ref sparse-checkout `.github/actions` into `_slack/`.
-- `notify-slack` stays byte-identical in all 7 repos: klaviyo-android-sdk, klaviyo-android-test-app, klaviyo-swift-sdk, klaviyo-ios-test-app, klaviyo-react-native-sdk, klaviyo-expo-plugin, klaviyo-flutter-sdk.
+- `publish-release.yml`'s `stopped` job reports "approval rejected or expired" when the `publish` job never started. `jitpack.yml` announces only tag builds and posts no success message for push events (failures still post).
 - Backtick branches, tags, versions, file paths, workflow names, env and secret names, and SHAs in titles, bodies and field values. Show 7-character SHAs, with a `Commit` link. The one exception is the JitPack version for a branch build, which is the full SHA users paste into Gradle, so it goes backticked in `body`.
+
+## Shared SDK CI
+
+- Shared CI lives in klaviyo-react-native-sdk `.github/shared/` plus `release-preflight.yml` and `rel-branch-core.yml`; don't copy it here; its inputs are additive only. The contract is `.github/shared/README.md` in that repo.
+- This repo calls `notify-slack`, `promotion-check`, `pr-target-check`, `stale` and `linear-release-sync` as composite actions, and `release-preflight.yml` (the `prepare` job of `publish-release.yml`) and `rel-branch-core.yml` (`rel-branch.yml`) as callable workflows with `secrets: inherit`. Android-specific values (bump files, `sdk-checks`, `bump-command`, dispatch targets) are inputs in the caller.
 
 ## Workflow conventions
 
@@ -22,5 +26,4 @@ For agents and humans editing workflows and actions here. `CLAUDE.md` in this di
 
 ## Promotion check
 
-- `promotion-check.yml` runs `.github/scripts/promotion-check.sh` on every PR. It is informational, so never add it as a required check.
-- A commit's source PR counts as reviewed only on an APPROVED review from someone other than the author and not a bot, who has `admin`, `maintain`, or `write` repo access according to the collaborator permission API. Repo access is what qualifies an approver, not org membership or `author_association`; the workflow's `GITHUB_TOKEN` cannot see private org membership.
+- `promotion-check.yml` runs the shared `promotion-check` action on every PR, with this repo's `bump-version.sh` files as `bump-files`. It is informational, so never add it as a required check. Its rules live in klaviyo-react-native-sdk `.github/shared/README.md#promotion-check`.
