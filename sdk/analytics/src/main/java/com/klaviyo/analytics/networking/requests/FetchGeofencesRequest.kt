@@ -16,7 +16,8 @@ internal class FetchGeofencesRequest(
     private val latitude: Double? = null,
     private val longitude: Double? = null,
     queuedTime: Long? = null,
-    uuid: String? = null
+    uuid: String? = null,
+    savedQuery: Map<String, String>? = null
 ) : KlaviyoApiRequest(PATH, RequestMethod.GET, queuedTime, uuid) {
 
     companion object {
@@ -46,7 +47,7 @@ internal class FetchGeofencesRequest(
 
     override val type: String = "Fetch Geofences"
 
-    override var query: Map<String, String> = mapOf(
+    override var query: Map<String, String> = savedQuery ?: mapOf(
         COMPANY_ID to Registry.config.apiKey,
         PAGE_SIZE to DEFAULT_PAGE_SIZE.toString()
     )

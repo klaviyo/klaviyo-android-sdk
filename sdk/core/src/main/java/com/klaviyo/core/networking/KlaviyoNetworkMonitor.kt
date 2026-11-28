@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import com.klaviyo.core.Registry
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Service for monitoring the application lifecycle and network connectivity
@@ -16,7 +17,30 @@ import java.util.concurrent.CopyOnWriteArrayList
  */
 internal object KlaviyoNetworkMonitor : NetworkMonitor {
 
-    private lateinit var networkRequest: NetworkRequest
+    /**
+     * Snapshot of connectivity state that observers care about
+     */
+    private data class NetworkState(
+        val isConnected: Boolean,
+        val networkType: NetworkMonitor.NetworkType
+    )
+
+    /**
+     * Guards registration with the system, so concurrent first observers register only once
+     */
+    private val registrationLock = Any()
+
+    /**
+     * True once the callback has been successfully registered with the system.
+     * Remains false after a failed attempt so that registration can be retried.
+     */
+    @Volatile
+    private var isRegistered = false
+
+    /**
+     * Last state broadcast to observers, used to suppress duplicate broadcasts
+     */
+    private val lastBroadcastState = AtomicReference<NetworkState?>(null)
 
     private val connectivityManager: ConnectivityManager
         get() = Registry.config.applicationContext.getSystemService(ConnectivityManager::class.java)
@@ -41,6 +65,11 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
             network: Network,
             linkProperties: LinkProperties
         ) = broadcastNetworkChange()
+
+        override fun onCapabilitiesChanged(
+            network: Network,
+            networkCapabilities: NetworkCapabilities
+        ) = broadcastNetworkChange()
     }
 
     /**
@@ -63,10 +92,17 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     }
 
     /**
-     * Invoke all registered observers with current state of network connectivity
+     * Invoke all registered observers with current state of network connectivity,
+     * unless it is unchanged since the last broadcast
      */
     private fun broadcastNetworkChange() {
-        val isConnected = isNetworkConnected()
+        // Read the active network once, so connectivity and type cannot disagree if the
+        // system's active network changes between two reads
+        val capabilities = activeNetworkCapabilities()
+        val isConnected = isConnected(capabilities)
+        val state = NetworkState(isConnected, networkTypeOf(capabilities))
+
+        if (lastBroadcastState.getAndSet(state) == state) return
 
         Registry.log.verbose("Network ${if (isConnected) "available" else "unavailable"}")
 
@@ -74,51 +110,72 @@ internal object KlaviyoNetworkMonitor : NetworkMonitor {
     }
 
     /**
+     * Capabilities of the network currently servicing the device, if any
+     */
+    private fun activeNetworkCapabilities(): NetworkCapabilities? = connectivityManager
+        .getNetworkCapabilities(connectivityManager.activeNetwork)
+
+    private fun isConnected(capabilities: NetworkCapabilities?): Boolean =
+        capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) ?: false
+
+    /**
      * Instant check of network connectivity
      *
      * @return
      */
-    override fun isNetworkConnected(): Boolean = connectivityManager
-        .getNetworkCapabilities(connectivityManager.activeNetwork)
-        ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) ?: false
+    override fun isNetworkConnected(): Boolean = isConnected(activeNetworkCapabilities())
 
     /**
      * Check what type of network connection is currently servicing the device
      *
+     * Classification is based on whether the network is metered, not only its transport:
+     * - No network, or one lacking [NetworkCapabilities.NET_CAPABILITY_INTERNET], maps to
+     *   [NetworkMonitor.NetworkType.Offline], regardless of transport or metering
+     * - Cellular transport, or any network lacking [NetworkCapabilities.NET_CAPABILITY_NOT_METERED]
+     *   (e.g. a Wi-Fi hotspot or a user-flagged metered Wi-Fi) maps to [NetworkMonitor.NetworkType.Cell]
+     * - Any other unmetered network (Wi-Fi, ethernet, VPN over an unmetered network) maps to
+     *   [NetworkMonitor.NetworkType.Wifi], i.e. the unmetered cadence
+     *
      * @return The current network type
      */
-    override fun getNetworkType(): NetworkMonitor.NetworkType {
-        val net = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+    override fun getNetworkType(): NetworkMonitor.NetworkType =
+        networkTypeOf(activeNetworkCapabilities())
 
-        return if (net?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true) {
-            NetworkMonitor.NetworkType.Wifi
-        } else if (net?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true ||
-            net?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-        ) {
-            NetworkMonitor.NetworkType.Cell
-        } else {
-            NetworkMonitor.NetworkType.Offline
+    private fun networkTypeOf(net: NetworkCapabilities?): NetworkMonitor.NetworkType {
+        return when {
+            net == null || !net.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ->
+                NetworkMonitor.NetworkType.Offline
+            net.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                !net.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) ->
+                NetworkMonitor.NetworkType.Cell
+            else -> NetworkMonitor.NetworkType.Wifi
         }
     }
 
     /**
-     * One-time setup to observe network changes with connectivityManager
+     * Idempotent, thread-safe setup to observe network changes with connectivityManager.
+     * If registration fails, it will be attempted again the next time an observer is added.
      */
     private fun initializeNetworkListener() {
-        if (this::networkRequest.isInitialized) return
+        if (isRegistered) return
 
-        Registry.log.verbose("Attached network monitor")
+        synchronized(registrationLock) {
+            if (isRegistered) return
 
-        networkRequest = NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .build()
-        try {
-            connectivityManager.requestNetwork(networkRequest, networkCallback)
-        } catch (e: SecurityException) {
-            Registry.log.warning(
-                "Failed to attach network monitor, degraded performance around requests may occur",
-                e
-            )
+            val networkRequest = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+
+            try {
+                connectivityManager.requestNetwork(networkRequest, networkCallback)
+                isRegistered = true
+                Registry.log.verbose("Attached network monitor")
+            } catch (e: SecurityException) {
+                Registry.log.warning(
+                    "Failed to attach network monitor, degraded performance around requests may occur",
+                    e
+                )
+            }
         }
     }
 }
