@@ -17,7 +17,7 @@ analytics, push notifications, and in-app messaging (aka forms).
 ./gradlew build
 
 # Build a specific module (pattern applies to all modules under sdk/)
-# Modules: core, analytics, forms, forms-core, push-fcm, location, location-core
+# Modules: core, analytics, forms, forms-core, push-fcm, location, location-core, inbox
 ./gradlew :sdk:{module}:build
 
 # Assemble only (compile without testing)
@@ -101,6 +101,10 @@ The Klaviyo Android SDK is organized into multiple modules, each with specific r
     - Auto-registers location services via ContentProvider (no runtime permissions required)
     - Enables location feature without the full location module
 
+8. **Inbox Module** (`sdk/inbox`):
+    - Mobile Inbox implementation: captures delivered Klaviyo pushes into the on-device inbox store
+    - Attaches its push capture observer via ContentProvider
+
 ### Key Components
 
 1. **Klaviyo Object** (`Klaviyo.kt`):
@@ -133,7 +137,7 @@ The Klaviyo Android SDK is organized into multiple modules, each with specific r
 | `feat/*` | New features | No — target active `rel/*` |
 | `{initials}/*` | Personal/WIP branches | No — target active `rel/*` |
 
-A required status check blocks merges to `master` from any branch not in the allowed list. A conventional-commit PR title prefixed with `ci:`, `chore:`, `docs:`, or `rel:` (case-insensitive, scopes allowed) also satisfies the check. The check posts a comment with retargeting instructions and applies a `needs: release branch` label. To bypass in exceptional cases, a maintainer can add the `manual-merge` label — use sparingly.
+A required status check blocks merges to `master` from any branch not in the allowed list. A conventional-commit PR title prefixed with `ci:`, `chore:`, `docs:`, or `rel:` (case-insensitive, scopes allowed) also satisfies the check. The check judges each PR by its own base branch, read from the GitHub API. It doesn't use `github.base_ref`, which reports the stack's base for a PR inside a GitHub stack, so a PR stacked on another PR's branch is not treated as targeting `master`. The check posts a comment with retargeting instructions and applies a `needs: release branch` label. To bypass in exceptional cases, a maintainer can add the `manual-merge` label — use sparingly.
 
 ### CI/CD Pipeline
 
@@ -190,6 +194,14 @@ When adding or modifying public APIs, verify they are callable from Java in a cl
 - Use `@JvmOverloads` to generate overloaded methods e.g. for default arguments.
 
 Add Java interop tests for new public APIs (see existing `*JavaApiTest.java` tests) to confirm the Java API surface.
+
+## UI test IDs
+
+Applies to the `sample` app:
+
+- Every new interactive or asserted-on control gets a snake_case `Modifier.testTag`, defined as a constant in [`sample/src/main/java/com/klaviyo/sample/TestTags.kt`](sample/src/main/java/com/klaviyo/sample/TestTags.kt) (never an inline string).
+- Before adding a tag, check the existing names and reuse the shared name for a control that also exists in the other SDK example apps.
+- When you rename or remove a control, update its tag and every test or automation that references it.
 
 ## Logging Guidelines
 

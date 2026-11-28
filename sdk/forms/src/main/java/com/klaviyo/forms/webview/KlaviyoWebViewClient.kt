@@ -39,18 +39,25 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage
 import com.klaviyo.forms.bridge.compileJson
 import com.klaviyo.forms.bridge.toBridgeJson
 import com.klaviyo.forms.presentation.PresentationManager
+import com.klaviyo.forms.preview.FormsPreviewTokenStore
 import com.klaviyo.forms.unregisterFromInAppForms
 import java.io.BufferedReader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
  * Manages the [KlaviyoWebView] instance that powers In-App Forms behavior, triggering, rendering and display,
  * and handles all its [android.webkit.WebViewClient] delegate methods, and loading of klaviyo.js
+ *
+ * @param isInitialized set to true when a webview is created and false when it is released,
+ *  so it reflects whether forms can be presented. Backs [com.klaviyo.forms.FormsProvider.registrationState].
  */
-internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, JavaScriptEvaluator {
+internal class KlaviyoWebViewClient(
+    private val isInitialized: MutableStateFlow<Boolean> = MutableStateFlow(false)
+) : AndroidWebViewClient(), WebViewClient, JavaScriptEvaluator {
 
     /**
      * For timeout on awaiting the native bridge [com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook] event
@@ -98,6 +105,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         val webView = KlaviyoWebView().also { this.webView = it }
         val loadTimeout = config.getLoadTimeout()?.inWholeMilliseconds
             ?: Registry.config.networkTimeout.toLong()
+        isInitialized.value = true
         loadJob?.cancel()
         loadJob = scope.safeLaunch {
             val token = awaitInitialToken()
@@ -143,6 +151,8 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         val jsBridge = Registry.get<JsBridge>()
         val handshake: List<HandshakeSpec> = nativeBridge.handshake + jsBridge.handshake
         val jwt = token?.takeIf { Registry.get<AuthTokenManager>().isCurrentToken(it) }.orEmpty()
+        // Already validated by the store; escaped with the other values below
+        val previewToken = Registry.getOrNull<FormsPreviewTokenStore>()?.token.orEmpty()
 
         val klaviyoJsUrl = Registry.config.baseCdnUrl.toUri()
             .buildUpon()
@@ -168,6 +178,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
                 "FORMS_ENVIRONMENT" to Registry.config.formEnvironment.templateName,
                 "KLAVIYO_PROFILE" to Registry.get<State>().getAsProfile().toBridgeJson(),
                 "KLAVIYO_JWT" to jwt,
+                "KLAVIYO_FORMS_PREVIEW_TOKEN" to previewToken,
                 "DEVICE_INFO" to DeviceInfoProvider.current().toJson()
             )
         )
@@ -320,6 +331,7 @@ internal class KlaviyoWebViewClient() : AndroidWebViewClient(), WebViewClient, J
         } ?: run {
             Registry.log.warning("Unable to destroy IAF - null WebView reference")
         }
+        isInitialized.value = false
     }
 
     /**

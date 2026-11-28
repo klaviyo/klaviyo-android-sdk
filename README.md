@@ -42,6 +42,7 @@ send them timely push notifications via [FCM (Firebase Cloud Messaging)](https:/
   - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
   - [Personalized Forms Authentication](#personalized-forms-authentication)
+  - [Previewing Draft Forms on a Device](#previewing-draft-forms-on-a-device)
   - [Monitoring Form Lifecycle Events](#monitoring-form-lifecycle-events)
 - [Geofencing](#geofencing)
   - [Setup](#setup-2)
@@ -109,10 +110,10 @@ The sample app serves as both a reference implementation and a testing tool for 
       ```kotlin
       // build.gradle.kts
       dependencies {
-          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.6.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.6.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.6.0")
-          implementation("com.github.klaviyo.klaviyo-android-sdk:location:4.6.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:analytics:4.7.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.7.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:forms:4.7.0")
+          implementation("com.github.klaviyo.klaviyo-android-sdk:location:4.7.0")
       }
       ```
    </details>
@@ -123,10 +124,10 @@ The sample app serves as both a reference implementation and a testing tool for 
       ```groovy
        // build.gradle
        dependencies {
-           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.6.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.6.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.6.0"
-           implementation "com.github.klaviyo.klaviyo-android-sdk:location:4.6.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:analytics:4.7.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:push-fcm:4.7.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:forms:4.7.0"
+           implementation "com.github.klaviyo.klaviyo-android-sdk:location:4.7.0"
        }
       ```
    </details>
@@ -292,9 +293,15 @@ Or individually with additive fluent setters:
 Either way, the SDK will group and batch API calls to improve performance.
 
 ### Reset Profile
-To start a _new_ profile (e.g. if a user logs out), either call `Klaviyo.resetProfile()`
-to clear the currently tracked profile identifiers, or use `Klaviyo.setProfile(profile)`
-to overwrite it with a new profile object.
+Call `Klaviyo.resetProfile()` when a user logs out or before switching users on a shared
+device. It clears the tracked profile identifiers and, when Mobile Inbox is installed,
+clears on-device Inbox messages for every company.
+
+`Klaviyo.setProfile(profile)` updates or replaces the tracked identifiers. It does not sign
+the user out or clear the Inbox. After resetting, use it with the incoming user's identifiers
+when they log in.
+
+If your app provides JWTs for personalized In-App Forms, resetting or replacing the profile invalidates the cached JWT. The SDK requests a fresh token when needed for an identified profile.
 
 <details open>
    <summary>Kotlin</summary>
@@ -356,6 +363,38 @@ phone number. When an identifier is provided, Klaviyo will merge the anonymous u
 > tokens are registered, set `automatic_push_token_forwarding="false"` and call
 > `Klaviyo.setPushToken(...)` yourself — see
 > [Option B — Manual integration](#option-b--manual-integration) below.
+
+#### Avoiding anonymous profiles
+
+If your app should never create a profile in Klaviyo until the user is known (email, phone number, or external ID), initialize the SDK as usual and hold back the calls below until after you call `setEmail`, `setPhoneNumber`, or `setExternalId`. This guidance was verified against SDK version 4.5.0.
+
+1. **Turn off automatic push token forwarding explicitly.** Leaving the key unset is not enough: depending on SDK version, the SDK still registers tokens automatically when it is absent. Set it to `false`:
+
+   ```xml
+   <meta-data
+       android:name="com.klaviyo.push.automatic_push_token_forwarding"
+       android:value="false" />
+   ```
+
+2. **Before identifying the user, do not call:**
+   - `Klaviyo.setPushToken(...)`
+   - `Klaviyo.createEvent(...)`
+   - `Klaviyo.setProfileAttribute(...)` or `Klaviyo.setProfile(...)` with no email, phone number, or external ID
+   - `Klaviyo.registerForInAppForms()`
+   - `Klaviyo.registerGeofencing()`
+   - `Klaviyo.handleUniversalTrackingLink(...)`
+3. **After identifying the user,** call `Klaviyo.setPushToken(...)` and register for forms and geofencing as normal. With forwarding off, your app is responsible for calling `setPushToken` again whenever FCM issues a new token.
+
+`Klaviyo.handlePush(...)` and `automatic_push_open_tracking` are safe to use at any time: Klaviyo attributes push opens to the profile the notification was sent to, without creating a new one.
+
+Things to keep in mind:
+
+- **Requests are tagged with identity when they are queued.** Calling `setEmail` later does not change requests that were already queued, and queued requests persist across app launches.
+- **Logout and switching users.** `resetProfile()` keeps the push token, and the next profile update after a reset registers it to a new anonymous profile, so don't call it on logout. Instead:
+  - On logout, stop making the calls listed above, and call `Klaviyo.unregisterFromInAppForms()` and `Klaviyo.unregisterGeofencing()`.
+  - On the next login, call `Klaviyo.setProfile(...)` with all of the new user's identifiers. When the identifiers differ, the SDK starts a fresh profile and sends the stored push token with the new identifiers in a single request. Calling `setEmail` on its own keeps the previous user's other identifiers.
+  - Until someone logs in again, the previous user's profile keeps this device's push token and can still receive pushes on it.
+- **Existing installs.** If an earlier version of your app already created anonymous profiles, those profiles stay in Klaviyo. A user who later logs in on the same device is merged into their identified profile; users who never log in remain anonymous and must be cleaned up in Klaviyo. Requests queued by the earlier version still send after the update, and users who do not update keep the old behavior.
 
 ## Event Tracking
 The SDK provides tools for tracking analytics events via the
@@ -1139,6 +1178,46 @@ The SDK does not time out your provider, so your code must:
 - **Bound your own work.** Apply a timeout to every network call. A provider that never calls back blocks later token fetches until you register, unregister or reset the profile.
 - **Fail fast.** If you cannot produce a token, for example when no user is signed in, call `onFailure` instead of waiting or retrying.
 - **Pass on the original network error.** The SDK retries after reconnect when it finds an `UnknownHostException` or a `SocketException` in the cause chain, so pass the original exception to `onFailure` or wrap it as the `cause`.
+
+### Previewing Draft Forms on a Device
+
+>  ℹ️ Previewing draft forms, by push or by preview link, is available in SDK version `4.7.0` and higher.
+
+You can preview a draft form on a device in two ways: send a push from the form editor, which is the
+preferred way, or scan the QR code and open the preview link.
+
+To send a push, open the form editor and choose **Preview on device** > **Send push**, then pick a
+saved test device. The device gets a notification, and tapping it opens the draft form in your app.
+This needs no code beyond the standard push setup (see [Push Notifications](#push-notifications)):
+`KlaviyoPushService` displays the notification, and `Klaviyo.handlePush(intent)` or automatic push
+open tracking (`automatic_push_open_tracking`) starts the preview when the notification is tapped.
+
+To use the QR code, open **Preview on device** in the form editor; it shows a QR code and a preview
+link for the draft form. The link is a deep link into your app with a
+`klaviyo-forms-preview` query parameter holding a short-lived preview token. Pass deep links to
+`handleFormsPreviewLink` before your own routing: it starts a preview session and returns `true` for
+a preview link, and returns `false`, changing nothing, for every other link. It works with custom
+schemes and App Links. If forms are registered, they restart in preview mode; if not, the preview
+starts when you call `registerForInAppForms`.
+
+Call `handleFormsPreviewLink` wherever you already route deep links (see
+[Deep Linking](#deep-linking)), before your own routing:
+
+```kotlin
+override fun onNewIntent(intent: Intent?) {
+    super.onNewIntent(intent)
+    if (Klaviyo.handleFormsPreviewLink(intent?.data)) return
+    // Your own deep link handling
+}
+```
+
+On a cold launch the link arrives via the intent in `onCreate`, so call it there too.
+
+You can also start a preview with a token directly using `Klaviyo.startFormsPreview(token)`, and end
+it with `Klaviyo.endFormsPreview()`. From Java, use `KlaviyoForms.handleFormsPreviewLink(uri)`,
+`KlaviyoForms.startFormsPreview(token)` and `KlaviyoForms.endFormsPreview()`.
+Preview tokens only read a saved draft and expire after 30 minutes. The SDK keeps them in memory
+only and never logs them.
 
 ### Monitoring Form Lifecycle Events
 

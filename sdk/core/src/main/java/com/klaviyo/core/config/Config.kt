@@ -42,6 +42,13 @@ interface Config {
         fun formEnvironment(formEnvironment: FormEnvironment): Builder
         fun networkTimeout(networkTimeout: Int): Builder
         fun uxNetworkTimeout(uxNetworkTimeout: Int): Builder
+
+        /**
+         * Set the flush interval for a network type. Note that [NetworkMonitor.NetworkType.Cell]
+         * applies to cellular and to any metered network (e.g. a Wi-Fi hotspot), while
+         * [NetworkMonitor.NetworkType.Wifi] applies to all other unmetered connections
+         * (Wi-Fi, ethernet, etc). The same intervals set the floor for retry backoff.
+         */
         fun networkFlushInterval(networkFlushInterval: Long, type: NetworkMonitor.NetworkType): Builder
         fun networkMaxAttempts(networkMaxAttempts: Int): Builder
         fun networkMaxRetryInterval(networkMaxRetryInterval: Long): Builder

@@ -2,6 +2,8 @@ package com.klaviyo.core
 
 import android.app.Application
 import android.content.ComponentCallbacks
+import android.content.Context
+import androidx.annotation.RestrictTo
 import com.klaviyo.core.config.Clock
 import com.klaviyo.core.config.Config
 import com.klaviyo.core.config.KlaviyoConfig
@@ -45,6 +47,7 @@ typealias Registration = () -> Any
  *   without leaving the type-erased methods fully public
  */
 object Registry {
+    private val dataStoreLock = Any()
 
     /**
      * Shortcut to the registered [Config]
@@ -77,7 +80,20 @@ object Registry {
 
     val networkMonitor: NetworkMonitor get() = KlaviyoNetworkMonitor
 
-    val dataStore: DataStore get() = SharedPreferencesDataStore
+    val dataStore: DataStore get() = sharedPreferencesDataStore()
+
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    fun dataStore(context: Context): DataStore =
+        sharedPreferencesDataStore(context)
+
+    private fun sharedPreferencesDataStore(context: Context? = null): DataStore =
+        synchronized(dataStoreLock) {
+            val store = getOrNull<DataStore>() ?: SharedPreferencesDataStore().also {
+                register<DataStore>(it)
+            }
+            if (context != null && store is SharedPreferencesDataStore) store.bindContext(context)
+            store
+        }
 
     /**
      * Internal registry of registered service instances
