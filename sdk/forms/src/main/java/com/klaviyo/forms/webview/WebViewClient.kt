@@ -20,6 +20,12 @@ internal interface WebViewClient {
      */
     fun onJsHandshakeCompleted()
 
+    /** Forms data is available in the current runtime. */
+    fun onFormsDataLoaded()
+
+    /** Request a form, retaining only the latest request while forms data loads. */
+    fun openForm(formId: String)
+
     /**
      * Settle a JavaScript abort as initialization failure before the handshake, or unregister afterwards.
      */

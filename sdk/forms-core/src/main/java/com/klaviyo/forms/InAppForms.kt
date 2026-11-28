@@ -43,6 +43,23 @@ fun Klaviyo.unregisterFromInAppForms(): Klaviyo =
     } ?: throw MissingKlaviyoModule("forms")
 
 /**
+ * Request a form by its exact [formId] after registering for In-App Forms.
+ * Blank IDs are ignored. While forms data loads, only the latest request is retained, for less
+ * than the configured [InAppFormsConfig.getEventReplayWindow]. Zero disables waiting.
+ *
+ * Manual opening overrides automatic targeting and timing rules. The form must be available to
+ * this account and runtime; a request does not guarantee display. Existing lifecycle handlers
+ * report actual presentation. Calling this does not register or retry a failed forms session.
+ *
+ * @throws MissingKlaviyoModule if the `com.klaviyo:forms` module is not on the classpath.
+ */
+@UiThread
+fun Klaviyo.openForm(formId: String): Klaviyo =
+    Registry.getOrNull<FormsProvider>()?.let { provider ->
+        safeApply { provider.openForm(formId) }
+    } ?: throw MissingKlaviyoModule("forms")
+
+/**
  * Start a draft in-app forms preview session with a preview token from the Klaviyo form editor.
  *
  * Starting a preview is like unregistering and registering again: if forms are registered, the
@@ -141,6 +158,13 @@ fun Klaviyo.unregisterFormLifecycleHandler(): Klaviyo =
  * Kotlin users should use the extension functions on [Klaviyo] instead.
  */
 object KlaviyoForms {
+    /** Java-friendly static method. See [Klaviyo.openForm]. */
+    @JvmStatic
+    @UiThread
+    fun openForm(formId: String) {
+        Klaviyo.openForm(formId)
+    }
+
     /**
      * Start an In-App Forms session.
      * Java-friendly static method.

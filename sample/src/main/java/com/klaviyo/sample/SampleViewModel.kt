@@ -19,6 +19,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.core.forms.FormsPreview
 import com.klaviyo.forms.endFormsPreview
 import com.klaviyo.forms.handleFormsPreviewLink
+import com.klaviyo.forms.openForm
 import com.klaviyo.forms.registerForInAppForms
 import com.klaviyo.forms.startFormsPreview
 import com.klaviyo.forms.unregisterFromInAppForms
@@ -55,6 +56,9 @@ class SampleViewModel : ViewModel() {
 
     // Forms registration state
     var isFormsRegistered by mutableStateOf(true)
+        private set
+
+    var manualFormId by mutableStateOf("")
         private set
 
     var pastedJwt by mutableStateOf("")
@@ -205,6 +209,16 @@ class SampleViewModel : ViewModel() {
     }
 
     // In-App Forms actions
+    @UiThread
+    fun updateManualFormId(value: String) {
+        manualFormId = value
+    }
+
+    @UiThread
+    fun openForm() {
+        Klaviyo.openForm(manualFormId)
+    }
+
     @UiThread
     fun registerForInAppForms() {
         Klaviyo.registerForInAppForms()

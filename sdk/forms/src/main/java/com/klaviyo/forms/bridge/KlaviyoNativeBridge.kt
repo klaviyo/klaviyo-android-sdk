@@ -19,6 +19,7 @@ import com.klaviyo.forms.FormLifecycleHandler
 import com.klaviyo.forms.bridge.NativeBridgeMessage.Abort
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormDisappeared
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormWillAppear
+import com.klaviyo.forms.bridge.NativeBridgeMessage.FormsDataLoaded
 import com.klaviyo.forms.bridge.NativeBridgeMessage.FormsPreviewEnded
 import com.klaviyo.forms.bridge.NativeBridgeMessage.HandShook
 import com.klaviyo.forms.bridge.NativeBridgeMessage.JsReady
@@ -75,6 +76,7 @@ internal class KlaviyoNativeBridge : NativeBridge {
             when (bridgeMessage) {
                 JsReady -> jsReady()
                 HandShook -> handShook()
+                FormsDataLoaded -> Registry.get<WebViewClient>().onFormsDataLoaded()
                 is FormWillAppear -> show(bridgeMessage)
                 is TrackAggregateEvent -> createAggregateEvent(bridgeMessage)
                 is TrackProfileEvent -> createProfileEvent(bridgeMessage)

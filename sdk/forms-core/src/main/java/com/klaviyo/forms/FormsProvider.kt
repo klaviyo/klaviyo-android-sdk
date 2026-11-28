@@ -23,6 +23,9 @@ interface FormsProvider {
      */
     fun unregister()
 
+    /** Request a form in the currently registered session. */
+    fun openForm(formId: String)
+
     /**
      * Start a forms preview session with [token]. If registered, tears down the current session
      * and starts a new one that loads the preview. Otherwise the token is held for the next

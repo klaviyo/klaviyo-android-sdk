@@ -54,6 +54,14 @@ internal class KlaviyoFormsProvider : FormsProvider {
     @OptIn(AdvancedAPI::class)
     override val registrationState: StateFlow<Boolean> = mutableRegistrationState.asStateFlow()
 
+    override fun openForm(formId: String) {
+        if (inAppIsRegistered()) {
+            Registry.get<WebViewClient>().openForm(formId)
+        } else {
+            Registry.log.warning("Cannot open a form, registerForInAppForms must be called first.")
+        }
+    }
+
     override fun register(config: InAppFormsConfig) {
         isRegistered = true
         Registry.apply {
