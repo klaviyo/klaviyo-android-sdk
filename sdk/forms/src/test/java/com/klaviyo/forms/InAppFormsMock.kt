@@ -1,9 +1,12 @@
 package com.klaviyo.forms
 
+import android.net.Uri
 import com.klaviyo.analytics.Klaviyo
+import com.klaviyo.core.Registry
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
+import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkObject
@@ -28,9 +31,13 @@ object InAppFormsMock {
         // Mock the extension functions by referencing them directly
         mockkStatic(Klaviyo::registerForInAppForms)
         mockkStatic(Klaviyo::unregisterFromInAppForms)
+        mockkStatic(Klaviyo::startFormsPreview)
+        mockkStatic(Klaviyo::endFormsPreview)
 
         every { any<Klaviyo>().registerForInAppForms(any()) } returns Klaviyo
         every { any<Klaviyo>().unregisterFromInAppForms() } returns Klaviyo
+        every { any<Klaviyo>().startFormsPreview(any()) } returns Klaviyo
+        every { any<Klaviyo>().endFormsPreview() } returns Klaviyo
 
         // Mock KlaviyoForms static API (returns Unit)
         mockkStatic(KlaviyoForms::class)
@@ -39,6 +46,8 @@ object InAppFormsMock {
         every { KlaviyoForms.registerForInAppForms(any()) } just Runs
         every { KlaviyoForms.registerForInAppForms() } just Runs
         every { KlaviyoForms.unregisterFromInAppForms() } just Runs
+        every { KlaviyoForms.startFormsPreview(any()) } just Runs
+        every { KlaviyoForms.endFormsPreview() } just Runs
     }
 
     /**
@@ -49,6 +58,8 @@ object InAppFormsMock {
     fun teardown() {
         unmockkStatic(Klaviyo::registerForInAppForms)
         unmockkStatic(Klaviyo::unregisterFromInAppForms)
+        unmockkStatic(Klaviyo::startFormsPreview)
+        unmockkStatic(Klaviyo::endFormsPreview)
         unmockkObject(KlaviyoForms)
         unmockkStatic(KlaviyoForms::class)
     }
@@ -82,4 +93,70 @@ object InAppFormsMock {
     fun verifyKlaviyoFormsUnregisterCalled(count: Int = 1) {
         verify(exactly = count) { KlaviyoForms.unregisterFromInAppForms() }
     }
+
+    @JvmStatic
+    @JvmOverloads
+    fun verifyStartFormsPreviewCalled(count: Int = 1) {
+        verify(exactly = count) { any<Klaviyo>().startFormsPreview(any()) }
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun verifyEndFormsPreviewCalled(count: Int = 1) {
+        verify(exactly = count) { any<Klaviyo>().endFormsPreview() }
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun verifyKlaviyoFormsStartPreviewCalled(count: Int = 1) {
+        verify(exactly = count) { KlaviyoForms.startFormsPreview(any()) }
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    fun verifyKlaviyoFormsEndPreviewCalled(count: Int = 1) {
+        verify(exactly = count) { KlaviyoForms.endFormsPreview() }
+    }
+
+    private var previewLinkProvider: FormsProvider? = null
+
+    /**
+     * Restore the real [KlaviyoForms] facade, so a test exercises its forwarding to [Klaviyo].
+     */
+    @JvmStatic
+    fun unmockKlaviyoForms() {
+        unmockkObject(KlaviyoForms)
+        unmockkStatic(KlaviyoForms::class)
+    }
+
+    /**
+     * Register a [FormsProvider] whose `handlePreviewLink` returns [result] for [link] and false
+     * for any other link.
+     */
+    @JvmStatic
+    fun registerPreviewLinkProvider(link: String, result: Boolean) {
+        val provider = mockk<FormsProvider>(relaxed = true).apply {
+            every { handlePreviewLink(any()) } answers { firstArg<String?>() == link && result }
+        }
+        previewLinkProvider = provider
+        Registry.register<FormsProvider>(provider)
+    }
+
+    @JvmStatic
+    fun unregisterPreviewLinkProvider() {
+        Registry.unregister<FormsProvider>()
+        previewLinkProvider = null
+    }
+
+    @JvmStatic
+    fun verifyPreviewLinkForwarded(link: String) {
+        val provider = requireNotNull(previewLinkProvider)
+        verify(exactly = 1) { provider.handlePreviewLink(link) }
+    }
+
+    /**
+     * A [Uri] whose string form is [value], since `Uri.parse` is a stub in JVM unit tests.
+     */
+    @JvmStatic
+    fun uri(value: String): Uri = mockk<Uri>().also { every { it.toString() } returns value }
 }

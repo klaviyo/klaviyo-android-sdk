@@ -9,6 +9,11 @@ on:
     branches:
       - 'master'
 
+env:
+  TRIGGERED_BY: ${{ github.event_name == 'schedule' && 'schedule' || (endsWith(github.triggering_actor || github.actor, '[bot]') && format('{0} (automation)', github.workflow) || github.triggering_actor || github.actor) }}
+  SLACK_USERNAME: Android SDK
+  SLACK_ICON_EMOJI: ':merlin-orb-android:'
+
 jobs:
   # A job for running our tests
   test:
@@ -19,10 +24,10 @@ jobs:
 
     strategy:
       matrix:
-        module: [ ':sdk:analytics', ':sdk:core', ':sdk:forms-core', ':sdk:forms', ':sdk:location-core', ':sdk:location', ':sdk:push-fcm' ]
+        module: [ ':sdk:analytics', ':sdk:core', ':sdk:forms-core', ':sdk:forms', ':sdk:location-core', ':sdk:location', ':sdk:inbox-core', ':sdk:inbox', ':sdk:push-fcm' ]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Android Build Environment
         uses: ./.github/actions/setup
@@ -33,28 +38,6 @@ jobs:
       - name: Unit Tests
         run: ./gradlew ${{ matrix.module }}:test --stacktrace --no-daemon
 
-      - name: Send Slack notification on master failure
-        if: failure() && github.ref == 'refs/heads/master'
-        uses: slackapi/slack-github-action@v2.1.1
-        with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "🚨 Android CI Unit Tests Failed on Master"
-            blocks:
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "🚨 Unit Tests Failed on Master\n"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Repository:* ${{ github.repository }}\n*Module:* ${{ matrix.module }}\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
-
   # A job for running linters (ktlint + Android Lint)
   lint:
     name: Run Linters
@@ -63,7 +46,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Android Build Environment
         uses: ./.github/actions/setup
@@ -78,24 +61,55 @@ jobs:
       - name: Android Lint
         run: ./gradlew lintRelease --no-daemon
 
-      - name: Send Slack notification on master failure
-        if: failure() && github.ref == 'refs/heads/master'
-        uses: slackapi/slack-github-action@v2.1.1
+  # Posts one Slack message when tests or lint fail on a master push
+  notify:
+    name: Notify Slack
+    needs: [ test, lint ]
+    if: failure() && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Record commit
+        id: commit
+        run: echo "short_sha=${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v7
+        continue-on-error: true
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "🚨 Android CI Lint Failed on Master"
-            blocks:
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "🚨 Lint Failed on Master\n"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Repository:* ${{ github.repository }}\n*Commit:* `${{ github.sha }}`\n*Author:* ${{ github.actor }}"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+          sparse-checkout: .github/actions
+
+      - name: Summarize failures
+        id: summary
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TEST_RESULT: ${{ needs.test.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+        run: |
+          lines=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100" \
+            --jq '.jobs[] | select(.conclusion == "failure") | .name' 2> /dev/null || true)
+          if [ -z "$lines" ]; then
+            if [ "$TEST_RESULT" = "failure" ]; then lines+="Run Unit Tests"$'\n'; fi
+            if [ "$LINT_RESULT" = "failure" ]; then lines+="Run Linters"$'\n'; fi
+          fi
+          {
+            echo "body<<EOF_BODY"
+            printf '%s\n' "$lines" | sed -e '/^$/d' -e 's/^/• `/' -e 's/$/`/'
+            echo "EOF_BODY"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Slack
+        continue-on-error: true
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          status: failure
+          title: Android CI failed on `master`
+          body: ${{ steps.summary.outputs.body }}
+          fields: |
+            Repository: ${{ github.repository }}
+            Commit: `${{ steps.commit.outputs.short_sha }}`
+            Triggered by: `${{ env.TRIGGERED_BY }}`
+          links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}

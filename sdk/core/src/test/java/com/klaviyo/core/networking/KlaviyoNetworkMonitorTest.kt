@@ -14,6 +14,7 @@ import io.mockk.mockkConstructor
 import io.mockk.slot
 import io.mockk.unmockkObject
 import io.mockk.verify
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -47,6 +48,8 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns capabilitiesMock
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns true
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns true
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) } returns true
+        every { capabilitiesMock.hasTransport(any()) } returns false
 
         mockkConstructor(NetworkRequest.Builder::class)
         every { NetworkRequest.Builder().addCapability(any()) } returns mockBuilder
@@ -64,12 +67,23 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         super.cleanup()
         clearAllMocks()
 
-        // Reset KlaviyoNetworkMonitor's networkRequest to allow re-initialization in subsequent tests
-        val field = KlaviyoNetworkMonitor::class.java.getDeclaredField("networkRequest")
-        val originalAccessibility = field.isAccessible // Store original accessibility
-        field.isAccessible = true
-        field.set(KlaviyoNetworkMonitor, null) // Set the lateinit var's backing field to null
-        field.isAccessible = originalAccessibility // Restore original accessibility
+        // Reset KlaviyoNetworkMonitor's state to allow re-initialization in subsequent tests
+        resetField("isRegistered", false)
+        (
+            KlaviyoNetworkMonitor::class.java.getDeclaredField("lastBroadcastState").apply { isAccessible = true }
+                .get(KlaviyoNetworkMonitor) as AtomicReference<*>
+            ).set(null)
+    }
+
+    private fun resetField(name: String, value: Any?) {
+        KlaviyoNetworkMonitor::class.java.getDeclaredField(name).apply {
+            isAccessible = true
+            set(KlaviyoNetworkMonitor, value)
+        }
+    }
+
+    private fun setConnected(connected: Boolean) {
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns connected
     }
 
     @Test
@@ -83,22 +97,76 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         assert(KlaviyoNetworkMonitor.isNetworkConnected())
     }
 
-    @Test
-    fun `Maps transport capabilities to network types correctly`() {
-        // No network capabilities = offline
-        every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns null
-        every { capabilitiesMock.hasTransport(any()) } returns false
-        assertEquals(NetworkMonitor.NetworkType.Offline, KlaviyoNetworkMonitor.getNetworkType())
-
-        // We'll treat internet without a particular transport method as cell
+    private fun mockNetwork(
+        cellular: Boolean = false,
+        wifi: Boolean = false,
+        ethernet: Boolean = false,
+        vpn: Boolean = false,
+        internet: Boolean = true,
+        notMetered: Boolean = true
+    ) {
         every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns capabilitiesMock
-        assertEquals(NetworkMonitor.NetworkType.Cell, KlaviyoNetworkMonitor.getNetworkType())
+        every { capabilitiesMock.hasTransport(any()) } returns false
+        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) } returns cellular
+        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) } returns wifi
+        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) } returns ethernet
+        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_VPN) } returns vpn
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) } returns internet
+        every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) } returns notMetered
+    }
 
-        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) } returns true
-        assertEquals(NetworkMonitor.NetworkType.Cell, KlaviyoNetworkMonitor.getNetworkType())
+    @Test
+    fun `No network capabilities maps to offline`() {
+        every { connectivityManagerMock.getNetworkCapabilities(networkMock) } returns null
+        assertEquals(NetworkMonitor.NetworkType.Offline, KlaviyoNetworkMonitor.getNetworkType())
+    }
 
-        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) } returns true
-        assertEquals(NetworkMonitor.NetworkType.Wifi, KlaviyoNetworkMonitor.getNetworkType())
+    @Test
+    fun `Maps network capabilities to network types correctly`() {
+        data class Case(
+            val name: String,
+            val expected: NetworkMonitor.NetworkType,
+            val cellular: Boolean = false,
+            val wifi: Boolean = false,
+            val ethernet: Boolean = false,
+            val vpn: Boolean = false,
+            val internet: Boolean = true,
+            val notMetered: Boolean = true
+        )
+
+        val wifiType = NetworkMonitor.NetworkType.Wifi
+        val cellType = NetworkMonitor.NetworkType.Cell
+        val offType = NetworkMonitor.NetworkType.Offline
+
+        listOf(
+            Case("unmetered wifi", wifiType, wifi = true),
+            Case("metered wifi (hotspot)", cellType, wifi = true, notMetered = false),
+            Case("cellular", cellType, cellular = true, notMetered = false),
+            Case("cellular flagged unmetered", cellType, cellular = true),
+            Case("ethernet", wifiType, ethernet = true),
+            Case("vpn over unmetered", wifiType, vpn = true),
+            Case("vpn over metered", cellType, vpn = true, notMetered = false),
+            Case("unknown transport, unmetered", wifiType),
+            Case("unknown transport, metered", cellType, notMetered = false),
+            Case("unmetered without internet", offType, wifi = true, internet = false),
+            Case(
+                "cellular without internet",
+                offType,
+                cellular = true,
+                internet = false,
+                notMetered = false
+            ),
+            Case(
+                "metered without internet",
+                offType,
+                wifi = true,
+                internet = false,
+                notMetered = false
+            )
+        ).forEach {
+            mockNetwork(it.cellular, it.wifi, it.ethernet, it.vpn, it.internet, it.notMetered)
+            assertEquals(it.name, it.expected, KlaviyoNetworkMonitor.getNetworkType())
+        }
     }
 
     @Test
@@ -138,7 +206,6 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         expectedNetworkConnection = false
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns false
         netCallbackSlot.captured.onLost(mockk())
-        netCallbackSlot.captured.onUnavailable()
 
         expectedNetworkConnection = true
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns true
@@ -148,7 +215,7 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         every { capabilitiesMock.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) } returns false
         netCallbackSlot.captured.onLost(mockk())
 
-        assertEquals(5, callCount)
+        assertEquals(4, callCount)
         KlaviyoNetworkMonitor.offNetworkChange(observer)
     }
 
@@ -179,11 +246,13 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
         assertEquals(2, callCount)
 
         KlaviyoNetworkMonitor.offNetworkChange(observer)
-        netCallbackSlot.captured.onAvailable(mockk())
+        setConnected(false)
+        netCallbackSlot.captured.onLost(mockk())
         assertEquals(3, callCount)
 
         KlaviyoNetworkMonitor.offNetworkChange(observer) // calling it twice doesn't result in an error
         KlaviyoNetworkMonitor.onNetworkChange(observer) // it can be re-added
+        setConnected(true)
         netCallbackSlot.captured.onAvailable(mockk())
         assertEquals(5, callCount)
     }
@@ -232,5 +301,114 @@ internal class KlaviyoNetworkMonitorTest : BaseTest() {
             )
         }
         assertEquals(callCount, 0)
+    }
+
+    @Test
+    fun `Duplicate network states are not rebroadcast`() {
+        var callCount = 0
+        KlaviyoNetworkMonitor.onNetworkChange { callCount++ }
+
+        netCallbackSlot.captured.onAvailable(mockk())
+        netCallbackSlot.captured.onLinkPropertiesChanged(mockk(), mockk())
+        netCallbackSlot.captured.onCapabilitiesChanged(mockk(), mockk())
+        assertEquals(1, callCount)
+    }
+
+    @Test
+    fun `Network type change with same connectivity is broadcast`() {
+        var callCount = 0
+        mockNetwork(cellular = true)
+        KlaviyoNetworkMonitor.onNetworkChange { callCount++ }
+
+        netCallbackSlot.captured.onAvailable(mockk())
+        assertEquals(1, callCount)
+
+        mockNetwork(wifi = true)
+        netCallbackSlot.captured.onCapabilitiesChanged(mockk(), mockk())
+        assertEquals(2, callCount)
+    }
+
+    @Test
+    fun `Connectivity and network type come from one snapshot of the active network`() {
+        KlaviyoNetworkMonitor.onNetworkChange { }
+        every { capabilitiesMock.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) } returns true
+
+        // The system's active network changes between reads: present first, then gone
+        every { connectivityManagerMock.activeNetwork } returnsMany listOf(networkMock, null)
+
+        netCallbackSlot.captured.onAvailable(mockk())
+
+        // One read of the active network per broadcast, so a second read can't disagree with the first
+        verify(exactly = 1) { connectivityManagerMock.activeNetwork }
+
+        val state = KlaviyoNetworkMonitor::class.java.getDeclaredField("lastBroadcastState")
+            .apply { isAccessible = true }
+            .get(KlaviyoNetworkMonitor) as AtomicReference<*>
+        assertEquals("NetworkState(isConnected=true, networkType=Wifi)", state.get().toString())
+    }
+
+    @Test
+    fun `Losing the active network is broadcast as offline`() {
+        val states = mutableListOf<Boolean>()
+        KlaviyoNetworkMonitor.onNetworkChange { states += it }
+
+        netCallbackSlot.captured.onAvailable(mockk())
+
+        every { connectivityManagerMock.activeNetwork } returns null
+        netCallbackSlot.captured.onLost(mockk())
+
+        assertEquals(listOf(true, false), states)
+    }
+
+    @Test
+    fun `Validation completing after availability is broadcast via capabilities change`() {
+        val states = mutableListOf<Boolean>()
+        KlaviyoNetworkMonitor.onNetworkChange { states += it }
+
+        setConnected(false)
+        netCallbackSlot.captured.onAvailable(mockk())
+        setConnected(true)
+        netCallbackSlot.captured.onCapabilitiesChanged(mockk(), mockk())
+
+        assertEquals(listOf(false, true), states)
+    }
+
+    @Test
+    fun `Registration is retried after a SecurityException`() {
+        every {
+            connectivityManagerMock.requestNetwork(
+                mockRequest,
+                any<ConnectivityManager.NetworkCallback>()
+            )
+        } throws SecurityException("missing permission")
+        KlaviyoNetworkMonitor.onNetworkChange { }
+
+        every {
+            connectivityManagerMock.requestNetwork(
+                mockRequest,
+                any<ConnectivityManager.NetworkCallback>()
+            )
+        } returns mockk()
+        KlaviyoNetworkMonitor.onNetworkChange { }
+
+        verify(exactly = 2) {
+            connectivityManagerMock.requestNetwork(
+                mockRequest,
+                any<ConnectivityManager.NetworkCallback>()
+            )
+        }
+    }
+
+    @Test
+    fun `Registration happens only once`() {
+        KlaviyoNetworkMonitor.onNetworkChange { }
+        KlaviyoNetworkMonitor.onNetworkChange { }
+
+        verify(exactly = 1) {
+            connectivityManagerMock.requestNetwork(
+                mockRequest,
+                any<ConnectivityManager.NetworkCallback>()
+            )
+        }
     }
 }

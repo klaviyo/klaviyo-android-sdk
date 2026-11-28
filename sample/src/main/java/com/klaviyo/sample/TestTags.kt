@@ -19,6 +19,9 @@ object SampleTestTags {
     const val BTN_VIEWED_PRODUCT = "btn_viewed_product"
 
     // Forms section
+    const val TOGGLE_FORMS_PREVIEW = "toggle_forms_preview"
+    const val FIELD_FORMS_PREVIEW_TOKEN = "field_forms_preview_token"
+    const val BTN_SET_FORMS_PREVIEW_TOKEN = "btn_set_forms_preview_token"
     const val BTN_REGISTER_FORMS = "btn_register_forms"
     const val BTN_UNREGISTER_FORMS = "btn_unregister_forms"
 

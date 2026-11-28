@@ -76,11 +76,13 @@ open class KlaviyoPushService : FirebaseMessagingService() {
 
         if (message.isKlaviyoMessage) {
             if (message.isKlaviyoNotification) {
+                // Before the overridable hook, so observers run even when a subclass replaces display
+                dispatchToPushObservers(message)
                 onKlaviyoNotificationMessageReceived(message = message)
             }
             if (message.hasKlaviyoKeyValuePairs) {
                 onKlaviyoCustomDataMessageReceived(
-                    customData = message.keyValuePairs ?: emptyMap(),
+                    customData = message.keyValuePairs?.minus(Constants.FORMS_PREVIEW_KEY) ?: emptyMap(),
                     message = message
                 )
             }
