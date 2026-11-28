@@ -27,6 +27,9 @@ buildscript {
         // Needed (alongside the google-services.json) to connect to google services and use fcm logic in sample app
         classpath(Google.playServicesGradlePlugin)
 
+        // Room's annotation processor, applied only in modules that use Room
+        classpath("com.google.devtools.ksp:symbol-processing-gradle-plugin:_")
+
         classpath("org.jetbrains.dokka:dokka-gradle-plugin:_")
         classpath("org.jlleitschuh.gradle:ktlint-gradle:_")
     }

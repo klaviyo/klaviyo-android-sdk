@@ -11,10 +11,12 @@ import android.os.Looper
 internal object KlaviyoThreadHelper : ThreadHelper {
     override fun getHandler(looper: Looper) = Handler(looper)
     override fun getHandlerThread(name: String?) = HandlerThread(name)
+    override fun isMainThread(): Boolean = Looper.getMainLooper() == Looper.myLooper()
+
     override fun runOnUiThread(job: () -> Unit) {
         val mainLooper = Looper.getMainLooper()
 
-        if (mainLooper == Looper.myLooper()) {
+        if (isMainThread()) {
             // Already on main thread, run immediately
             job()
         } else {

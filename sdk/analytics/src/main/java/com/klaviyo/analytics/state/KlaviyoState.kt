@@ -147,7 +147,7 @@ internal class KlaviyoState : State {
             _anonymousId.reset()
             _attributes.replace(profile.attributes)
         } finally {
-            broadcastChange(StateChange.ProfileReset(oldProfile))
+            broadcastChange(StateChange.ProfileReset(oldProfile, explicit = false))
         }
 
         Registry.log.verbose("Replaced internal user state")
@@ -213,7 +213,7 @@ internal class KlaviyoState : State {
         _anonymousId.reset()
         _attributes.reset()
 
-        broadcastChange(StateChange.ProfileReset(oldProfile))
+        broadcastChange(StateChange.ProfileReset(oldProfile, explicit = true))
         Registry.log.verbose("Reset internal user state")
     }
 
@@ -300,6 +300,7 @@ internal class KlaviyoState : State {
      * @param change - the state change to broadcast
      */
     private fun broadcastChange(change: StateChange) {
+        Registry.getOrNull<StateChangeObservers>()?.dispatch(change)
         stateChangeObservers.forEach { it(change) }
     }
 
