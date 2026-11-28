@@ -9,6 +9,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 
 /**
  * Tests to verify the In-App Forms API is accessible from Java.
@@ -56,6 +57,15 @@ public class InAppFormsJavaApiTest extends BaseTest {
         assertNotNull(customConfig);
         assertNotNull(new InAppFormsConfig(1800, 30));
         assertNotNull(new InAppFormsConfig(1800, 30, 20));
+    }
+
+    @Test
+    public void testFailureHandlerConstructorsAcceptJavaSam() {
+        InAppFormsFailureHandler handler = () -> {};
+        assertSame(handler, new InAppFormsConfig(handler).getOnFailure());
+        assertSame(handler, new InAppFormsConfig(1800, handler).getOnFailure());
+        assertSame(handler, new InAppFormsConfig(1800, 30, handler).getOnFailure());
+        assertSame(handler, new InAppFormsConfig(1800, 30, 20, handler).getOnFailure());
     }
 
     @Test

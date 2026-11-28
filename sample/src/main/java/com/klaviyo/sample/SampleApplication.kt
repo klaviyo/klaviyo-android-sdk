@@ -32,7 +32,10 @@ class SampleApplication : Application() {
             .registerForInAppForms(
                 InAppFormsConfig(
                     loadTimeout = 30.seconds,
-                    eventReplayWindow = 20.seconds
+                    eventReplayWindow = 20.seconds,
+                    onFailure = {
+                        Registry.log.warning("In-App Forms initialization failed")
+                    }
                 )
             )
             .registerGeofencing() // Start geofencing monitoring

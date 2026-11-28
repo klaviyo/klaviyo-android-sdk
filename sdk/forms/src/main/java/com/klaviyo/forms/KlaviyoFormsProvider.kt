@@ -125,6 +125,7 @@ internal class KlaviyoFormsProvider : FormsProvider {
         Registry.getOrNull<FormsPreviewTokenStore>()?.clear()
         if (inAppIsRegistered()) {
             tearDownInAppForms()
+            Registry.unregister<InAppFormsConfig>()
         } else {
             Registry.log.warning("Cannot unregister In-App Forms, must be registered first.")
         }

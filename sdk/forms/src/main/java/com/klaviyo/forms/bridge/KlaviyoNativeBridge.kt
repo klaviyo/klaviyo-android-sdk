@@ -28,7 +28,6 @@ import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackAggregateEvent
 import com.klaviyo.forms.bridge.NativeBridgeMessage.TrackProfileEvent
 import com.klaviyo.forms.presentation.PresentationManager
 import com.klaviyo.forms.preview.FormsPreviewTokenStore
-import com.klaviyo.forms.unregisterFromInAppForms
 import com.klaviyo.forms.webview.WebViewClient
 
 /**
@@ -214,10 +213,11 @@ internal class KlaviyoNativeBridge : NativeBridge {
     }
 
     /**
-     * Handle a [Abort] message by logging the reason and destroying the webview
+     * Forward a decoded [Abort] message to the current WebView client.
      */
-    private fun abort(reason: String) = Klaviyo.unregisterFromInAppForms().also {
+    private fun abort(reason: String) {
         Registry.log.error("IAF aborted, reason: $reason")
+        Registry.get<WebViewClient>().onJsAbort(reason)
     }
 
     /**
