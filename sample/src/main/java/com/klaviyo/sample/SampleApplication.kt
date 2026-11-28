@@ -8,6 +8,7 @@ import com.klaviyo.core.Registry
 import com.klaviyo.forms.FormLifecycleEvent.FormCtaClicked
 import com.klaviyo.forms.FormLifecycleEvent.FormDismissed
 import com.klaviyo.forms.FormLifecycleEvent.FormShown
+import com.klaviyo.forms.FormLifecycleEvent.FormWillDisplay
 import com.klaviyo.forms.registerForInAppForms
 import com.klaviyo.forms.registerFormLifecycleHandler
 import com.klaviyo.location.registerGeofencing
@@ -39,8 +40,19 @@ class SampleApplication : Application() {
             }
             .registerFormLifecycleHandler { event ->
                 // OPTIONAL SETUP NOTE: Register a callback to receive form lifecycle events
-                // This allows you to track when forms are shown, dismissed, or when CTAs are clicked
+                // Track form interactions and accept or reject forms before display
                 when (event) {
+                    is FormWillDisplay -> {
+                        Registry.log.debug(
+                            "Form Lifecycle: ${event.formName} (${event.formId}) Will Display (${event.formType})"
+                        )
+                        // To block a form, uncomment this example and set your form ID:
+                        // if (event.formId == "FORM_ID_TO_BLOCK") {
+                        //     event.reject()
+                        //     return@registerFormLifecycleHandler
+                        // }
+                        event.accept()
+                    }
                     is FormShown -> {
                         Registry.log.debug(
                             "Form Lifecycle: ${event.formName} (${event.formId}) Shown"

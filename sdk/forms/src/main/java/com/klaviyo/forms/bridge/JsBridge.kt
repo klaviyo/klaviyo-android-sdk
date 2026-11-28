@@ -57,6 +57,15 @@ internal interface JsBridge {
     fun profileEvent(event: Event)
 
     /**
+     * Send the result of a form display query back to the JS module.
+     * This dispatches a CustomEvent that resolves the SDK display gate.
+     *
+     * @param formId The form that was queried
+     * @param allowed Whether the form is allowed to display
+     */
+    fun formWillOpenContinuation(formId: FormId, allowed: Boolean)
+
+    /**
      * Inject the auth token into the webview as a data attribute.
      */
     fun jwtMutation(token: String)
