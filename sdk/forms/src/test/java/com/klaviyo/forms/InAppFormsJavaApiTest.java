@@ -54,6 +54,8 @@ public class InAppFormsJavaApiTest extends BaseTest {
         // Int constructor for custom timeout in seconds
         InAppFormsConfig customConfig = new InAppFormsConfig(1800);
         assertNotNull(customConfig);
+        assertNotNull(new InAppFormsConfig(1800, 30));
+        assertNotNull(new InAppFormsConfig(1800, 30, 20));
     }
 
     @Test

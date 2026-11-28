@@ -1,5 +1,6 @@
 package com.klaviyo.analytics.state
 
+import com.klaviyo.analytics.model.Event
 import com.klaviyo.analytics.model.Profile
 import com.klaviyo.analytics.model.ProfileKey
 import com.klaviyo.analytics.model.StateKey
@@ -92,6 +93,45 @@ class StateSideEffectsTest : BaseTest() {
         Registry.unregister<AuthTokenManager>()
         Registry.unregister<PushTokenFetcher>()
         super.cleanup()
+    }
+
+    @Test
+    fun `reset and incompatible identity changes discard outgoing history`() {
+        val state = KlaviyoState()
+        val sideEffects = StateSideEffects(state, apiClientMock)
+        state.email = EMAIL
+        listOf<() -> Unit>(
+            { state.email = OTHER_EMAIL },
+            { state.setProfile(Profile(email = EMAIL)) },
+            { state.reset() },
+            { state.apiKey = "other-company" }
+        ).forEach { change ->
+            GenericEventBuffer.addEvent(Event("outgoing"))
+            val generation = state.bufferedEventGeneration
+            change()
+            assertTrue(state.getBufferedEvents(30_000).isEmpty())
+            assertTrue(state.bufferedEventGeneration > generation)
+        }
+        sideEffects.detach()
+        GenericEventBuffer.clearBuffer()
+    }
+
+    @Test
+    fun `launch history survives identification and compatible enrichment`() {
+        val state = KlaviyoState()
+        val sideEffects = StateSideEffects(state, apiClientMock)
+        GenericEventBuffer.clearBuffer()
+        GenericEventBuffer.addEvent(Event("launch").apply { uniqueId = "original-launch" })
+        val generation = state.bufferedEventGeneration
+
+        state.email = EMAIL
+        state.externalId = EXTERNAL_ID
+        state.setProfile(Profile(email = EMAIL, externalId = EXTERNAL_ID, phoneNumber = PHONE))
+        assertEquals(listOf("original-launch"), state.getBufferedEvents(30_000).map { it.uniqueId })
+        assertEquals(generation, state.bufferedEventGeneration)
+
+        sideEffects.detach()
+        GenericEventBuffer.clearBuffer()
     }
 
     @Test

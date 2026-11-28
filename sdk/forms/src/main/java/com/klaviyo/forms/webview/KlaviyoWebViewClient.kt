@@ -22,6 +22,7 @@ import com.klaviyo.core.config.Clock
 import com.klaviyo.core.safeLaunch
 import com.klaviyo.core.utils.WeakReferenceDelegate
 import com.klaviyo.core.utils.startActivityIfResolved
+import com.klaviyo.forms.InAppFormsConfig
 import com.klaviyo.forms.bridge.DeviceInfoProvider
 import com.klaviyo.forms.bridge.HandshakeSpec
 import com.klaviyo.forms.bridge.JsBridge
@@ -68,6 +69,8 @@ internal class KlaviyoWebViewClient(
      */
     private var loadJob: Job? = null
 
+    private var eventReplayWindow = InAppFormsConfig.DEFAULT_EVENT_REPLAY_WINDOW
+
     private val scope = CoroutineScope(SupervisorJob() + Registry.dispatcher)
 
     /**
@@ -87,12 +90,22 @@ internal class KlaviyoWebViewClient(
         }
 
         val webView = KlaviyoWebView().also { this.webView = it }
+        val config = Registry.getOrNull<InAppFormsConfig>() ?: InAppFormsConfig()
+        eventReplayWindow = config.getEventReplayWindow()
+        val loadTimeout = config.getLoadTimeout()?.inWholeMilliseconds
+            ?: Registry.config.networkTimeout.toLong()
         isInitialized.value = true
         loadJob?.cancel()
         loadJob = scope.safeLaunch {
             val token = awaitInitialToken()
             Registry.threadHelper.runOnUiThread {
-                if (this@KlaviyoWebViewClient.webView === webView) loadTemplate(webView, token)
+                if (this@KlaviyoWebViewClient.webView === webView) {
+                    loadTemplate(
+                        webView,
+                        token,
+                        loadTimeout
+                    )
+                }
             }
         }
     }
@@ -122,7 +135,7 @@ internal class KlaviyoWebViewClient(
      * manager's current token, so a profile replaced while the token was awaited cannot receive
      * the previous profile's JWT. Must be called on the UI thread.
      */
-    private fun loadTemplate(webView: KlaviyoWebView, token: String?) {
+    private fun loadTemplate(webView: KlaviyoWebView, token: String?, loadTimeout: Long) {
         val nativeBridge = Registry.get<NativeBridge>()
         val jsBridge = Registry.get<JsBridge>()
         val handshake: List<HandshakeSpec> = nativeBridge.handshake + jsBridge.handshake
@@ -162,7 +175,7 @@ internal class KlaviyoWebViewClient(
         webView.loadTemplate(partialHtml, this, nativeBridge)
         handshakeTimer?.cancel()
         handshakeTimer = Registry.clock.schedule(
-            Registry.config.networkTimeout.toLong(),
+            loadTimeout,
             ::onJsHandshakeTimeout
         )
     }
@@ -175,7 +188,10 @@ internal class KlaviyoWebViewClient(
      * When the webview has loaded klaviyo.js, we can cancel the timeout
      */
     override fun onJsHandshakeCompleted() {
-        Registry.get<JsBridgeObserverCollection>().startObservers(NativeBridgeMessage.HandShook)
+        Registry.get<JsBridgeObserverCollection>().startObservers(
+            NativeBridgeMessage.HandShook,
+            eventReplayWindow
+        )
         handshakeTimer?.cancel()
         handshakeTimer = null
     }

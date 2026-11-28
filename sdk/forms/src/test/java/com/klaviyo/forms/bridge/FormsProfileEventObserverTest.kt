@@ -1,156 +1,157 @@
 package com.klaviyo.forms.bridge
 
 import com.klaviyo.analytics.model.Event
-import com.klaviyo.analytics.model.EventKey
-import com.klaviyo.analytics.model.EventMetric
+import com.klaviyo.analytics.state.ContextualProfileEventObserver
+import com.klaviyo.analytics.state.ProfileEventObserver as AnalyticsEventObserver
 import com.klaviyo.analytics.state.State
 import com.klaviyo.core.Registry
-import com.klaviyo.core.utils.AdvancedAPI
+import com.klaviyo.fixtures.BaseTest
+import com.klaviyo.forms.InAppFormsConfig
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.unmockkAll
-import io.mockk.verify
+import kotlin.time.Duration.Companion.seconds
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 
-class FormsProfileEventObserverTest {
-    private val mockJsBridge = mockk<JsBridge>(relaxed = true)
-    private val mockState = mockk<State>(relaxed = true)
+class FormsProfileEventObserverTest : BaseTest() {
+    private val state = mockk<State>(relaxed = true)
+    private val jsBridge = mockk<JsBridge>(relaxed = true)
+    private val subscriptions = mutableListOf<AnalyticsEventObserver>()
+    private val delivered = mutableListOf<String?>()
+    private val history = listOf(event("launch"))
+    private var generation = 0L
+    private val observer = ProfileEventObserver()
 
-    private val testEvent = Event(
-        metric = "Fate Sealed",
-        properties = mapOf(
-            EventKey.CUSTOM("name") to "Anna Karenina",
-            EventKey.CUSTOM("location") to "Saint Petersburg"
-        )
-    )
+    private fun event(id: String) = Event(id).apply { uniqueId = id }
 
     @Before
-    fun setup() {
-        Registry.register<JsBridge>(mockJsBridge)
-        Registry.register<State>(mockState)
-    }
-
-    @Test
-    fun `starts on HandShook`() {
-        val observer = ProfileEventObserver()
-        assertEquals(NativeBridgeMessage.HandShook, observer.startOn)
-    }
-
-    @Test
-    fun `invoke event broadcast`() {
-        ProfileEventObserver().invoke(testEvent)
-        verify { mockJsBridge.profileEvent(testEvent) }
-    }
-
-    @Test
-    fun `startObserver registers with state`() {
-        val observer = ProfileEventObserver()
-        observer.startObserver()
-        verify { mockState.onProfileEvent(observer) }
-    }
-
-    @Test
-    fun `startObserver retrieves and processes buffered events`() {
-        val event1 = Event(EventMetric.CUSTOM("buffered_event_1")).apply {
-            uniqueId = "uuid-1"
-            setProperty("_time", 1000L)
-        }
-        val event2 = Event(EventMetric.CUSTOM("buffered_event_2")).apply {
-            uniqueId = "uuid-2"
-            setProperty("_time", 2000L)
-        }
-        val event3 = Event(EventMetric.CUSTOM("buffered_event_3")).apply {
-            uniqueId = "uuid-3"
-            setProperty("_time", 3000L)
-        }
-
-        every { mockState.getBufferedEvents() } returns listOf(event1, event2, event3)
-
-        val observer = ProfileEventObserver()
-        observer.startObserver()
-
-        verify { mockJsBridge.profileEvent(event1) }
-        verify { mockJsBridge.profileEvent(event2) }
-        verify { mockJsBridge.profileEvent(event3) }
-    }
-
-    @OptIn(AdvancedAPI::class)
-    @Test
-    fun `startObserver does not clear buffer after processing events`() {
-        val event = Event(EventMetric.CUSTOM("buffered_event")).apply {
-            uniqueId = "test-uuid"
-            setProperty("_time", 5000L)
-        }
-
-        every { mockState.getBufferedEvents() } returns listOf(event)
-
-        val observer = ProfileEventObserver()
-        observer.startObserver()
-
-        // Buffer should still contain the event (not cleared)
-        verify(exactly = 0) { mockState.clearBufferedEvents() }
-    }
-
-    @Test
-    fun `startObserver processes events in correct order`() {
-        val events = (1..5).map {
-            Event(EventMetric.CUSTOM("event_$it")).apply {
-                uniqueId = "uuid-$it"
-            }
-        }
-
-        every { mockState.getBufferedEvents() } returns events
-
-        val observer = ProfileEventObserver()
-        observer.startObserver()
-
-        events.forEach { event ->
-            verify { mockJsBridge.profileEvent(event) }
-        }
-    }
-
-    @Test
-    fun `startObserver handles empty buffer gracefully`() {
-        val observer = ProfileEventObserver()
-        observer.startObserver()
-
-        verify { mockState.onProfileEvent(observer) }
-        verify(exactly = 0) { mockJsBridge.profileEvent(any()) }
-    }
-
-    @Test
-    fun `stopObserver unregisters from state`() {
-        val observer = ProfileEventObserver()
-        observer.stopObserver()
-        verify { mockState.offProfileEvent(observer) }
-    }
-
-    @Test
-    fun `startObserver processes buffered events before new events`() {
-        val bufferedEvent = Event(EventMetric.CUSTOM("buffered_event")).apply {
-            uniqueId = "buffered-uuid"
-        }
-
-        every { mockState.getBufferedEvents() } returns listOf(bufferedEvent)
-
-        val observer = ProfileEventObserver()
-        observer.startObserver()
-
-        verify { mockJsBridge.profileEvent(bufferedEvent) }
-
-        val newEvent = Event(EventMetric.CUSTOM("new_event"))
-        observer.invoke(newEvent)
-
-        verify { mockJsBridge.profileEvent(newEvent) }
+    override fun setup() {
+        super.setup()
+        Registry.register<State>(state)
+        Registry.register<JsBridge>(jsBridge)
+        Registry.register<InAppFormsConfig>(InAppFormsConfig())
+        every { state.onProfileEvent(any()) } answers { subscriptions.add(firstArg()); Unit }
+        every { state.offProfileEvent(any()) } answers { subscriptions.remove(firstArg()); Unit }
+        every { state.getBufferedEvents() } returns history
+        every { state.getBufferedEvents(any()) } answers { if (firstArg<Long>() > 0) history else emptyList() }
+        every { state.bufferedEventGeneration } answers { generation }
+        every { jsBridge.profileEvent(any()) } answers { delivered.add(firstArg<Event>().uniqueId); Unit }
     }
 
     @After
-    fun cleanup() {
-        Registry.unregister<JsBridge>()
+    override fun cleanup() {
+        observer.stopObserver()
         Registry.unregister<State>()
-        unmockkAll()
+        Registry.unregister<JsBridge>()
+        Registry.unregister<InAppFormsConfig>()
+        super.cleanup()
+    }
+
+    @Test
+    fun `configured replay window selects history before live delivery`() {
+        Registry.register<InAppFormsConfig>(InAppFormsConfig(eventReplayWindow = 30.seconds))
+        every { state.getBufferedEvents() } returns emptyList()
+        every { state.getBufferedEvents(any()) } answers {
+            if (firstArg<Long>() == 30_000L) history else emptyList()
+        }
+        observer.startObserver()
+        subscriptions.single()(event("live"))
+        assertEquals(listOf("launch", "live"), delivered)
+    }
+
+    @Test
+    fun `zero replay window still delivers live events`() {
+        Registry.register<InAppFormsConfig>(InAppFormsConfig(eventReplayWindow = 0.seconds))
+        observer.startObserver()
+        subscriptions.single()(event("live"))
+        assertEquals(listOf("live"), delivered)
+    }
+
+    @Test
+    fun `repeated starts register and replay once`() {
+        observer.startObserver()
+        observer.startObserver()
+        subscriptions.forEach { it(event("live")) }
+        assertEquals(listOf("launch", "live"), delivered)
+        assertEquals(1, subscriptions.size)
+    }
+
+    @Test
+    fun `event arriving during snapshot is delivered once across handoff`() {
+        every { state.getBufferedEvents() } answers {
+            subscriptions.forEach { it(event("during")) }
+            history + event("during")
+        }
+        every { state.getBufferedEvents(any()) } answers {
+            subscriptions.forEach { it(event("during")) }
+            history + event("during")
+        }
+        observer.startObserver()
+        subscriptions.single()(event("after"))
+        assertEquals(listOf("launch", "during", "after"), delivered)
+    }
+
+    @Test
+    fun `event arriving after snapshot read is not missed`() {
+        every { state.getBufferedEvents() } answers {
+            subscriptions.forEach { it(event("during")) }
+            history
+        }
+        every { state.getBufferedEvents(any()) } answers {
+            subscriptions.forEach { it(event("during")) }
+            history
+        }
+        observer.startObserver()
+        assertEquals(listOf("launch", "during"), delivered)
+    }
+
+    @Test
+    fun `callback for replayed snapshot arriving after handoff is delivered only once`() {
+        observer.startObserver()
+        repeat(20) { subscriptions.single()(event("live-$it")) }
+        subscriptions.single()(event("launch"))
+        assertEquals(listOf("launch") + (0 until 20).map { "live-$it" }, delivered)
+    }
+
+    @Test
+    fun `callback created before reset cannot deliver after context changes`() {
+        observer.startObserver()
+        val originalGeneration = generation
+        generation++
+        val callback = subscriptions.single()
+        if (callback is ContextualProfileEventObserver) {
+            callback.invoke(event("old-context"), originalGeneration)
+            callback.invoke(event("new-context"), generation)
+        } else {
+            callback(event("old-context"))
+            callback(event("new-context"))
+        }
+        assertEquals(listOf("launch", "new-context"), delivered)
+    }
+
+    @Test
+    fun `stopped session cannot deliver a captured live callback`() {
+        observer.startObserver()
+        val oldCallback = subscriptions.single()
+        observer.stopObserver()
+        oldCallback(event("stale"))
+        assertEquals(listOf("launch"), delivered)
+    }
+
+    @Test
+    fun `identity change fences queued history and live deliveries`() {
+        val queued = mutableListOf<() -> Unit>()
+        every { mockThreadHelper.runOnUiThread(any()) } answers { queued.add(firstArg()); Unit }
+        observer.startObserver()
+        subscriptions.single()(event("old-live"))
+        generation++
+        queued.toList().forEach { it() }
+        assertEquals(emptyList<String>(), delivered)
+        queued.clear()
+        subscriptions.single()(event("new-live"))
+        queued.toList().forEach { it() }
+        assertEquals(listOf("new-live"), delivered)
     }
 }
