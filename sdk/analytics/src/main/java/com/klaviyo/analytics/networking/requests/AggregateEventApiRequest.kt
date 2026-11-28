@@ -6,7 +6,8 @@ import org.json.JSONObject
 typealias AggregateEventPayload = JSONObject
 internal class AggregateEventApiRequest(
     queuedTime: Long? = null,
-    uuid: String? = null
+    uuid: String? = null,
+    savedQuery: Map<String, String>? = null
 ) : KlaviyoApiRequest(PATH, RequestMethod.POST, queuedTime, uuid) {
 
     companion object {
@@ -14,7 +15,7 @@ internal class AggregateEventApiRequest(
     }
 
     override val type: String = "Create Aggregate Event"
-    override var query: Map<String, String> = mapOf(
+    override var query: Map<String, String> = savedQuery ?: mapOf(
         COMPANY_ID to Registry.config.apiKey
     )
 

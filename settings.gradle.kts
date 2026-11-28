@@ -6,7 +6,7 @@ pluginManagement {
 }
 
 plugins {
-    id("de.fayard.refreshVersions") version "0.60.5"
+    id("de.fayard.refreshVersions") version "0.60.6"
 }
 
 dependencyResolutionManagement {
@@ -27,7 +27,9 @@ include(
     ":sdk:forms-core",
     ":sdk:forms",
     ":sdk:location-core",
-    ":sdk:location"
+    ":sdk:location",
+    ":sdk:inbox-core",
+    ":sdk:inbox"
 )
 
 if (System.getenv("JITPACK") != "true") {

@@ -2,12 +2,18 @@
 # This script bumps the version of the project.
 # It accepts a semantic version as an argument or prompts the user for it.
 
+# In-place sed that works with both BSD (macOS) and GNU (Linux) sed.
+sed_inplace() {
+  local file="${@: -1}"
+  sed -i.bak "$@" && rm -f "$file.bak"
+}
+
 # Extract current version from strings.xml
 STRINGS_XML_PATH="sdk/core/src/main/res/values/strings.xml"
 VERSIONS_PROPERTIES_PATH="versions.properties"
 
 # Extract current build from versions.properties and increment
-currentVersion=$(xmllint --xpath "string(//string[@name='klaviyo_sdk_version_override'])" "$STRINGS_XML_PATH")
+currentVersion=$(sed -n 's|.*<string name="klaviyo_sdk_version_override">\([^<]*\)</string>.*|\1|p' "$STRINGS_XML_PATH")
 currentBuild=$(grep '^version.klaviyo.versionCode=' "$VERSIONS_PROPERTIES_PATH" | cut -d'=' -f2)
 nextBuild=$((currentBuild + 1))
 
@@ -37,19 +43,19 @@ echo "Changing semantic version number from $currentVersion to $nextVersion"
 echo "Auto-incrementing version code from $currentBuild to $nextBuild"
 
 # Update versions.properties
-sed -i '' "s/^version.klaviyo.versionCode=$currentBuild$/version.klaviyo.versionCode=$nextBuild/" "$VERSIONS_PROPERTIES_PATH"
+sed_inplace "s/^version.klaviyo.versionCode=$currentBuild$/version.klaviyo.versionCode=$nextBuild/" "$VERSIONS_PROPERTIES_PATH"
 
 # Update strings.xml
-sed -i '' "s|<string name=\"klaviyo_sdk_version_override\">$currentVersion</string>|<string name=\"klaviyo_sdk_version_override\">$nextVersion</string>|" "$STRINGS_XML_PATH"
+sed_inplace "s|<string name=\"klaviyo_sdk_version_override\">$currentVersion</string>|<string name=\"klaviyo_sdk_version_override\">$nextVersion</string>|" "$STRINGS_XML_PATH"
 
 # Update README.md
 for module in analytics push-fcm forms location; do
-  sed -i '' "s/$module:$currentVersion/$module:$nextVersion/g" "README.md"
+  sed_inplace "s/$module:$currentVersion/$module:$nextVersion/g" "README.md"
 done
 
 # Update docs/index.html
 # Match whatever version the redirect points at: it can drift from $currentVersion,
 # and a literal substitution then silently leaves it stale.
-sed -i '' -E "s|url=\./[0-9]+\.[0-9]+\.[0-9]+/|url=./$nextVersion/|g" "docs/index.html"
+sed_inplace -E "s|url=\./[0-9]+\.[0-9]+\.[0-9]+/|url=./$nextVersion/|g" "docs/index.html"
 
 echo "Version bumped successfully to $nextVersion"

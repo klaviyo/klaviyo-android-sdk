@@ -15,12 +15,15 @@ import androidx.core.graphics.toColorInt
 import androidx.core.net.toUri
 import com.google.firebase.messaging.CommonNotificationBuilder
 import com.google.firebase.messaging.RemoteMessage
+import com.klaviyo.core.Constants
+import com.klaviyo.core.Constants.BUTTON_ID_PARAMETER
 import com.klaviyo.core.Constants.BUTTON_LINK_PARAMETER
 import com.klaviyo.core.Constants.PACKAGE_PREFIX
 import com.klaviyo.core.Constants.TRACKING_PARAMETER
 import com.klaviyo.core.Registry
 import com.klaviyo.core.config.getApplicationInfoCompat
 import com.klaviyo.core.config.getManifestInt
+import com.klaviyo.core.utils.JSONUtil.optNonBlankString
 import com.klaviyo.core.utils.hasAllowedOpenUrlScheme
 import java.net.URL
 import org.json.JSONArray
@@ -59,7 +62,7 @@ object KlaviyoRemoteMessage {
      * @param button The action button that was clicked
      */
     fun Intent.appendActionButtonExtras(button: ActionButton) = apply {
-        putExtra(PACKAGE_PREFIX + "Button ID", button.id)
+        putExtra(PACKAGE_PREFIX + BUTTON_ID_PARAMETER, button.id)
         putExtra(PACKAGE_PREFIX + "Button Label", button.label)
 
         val actionName = when (button) {
@@ -170,6 +173,24 @@ object KlaviyoRemoteMessage {
         get() = this.data[KlaviyoNotification.URL_KEY]?.toUri()
 
     /**
+     * What tapping the notification body does: the deep link (`url`) if present, else the
+     * external URL (`web_url`, scheme-checked), else open the app
+     */
+    val RemoteMessage.tapDestination: TapDestination
+        get() = deepLink?.let { TapDestination.DeepLink(it) }
+            ?: webUrl?.let { TapDestination.OpenUrl(it) }
+            ?: TapDestination.OpenApp
+
+    /**
+     * Destination of a tap on the notification body
+     */
+    sealed class TapDestination {
+        object OpenApp : TapDestination()
+        data class DeepLink(val uri: Uri) : TapDestination()
+        data class OpenUrl(val url: String) : TapDestination()
+    }
+
+    /**
      * Parse image url if present
      */
     val RemoteMessage.imageUrl: URL? get() = this.data[KlaviyoNotification.IMAGE_KEY]?.toURL()
@@ -177,14 +198,6 @@ object KlaviyoRemoteMessage {
     private fun String.toURL(): URL? = runCatching { URL(this) }.onFailure {
         Registry.log.warning("Error converting string to URL", it)
     }.getOrNull()
-
-    private fun JSONObject.optNonBlankString(key: String): String? {
-        // JSONObject.optString returns the literal "null" for JSON null values.
-        if (isNull(key)) {
-            return null
-        }
-        return optString(key).takeIf { it.isNotBlank() }
-    }
 
     /**
      * Parse [Uri] to sound resource
@@ -216,11 +229,8 @@ object KlaviyoRemoteMessage {
                     map[key] = jsonObject.getString(key)
                 }
                 map
-            } catch (e: Exception) {
-                Registry.log.warning(
-                    "Klaviyo SDK failed to parse key-value pairs JSON: $jsonString",
-                    e
-                )
+            } catch (_: Exception) {
+                Registry.log.warning("Klaviyo SDK failed to parse key-value pairs JSON")
                 null
             }
         }
@@ -237,7 +247,6 @@ object KlaviyoRemoteMessage {
      */
     val RemoteMessage.actionButtons: List<ActionButton>?
         get() = this.data[KlaviyoNotification.ACTION_BUTTONS_KEY]?.let { jsonString ->
-            Registry.log.verbose("Parsing action_buttons from: $jsonString")
             try {
                 val jsonArray = JSONArray(jsonString)
                 val buttons = mutableListOf<ActionButton>()
@@ -325,18 +334,15 @@ object KlaviyoRemoteMessage {
                             null
                         }
                     }?.let { button ->
-                        Registry.log.verbose("Parsed button $i: $button")
+                        Registry.log.verbose("Parsed button $i: ${button::class.simpleName}")
                         buttons.add(button)
                     }
                 }
 
                 Registry.log.verbose("Successfully parsed ${buttons.size} valid action buttons")
                 buttons.takeIf { it.isNotEmpty() }
-            } catch (e: Exception) {
-                Registry.log.error(
-                    "Klaviyo SDK failed to parse action_buttons JSON: $jsonString",
-                    e
-                )
+            } catch (_: Exception) {
+                Registry.log.error("Klaviyo SDK failed to parse action_buttons JSON")
                 null
             }
         }
@@ -385,9 +391,9 @@ object KlaviyoRemoteMessage {
             /**
              * Serialized type names used in remote message payload
              */
-            const val TYPE_OPEN_APP = "open_app"
-            const val TYPE_DEEP_LINK = "deep_link"
-            const val TYPE_OPEN_URL = "open_url"
+            const val TYPE_OPEN_APP = Constants.ACTION_TYPE_OPEN_APP
+            const val TYPE_DEEP_LINK = Constants.ACTION_TYPE_DEEP_LINK
+            const val TYPE_OPEN_URL = Constants.ACTION_TYPE_OPEN_URL
 
             /**
              * Human-readable display names for analytics
